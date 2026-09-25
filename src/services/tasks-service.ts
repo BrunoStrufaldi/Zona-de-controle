@@ -30,15 +30,3 @@ export function moveTask(id: number, status: TaskStatus, beforeId: number | null
 export async function deleteTask(id: number): Promise<void> {
   await invokeCommand("delete_task", { id });
 }
-
-/** Converte uma tarefa existente nos dados de edição. */
-export function toTaskInput(task: Task): TaskInput {
-  return {
-    title: task.title,
-    description: task.description,
-    status: task.status,
-    priority: task.priority,
-    dueDate: task.dueDate,
-    tags: [...task.tags],
-  };
-}

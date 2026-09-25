@@ -6,6 +6,8 @@ import { createJSONStorage, persist } from "zustand/middleware";
  * Persistido no localStorage por ser preferência local da janela; configurações
  * do usuário ficam no SQLite (ver src/services/settings-service.ts).
  */
+export type TasksView = "list" | "kanban";
+
 interface UiState {
   /** Sidebar recolhida manualmente pelo usuário (modo desktop). */
   sidebarCollapsed: boolean;
@@ -13,9 +15,12 @@ interface UiState {
   sidebarOverlayOpen: boolean;
   /** Grupos da sidebar recolhidos (por id). Ausente = expandido. */
   collapsedGroups: Record<string, boolean>;
+  /** Visão preferida na página de Tarefas. */
+  tasksView: TasksView;
   toggleSidebar: () => void;
   setSidebarOverlayOpen: (open: boolean) => void;
   toggleGroup: (groupId: string) => void;
+  setTasksView: (view: TasksView) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -24,6 +29,7 @@ export const useUiStore = create<UiState>()(
       sidebarCollapsed: false,
       sidebarOverlayOpen: false,
       collapsedGroups: {},
+      tasksView: "list",
       toggleSidebar: () => {
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }));
       },
@@ -38,6 +44,9 @@ export const useUiStore = create<UiState>()(
           },
         }));
       },
+      setTasksView: (view) => {
+        set({ tasksView: view });
+      },
     }),
     {
       name: "zdc.ui",
@@ -45,6 +54,7 @@ export const useUiStore = create<UiState>()(
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
         collapsedGroups: state.collapsedGroups,
+        tasksView: state.tasksView,
       }),
     },
   ),

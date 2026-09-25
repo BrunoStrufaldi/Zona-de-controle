@@ -7,7 +7,9 @@ import {
   PanelLeftOpen,
   Plus,
 } from "lucide-react";
+import { useNavigate } from "react-router";
 
+import { newTaskHref } from "@/app/router/paths";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -27,15 +30,21 @@ interface HeaderProps {
   onToggleSidebar: () => void;
 }
 
-/** Ações rápidas futuras. Desabilitadas até os módulos serem implementados. */
-const quickActions = [
-  { id: "task", label: "Nova tarefa", icon: ListPlus },
+/** Ações rápidas. Itens sem `href` ficam desabilitados até o módulo existir. */
+const quickActions: readonly {
+  id: string;
+  label: string;
+  icon: typeof ListPlus;
+  href?: string;
+}[] = [
+  { id: "task", label: "Nova tarefa", icon: ListPlus, href: newTaskHref },
   { id: "note", label: "Nova nota", icon: NotebookPen },
   { id: "event", label: "Novo evento", icon: CalendarPlus },
   { id: "transaction", label: "Novo lançamento", icon: ArrowLeftRight },
-] as const;
+];
 
 export function Header({ trail, sidebarExpanded, onToggleSidebar }: HeaderProps) {
+  const navigate = useNavigate();
   const toggleLabel = sidebarExpanded ? "Recolher menu" : "Expandir menu";
   const ToggleIcon = sidebarExpanded ? PanelLeftClose : PanelLeftOpen;
 
@@ -65,12 +74,19 @@ export function Header({ trail, sidebarExpanded, onToggleSidebar }: HeaderProps)
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuLabel>Ações rápidas · em breve</DropdownMenuLabel>
+          <DropdownMenuLabel>Ações rápidas</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {quickActions.map(({ id, label, icon: Icon }) => (
-            <DropdownMenuItem key={id} disabled>
+          {quickActions.map(({ id, label, icon: Icon, href }) => (
+            <DropdownMenuItem
+              key={id}
+              disabled={href === undefined}
+              onSelect={() => {
+                if (href) void navigate(href);
+              }}
+            >
               <Icon aria-hidden="true" />
               {label}
+              {href === undefined && <DropdownMenuShortcut>em breve</DropdownMenuShortcut>}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
