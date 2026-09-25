@@ -26,3 +26,9 @@ export const paths = {
   },
   settings: "/settings",
 } as const;
+
+/** Parâmetro de URL que abre o formulário de nova tarefa na página de Tarefas. */
+export const NEW_TASK_PARAM = "new";
+
+/** Link para criar uma tarefa (usado pelo menu "Criar" do header). */
+export const newTaskHref = `${paths.productivity.tasks}?${NEW_TASK_PARAM}=1`;

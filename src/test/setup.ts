@@ -32,6 +32,12 @@ class ResizeObserverStub implements ResizeObserver {
 }
 window.ResizeObserver = ResizeObserverStub;
 
+// APIs de ponteiro/rolagem usadas por Radix (Select, DropdownMenu) que o jsdom não implementa.
+Element.prototype.hasPointerCapture = () => false;
+Element.prototype.setPointerCapture = () => undefined;
+Element.prototype.releasePointerCapture = () => undefined;
+Element.prototype.scrollIntoView = () => undefined;
+
 afterEach(() => {
   cleanup();
   resetDesktopRuntime();
