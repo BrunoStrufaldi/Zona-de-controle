@@ -1,0 +1,54 @@
+/*
+ * Tokens de design do Zona de Controle.
+ *
+ * Este é o ÚNICO lugar do frontend onde cores em hexadecimal/RGB devem aparecer.
+ * Para trocar o tema, altere os valores abaixo — componentes usam apenas as
+ * classes Tailwind geradas a partir destes tokens (ex.: `bg-card`, `text-primary`).
+ */
+:root {
+  /* Superfícies */
+  --zdc-background: #0b0b0c;
+  --zdc-surface: #141416;
+  --zdc-surface-raised: #1b1b1f;
+  --zdc-surface-hover: #202025;
+  --zdc-border: #26262b;
+  --zdc-border-strong: #34343b;
+
+  /* Texto */
+  --zdc-text: #f3f3f6;
+  --zdc-text-muted: #8e8e93;
+  --zdc-text-subtle: #5c5c63;
+
+  /* Marca */
+  --zdc-primary: #ff2a4b;
+  --zdc-primary-strong: #e50914;
+  --zdc-primary-foreground: #ffffff;
+  --zdc-primary-rgb: 255 42 75;
+
+  /* Estados */
+  --zdc-success: #2ecc71;
+  --zdc-warning: #f5a524;
+  --zdc-danger: #ff4d4f;
+  --zdc-info: #5b8def;
+
+  /* Gráficos (séries em ordem de uso) */
+  --zdc-chart-1: #ff2a4b;
+  --zdc-chart-2: #8e8e93;
+  --zdc-chart-3: #f5a524;
+  --zdc-chart-4: #5b8def;
+  --zdc-chart-grid: #26262b;
+
+  /* Forma */
+  --zdc-radius: 0.75rem;
+
+  /* Layout */
+  --zdc-sidebar-width: 16rem;
+  --zdc-sidebar-width-collapsed: 4.5rem;
+  --zdc-header-height: 3.5rem;
+
+  /* Movimento */
+  --zdc-duration-fast: 120ms;
+  --zdc-duration-base: 200ms;
+  --zdc-duration-slow: 320ms;
+  --zdc-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}

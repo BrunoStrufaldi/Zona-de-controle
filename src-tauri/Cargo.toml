@@ -1,0 +1,28 @@
+[package]
+name = "zona-de-controle"
+version = "0.1.0"
+description = "Zona de Controle — hub local-first de produtividade, sistema e finanças"
+authors = ["Bruno Strufaldi"]
+edition = "2021"
+rust-version = "1.80"
+publish = false
+
+[lib]
+# O sufixo `_lib` evita conflito de nomes entre o binário e a biblioteca no Windows.
+name = "zona_de_controle_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
