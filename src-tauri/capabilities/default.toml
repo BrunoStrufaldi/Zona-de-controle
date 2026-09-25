@@ -85,4 +85,18 @@ permissions = [
   # e cada exclusão (ou falha) é auditada. Excluir uma pasta não exclui notas.
   "allow-delete-note",
   "allow-delete-note-folder",
+
+  # Rotinas — leitura das rotinas, hábitos, últimos dias e estatísticas.
+  "allow-list-routines",
+
+  # Rotinas — escrita. Entradas validadas no Rust. Remover um hábito numa edição
+  # só encerra a validade dele a partir de hoje (o histórico é mantido). Marcar
+  # hábitos só vale de hoje até 7 dias atrás, em dias da agenda.
+  "allow-create-routine",
+  "allow-update-routine",
+  "allow-set-habit-done",
+
+  # Rotinas — exclusão definitiva (com hábitos e histórico). A interface exige
+  # confirmação explícita e cada exclusão (ou falha) é auditada.
+  "allow-delete-routine",
 ]

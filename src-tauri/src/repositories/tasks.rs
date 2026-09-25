@@ -140,12 +140,6 @@ pub fn find(connection: &Connection, id: i64) -> AppResult<Option<Task>> {
     }
 }
 
-/// Data local de hoje (`aaaa-mm-dd`), segundo o fuso do sistema operacional.
-pub fn local_today(connection: &Connection) -> AppResult<String> {
-    let today = connection.query_row("SELECT date('now', 'localtime')", [], |row| row.get(0))?;
-    Ok(today)
-}
-
 /// Insere a tarefa no fim da coluna do seu status. Retorna o id.
 pub fn insert(connection: &Connection, task: &ValidTask) -> AppResult<i64> {
     ensure_category_exists(connection, task.category_id)?;
@@ -818,15 +812,6 @@ mod tests {
                 archive(connection, 999),
                 Err(AppError::NotFound(_))
             ));
-            Ok(())
-        });
-    }
-
-    #[test]
-    fn reads_the_local_date() {
-        with_db(|connection| {
-            let today = local_today(connection)?;
-            assert!(crate::domain::tasks::is_valid_iso_date(&today), "{today}");
             Ok(())
         });
     }

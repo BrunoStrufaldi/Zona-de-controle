@@ -39,6 +39,11 @@ const APP_COMMANDS: &[&str] = &[
     "create_note_folder",
     "rename_note_folder",
     "delete_note_folder",
+    "list_routines",
+    "create_routine",
+    "update_routine",
+    "set_habit_done",
+    "delete_routine",
 ];
 
 fn main() {

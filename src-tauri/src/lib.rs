@@ -60,6 +60,11 @@ pub fn run() {
             commands::notes::create_note_folder,
             commands::notes::rename_note_folder,
             commands::notes::delete_note_folder,
+            commands::routines::list_routines,
+            commands::routines::create_routine,
+            commands::routines::update_routine,
+            commands::routines::set_habit_done,
+            commands::routines::delete_routine,
         ])
         .run(tauri::generate_context!())
         .expect("falha ao iniciar o Zona de Controle");

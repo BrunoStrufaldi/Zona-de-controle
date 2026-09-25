@@ -2,7 +2,8 @@ import { screen, within } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { paths } from "@/app/router/paths";
-import { addDays, toIsoDate } from "@/lib/dates";
+import { addDays, toIsoDate, weekdayOf } from "@/lib/dates";
+import { mockRoutinesBackend } from "@/test/fake-routines-backend";
 import { mockTasksBackend } from "@/test/fake-tasks-backend";
 import { preloadDashboard, renderRoute } from "@/test/render";
 import { mockDesktopRuntime } from "@/test/tauri";
@@ -61,5 +62,19 @@ describe("páginas integradas ao backend", () => {
     expect(within(upcoming).getByText("Para hoje")).toBeInTheDocument();
     expect(screen.getByText("1 atrasada")).toBeInTheDocument();
     expect(screen.getByText("de 3 concluídas")).toBeInTheDocument();
+  });
+
+  it("Dashboard mostra as rotinas programadas para hoje", async () => {
+    const tomorrow = (weekdayOf(toIsoDate(new Date())) + 1) % 7;
+    mockRoutinesBackend([
+      { name: "Manhã", habits: ["Água", "Alongar"], done: { 0: [0] } },
+      { name: "Só amanhã", habits: ["Treinar"], weekdays: [tomorrow] },
+    ]);
+    renderRoute(paths.dashboard);
+
+    const list = await screen.findByRole("list", { name: "Rotinas de hoje" });
+    expect(within(list).getByText("Manhã")).toBeInTheDocument();
+    expect(within(list).getByText("1/2")).toBeInTheDocument();
+    expect(within(list).queryByText("Só amanhã")).not.toBeInTheDocument();
   });
 });

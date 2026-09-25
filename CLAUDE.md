@@ -183,7 +183,7 @@ Regras:
   aplique `rotate`/`scale` no `DragOverlay`: distorce o retângulo de colisão. Arrastar não roda no
   jsdom — teste `resolveDrop`/`applyMove` (domínio) e valide o arraste num Chromium real.
 - **Datas no Rust:** sem `chrono`. Use `domain/calendar.rs` (`CalendarDate`) e, para "hoje" no fuso
-  local, `repositories::tasks::local_today` (`date('now', 'localtime')` do SQLite).
+  local, `repositories::clock::local_today` (`date('now', 'localtime')` do SQLite).
 - **Recorrência de tarefas:** modelo "gera ao concluir". A regra passa para a nova ocorrência (a
   concluída fica sem regra), então reabrir e concluir de novo não duplica. O cálculo existe no Rust
   (`task_recurrence.rs`, fonte da verdade) e no TS (`domain/recurrence.ts`, só para a prévia). Os dois
@@ -192,6 +192,11 @@ Regras:
   Arquivadas não podem ser editadas ou movidas: restaure antes.
 - **Cores de categoria** são nomes (`red`, `teal`…) mapeados para `--zdc-category-*` em
   `task-styles.ts`. Nunca grave hexadecimal no banco.
+- **Rotinas:** sequência, recorde e consistência são calculados só no Rust
+  (`domain/routines.rs::Schedule::stats`, com testes); o frontend exibe o que vem de `list_routines`.
+  Hábitos têm validade (`created_on` inclusive, `removed_on` exclusive): editar a rotina nunca apaga
+  hábitos, só encerra a validade, para não reescrever o passado. Marcação: de hoje até
+  `BACKFILL_DAYS` (7) dias atrás, só em dias da agenda. Nomes dos dias da semana: `src/lib/weekdays.ts`.
 - **Tags compartilhadas:** normalização em `domain/tags.rs` (Rust) e `src/lib/tags.ts` (TS); tarefas e
   notas usam a mesma tabela `tags`. Busca sem acentos: `src/lib/text.ts`.
 - **Notas:** o editor salva sozinho (`use-autosave.ts`: debounce, fila sem saves paralelos e salvamento

@@ -12,5 +12,6 @@ pub mod backup;
 pub mod devices;
 pub mod notes;
 pub mod optimization;
+pub mod routines;
 pub mod settings;
 pub mod tasks;

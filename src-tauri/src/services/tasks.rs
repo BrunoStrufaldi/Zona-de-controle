@@ -10,7 +10,7 @@ use crate::domain::tasks::{
     ChecklistItemInput, Task, TaskChange, TaskInput, TaskStatus, ValidTask,
 };
 use crate::error::{AppError, AppResult};
-use crate::repositories::{audit, tasks};
+use crate::repositories::{audit, clock, tasks};
 
 const ACTION_DELETED: &str = "task.deleted";
 
@@ -165,7 +165,7 @@ fn finish_change(
 fn create_next_occurrence(connection: &Connection, task: &Task) -> AppResult<i64> {
     let invalid_date = || AppError::Validation("data inválida na tarefa recorrente".into());
     let recurrence = task.recurrence.clone().ok_or_else(invalid_date)?;
-    let today = CalendarDate::parse(&tasks::local_today(connection)?).ok_or_else(invalid_date)?;
+    let today = clock::local_today(connection)?;
     let due = match task.due_date.as_deref() {
         Some(date) => CalendarDate::parse(date).ok_or_else(invalid_date)?,
         None => today,

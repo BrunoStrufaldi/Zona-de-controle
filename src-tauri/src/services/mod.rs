@@ -3,6 +3,7 @@
 
 pub mod backup;
 pub mod notes;
+pub mod routines;
 pub mod settings;
 pub mod task_categories;
 pub mod tasks;

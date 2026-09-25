@@ -17,8 +17,6 @@ import {
   intervalUnit,
   MAX_RECURRENCE_INTERVAL,
   nextOccurrence,
-  WEEKDAY_LONG,
-  WEEKDAY_SHORT,
 } from "@/features/productivity/tasks/domain/recurrence";
 import {
   RECURRENCE_FREQUENCIES,
@@ -27,6 +25,7 @@ import {
 } from "@/features/productivity/tasks/types";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/format";
+import { WEEKDAY_SHORT, weekdayLong } from "@/lib/weekdays";
 import { type IsoDate } from "@/types/common";
 
 const NO_REPEAT = "none";
@@ -134,7 +133,7 @@ export function RecurrenceDetails({
                   key={label}
                   type="button"
                   aria-pressed={pressed}
-                  aria-label={WEEKDAY_LONG[day]}
+                  aria-label={weekdayLong(day)}
                   onClick={() => {
                     toggleWeekday(day);
                   }}

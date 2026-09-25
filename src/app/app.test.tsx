@@ -20,10 +20,12 @@ describe("App", () => {
   it("marca como Demo apenas os widgets com dados fictícios", async () => {
     render(<App />);
 
-    const tasksTitle = await screen.findByRole("heading", { name: /Tarefas de hoje/ });
-    // 7 widgets ainda usam src/mocks; "Tarefas de hoje" usa dados reais.
-    expect(screen.getAllByLabelText("Dados de demonstração")).toHaveLength(7);
-    const tasksCard = tasksTitle.closest("[data-slot='card']");
-    expect(tasksCard?.querySelector("[aria-label='Dados de demonstração']")).toBeNull();
+    await screen.findByRole("heading", { name: /Tarefas de hoje/ });
+    // 6 widgets ainda usam src/mocks; "Tarefas de hoje" e "Rotinas de hoje" usam dados reais.
+    expect(screen.getAllByLabelText("Dados de demonstração")).toHaveLength(6);
+    for (const title of [/Tarefas de hoje/, /Rotinas de hoje/]) {
+      const card = screen.getByRole("heading", { name: title }).closest("[data-slot='card']");
+      expect(card?.querySelector("[aria-label='Dados de demonstração']")).toBeNull();
+    }
   });
 });

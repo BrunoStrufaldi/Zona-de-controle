@@ -7,13 +7,11 @@
  *  - Nunca apresente estes valores como métricas reais.
  */
 import { type MonthlyCashflow } from "@/features/finance/types";
-import { type RoutineProgressSummary } from "@/features/productivity/types";
 import { type DeviceBatteryInfo } from "@/features/system/devices/types";
 import { type StorageVolume, type SystemOverview } from "@/features/system/types";
 import { type ActivityEntry } from "@/types/activity";
 
 export interface DashboardDemoData {
-  routine: RoutineProgressSummary;
   system: SystemOverview;
   storage: readonly StorageVolume[];
   devices: readonly DeviceBatteryInfo[];
@@ -25,12 +23,6 @@ export interface DashboardDemoData {
 const GIB = 1024 ** 3;
 
 export const dashboardDemoData: DashboardDemoData = {
-  routine: {
-    name: "Rotina matinal",
-    completedHabits: 4,
-    totalHabits: 6,
-    streakDays: 12,
-  },
   system: {
     status: "healthy",
     usage: {

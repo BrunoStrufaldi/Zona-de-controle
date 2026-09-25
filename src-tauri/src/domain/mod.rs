@@ -6,6 +6,7 @@ pub mod calendar;
 pub mod devices;
 pub mod notes;
 pub mod optimization;
+pub mod routines;
 pub mod settings;
 pub mod tags;
 pub mod task_categories;

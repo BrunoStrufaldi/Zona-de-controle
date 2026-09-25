@@ -37,6 +37,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "notes",
         sql: include_str!("../../migrations/0004_notes.sql"),
     },
+    Migration {
+        version: 5,
+        name: "routines",
+        sql: include_str!("../../migrations/0005_routines.sql"),
+    },
 ];
 
 const CREATE_SCHEMA_MIGRATIONS: &str = "
@@ -141,6 +146,9 @@ mod tests {
             "note_tags",
             "note_versions",
             "note_folders",
+            "routines",
+            "habits",
+            "habit_completions",
         ] {
             assert!(table_exists(&connection, table), "{table}");
         }

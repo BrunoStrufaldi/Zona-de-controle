@@ -7,7 +7,7 @@ use std::fmt;
 /// Dia da semana no padrão do frontend: 0 = domingo … 6 = sábado.
 pub type Weekday = u8;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CalendarDate {
     year: i32,
     month: u32,

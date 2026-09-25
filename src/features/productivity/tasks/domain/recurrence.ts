@@ -1,5 +1,6 @@
 import { type RecurrenceFrequency, type TaskRecurrence } from "@/features/productivity/tasks/types";
 import { addDays, addMonths, dayOfMonth, daysBetween, weekdayOf } from "@/lib/dates";
+import { weekdayShort } from "@/lib/weekdays";
 import { type IsoDate } from "@/types/common";
 
 /**
@@ -8,18 +9,6 @@ import { type IsoDate } from "@/types/common";
  */
 
 export const MAX_RECURRENCE_INTERVAL = 99;
-
-/** 0 = domingo … 6 = sábado. */
-export const WEEKDAY_SHORT = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"] as const;
-export const WEEKDAY_LONG = [
-  "domingo",
-  "segunda-feira",
-  "terça-feira",
-  "quarta-feira",
-  "quinta-feira",
-  "sexta-feira",
-  "sábado",
-] as const;
 
 export const frequencyLabels: Record<RecurrenceFrequency, string> = {
   daily: "Diariamente",
@@ -55,7 +44,7 @@ export function describeRecurrence(rule: TaskRecurrence): string {
       ? everyLabels[rule.frequency]
       : `A cada ${rule.interval} ${intervalUnit(rule.frequency, rule.interval)}`;
   if (rule.frequency !== "weekly" || rule.weekdays.length === 0) return base;
-  const days = [...rule.weekdays].sort((a, b) => a - b).map((day) => WEEKDAY_SHORT[day]);
+  const days = [...rule.weekdays].sort((a, b) => a - b).map(weekdayShort);
   return `${base}: ${days.join(", ")}`;
 }
 

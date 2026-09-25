@@ -6,6 +6,7 @@ import {
   type NoteInput,
   type NoteVersion,
 } from "@/features/productivity/notes/types";
+import { type Routine, type RoutineInput } from "@/features/productivity/routines/types";
 import {
   type BatteryProviderDescriptor,
   type DeviceBatteryInfo,
@@ -72,6 +73,11 @@ export interface CommandMap {
   create_note_folder: { args: { name: string }; result: NoteFolder };
   rename_note_folder: { args: { id: number; name: string }; result: NoteFolder };
   delete_note_folder: { args: { id: number }; result: null };
+  list_routines: { args: undefined; result: Routine[] };
+  create_routine: { args: { input: RoutineInput }; result: Routine };
+  update_routine: { args: { id: number; input: RoutineInput }; result: Routine };
+  set_habit_done: { args: { habitId: number; date: string; done: boolean }; result: Routine };
+  delete_routine: { args: { id: number }; result: null };
 }
 
 export type CommandName = keyof CommandMap;

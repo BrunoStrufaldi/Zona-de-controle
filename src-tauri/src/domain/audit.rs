@@ -9,6 +9,7 @@ pub enum AuditCategory {
     Settings,
     Tasks,
     Notes,
+    Routines,
     Database,
 }
 
@@ -18,6 +19,7 @@ impl AuditCategory {
             Self::Settings => "settings",
             Self::Tasks => "tasks",
             Self::Notes => "notes",
+            Self::Routines => "routines",
             Self::Database => "database",
         }
     }
