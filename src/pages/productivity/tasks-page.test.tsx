@@ -123,3 +123,62 @@ describe("página de Tarefas — lista", () => {
     expect(screen.queryByText("Lavar o carro")).not.toBeInTheDocument();
   });
 });
+
+describe("página de Tarefas — Kanban", () => {
+  async function openKanban() {
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("tab", { name: /Kanban/ }));
+    return user;
+  }
+
+  it("distribui as tarefas nas colunas por status", async () => {
+    mockTasksBackend([
+      { id: 1, title: "Planejar viagem" },
+      { id: 2, title: "Escrever artigo", status: "in_progress" },
+      { id: 3, title: "Pagar boleto", status: "done" },
+    ]);
+    renderRoute(paths.productivity.tasks);
+    await openKanban();
+
+    const doing = screen.getByRole("region", { name: "Coluna Fazendo" });
+    expect(within(doing).getByText("Escrever artigo")).toBeInTheDocument();
+    // No Kanban as concluídas aparecem na coluna "Feito".
+    const done = screen.getByRole("region", { name: "Coluna Feito" });
+    expect(within(done).getByText("Pagar boleto")).toBeInTheDocument();
+    expect(within(done).getByText("1")).toBeInTheDocument();
+  });
+
+  it("move uma tarefa de coluna pelo menu de ações", async () => {
+    const backend = mockTasksBackend([{ id: 5, title: "Revisar contrato" }]);
+    renderRoute(paths.productivity.tasks);
+    const user = await openKanban();
+
+    await user.click(screen.getByRole("button", { name: "Ações da tarefa “Revisar contrato”" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Fazendo" }));
+
+    expect(backend.handlers.move_task).toHaveBeenCalledWith({
+      id: 5,
+      status: "in_progress",
+      beforeId: null,
+    });
+    const doing = screen.getByRole("region", { name: "Coluna Fazendo" });
+    expect(await within(doing).findByText("Revisar contrato")).toBeInTheDocument();
+  });
+
+  it("cria tarefa já na coluna escolhida", async () => {
+    const backend = mockTasksBackend([{ id: 1, title: "Existente" }]);
+    renderRoute(paths.productivity.tasks);
+    const user = await openKanban();
+
+    await user.click(screen.getByRole("button", { name: "Nova tarefa em “Fazendo”" }));
+    const dialog = await screen.findByRole("dialog", { name: "Nova tarefa" });
+    await user.type(within(dialog).getByLabelText("Título *"), "Em andamento");
+    await user.click(within(dialog).getByRole("button", { name: /Criar tarefa/ }));
+
+    await waitFor(() => {
+      expect(backend.handlers.create_task).toHaveBeenCalledWith({
+        input: expect.objectContaining({ status: "in_progress" }) as unknown,
+      });
+    });
+  });
+});

@@ -3,6 +3,7 @@ import { KanbanSquare, List, ListChecks, Plus, SearchX } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { KanbanBoard } from "@/features/productivity/tasks/components/kanban-board";
 import { TaskFiltersBar } from "@/features/productivity/tasks/components/task-filters-bar";
 import {
   TaskList,
@@ -11,12 +12,14 @@ import {
 import {
   DEFAULT_TASK_FILTERS,
   filterTasks,
+  groupByStatus,
   sortForList,
   type TaskFilters,
 } from "@/features/productivity/tasks/domain/filters";
+import { type MoveTarget } from "@/features/productivity/tasks/domain/ordering";
 import { summarizeToday } from "@/features/productivity/tasks/domain/summary";
 import { type TasksData } from "@/features/productivity/tasks/hooks/use-tasks";
-import { type TaskStatus } from "@/features/productivity/tasks/types";
+import { type Task, type TaskStatus } from "@/features/productivity/tasks/types";
 import { type TasksView as TasksViewMode } from "@/stores/ui-store";
 import { type IsoDate } from "@/types/common";
 
@@ -28,6 +31,7 @@ interface TasksViewProps extends TaskItemHandlers {
   onFiltersChange: (filters: TaskFilters) => void;
   today: IsoDate;
   onCreate: (status?: TaskStatus) => void;
+  onReorder: (task: Task, target: MoveTarget) => void;
 }
 
 export function TasksView({
@@ -38,6 +42,7 @@ export function TasksView({
   onFiltersChange,
   today,
   onCreate,
+  onReorder,
   ...handlers
 }: TasksViewProps) {
   if (data.tasks.length === 0) {
@@ -114,6 +119,26 @@ export function TasksView({
         ) : (
           <TaskList tasks={visible} today={today} {...handlers} />
         )}
+      </TabsContent>
+
+      <TabsContent value="kanban" className="grid gap-4">
+        <TaskFiltersBar
+          filters={filters}
+          onChange={onFiltersChange}
+          tags={data.tags}
+          showStatus={false}
+        />
+        <div className="@container">
+          <KanbanBoard
+            columns={groupByStatus(filterTasks(data.tasks, filters, { ignoreStatus: true }))}
+            today={today}
+            onReorder={onReorder}
+            onCreate={onCreate}
+            onEdit={handlers.onEdit}
+            onMove={handlers.onMove}
+            onDelete={handlers.onDelete}
+          />
+        </div>
       </TabsContent>
     </Tabs>
   );
