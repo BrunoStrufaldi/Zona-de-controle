@@ -1,34 +1,9 @@
 import { type IsoDate, type IsoDateTime } from "@/types/common";
 
 /**
- * Contratos do módulo de Produtividade (Fase 2).
- * Ainda não há persistência — estes tipos orientam a implementação futura.
+ * Contratos futuros do módulo de Produtividade (Fase 2).
+ * Tarefas já implementadas: ver `features/productivity/tasks/types.ts`.
  */
-
-export type TaskStatus = "todo" | "in_progress" | "done" | "archived";
-export type TaskPriority = "low" | "medium" | "high" | "urgent";
-
-export interface ChecklistItem {
-  id: string;
-  label: string;
-  done: boolean;
-}
-
-export interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  categoryId?: string;
-  tags: readonly string[];
-  dueDate?: IsoDate;
-  /** Regra de recorrência (formato a definir; ex.: RRULE). */
-  recurrence?: string;
-  checklist: readonly ChecklistItem[];
-  createdAt: IsoDateTime;
-  updatedAt: IsoDateTime;
-}
 
 export interface Note {
   id: string;
@@ -73,17 +48,6 @@ export interface CalendarEvent {
 }
 
 export type CalendarView = "month" | "week" | "day";
-
-/** Versão resumida de uma tarefa com vencimento. */
-export type TaskPreview = Pick<Task, "id" | "title" | "priority"> & { dueDate: IsoDate };
-
-/** Resumo de tarefas exibido no dashboard. */
-export interface TasksOverview {
-  completedToday: number;
-  plannedToday: number;
-  overdue: number;
-  upcoming: readonly TaskPreview[];
-}
 
 /** Progresso de uma rotina no dia, exibido no dashboard. */
 export interface RoutineProgressSummary {

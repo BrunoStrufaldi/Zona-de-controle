@@ -6,6 +6,7 @@ export type ServiceErrorKind =
   | "io"
   | "tauri"
   | "validation"
+  | "not_found"
   | "internal"
   | "desktop-only"
   | "unknown";
@@ -17,6 +18,7 @@ const BACKEND_KINDS: ReadonlySet<string> = new Set([
   "io",
   "tauri",
   "validation",
+  "not_found",
   "internal",
 ]);
 

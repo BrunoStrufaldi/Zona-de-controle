@@ -1,7 +1,7 @@
 import { CashflowChartWidget } from "@/features/finance/components/cashflow-chart-widget";
 import { FinanceSummaryWidget } from "@/features/finance/components/finance-summary-widget";
 import { RoutineProgressWidget } from "@/features/productivity/components/routine-progress-widget";
-import { TasksSummaryWidget } from "@/features/productivity/components/tasks-summary-widget";
+import { TasksSummaryWidget } from "@/features/productivity/tasks/components/tasks-summary-widget";
 import { StorageWidget } from "@/features/system/components/storage-widget";
 import { SystemStatusWidget } from "@/features/system/components/system-status-widget";
 import { DeviceBatteryWidget } from "@/features/system/devices/components/device-battery-widget";

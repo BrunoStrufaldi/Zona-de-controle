@@ -4,6 +4,7 @@ import {
   type BatteryProviderDescriptor,
   type DeviceBatteryInfo,
 } from "@/features/system/devices/types";
+import { type Task, type TaskInput, type TaskStatus } from "@/features/productivity/tasks/types";
 import { type CleanupCategoryDescriptor } from "@/features/system/optimization/types";
 import { DESKTOP_ONLY_MESSAGE, ServiceError, toServiceError } from "@/services/tauri/errors";
 import { isDesktopRuntime } from "@/services/tauri/runtime";
@@ -26,6 +27,12 @@ export interface CommandMap {
   list_battery_providers: { args: undefined; result: BatteryProviderDescriptor[] };
   list_battery_devices: { args: undefined; result: DeviceBatteryInfo[] };
   list_cleanup_categories: { args: undefined; result: CleanupCategoryDescriptor[] };
+  list_tasks: { args: undefined; result: Task[] };
+  list_task_tags: { args: undefined; result: string[] };
+  create_task: { args: { input: TaskInput }; result: Task };
+  update_task: { args: { id: number; input: TaskInput }; result: Task };
+  move_task: { args: { id: number; status: TaskStatus; beforeId: number | null }; result: Task };
+  delete_task: { args: { id: number }; result: null };
 }
 
 export type CommandName = keyof CommandMap;

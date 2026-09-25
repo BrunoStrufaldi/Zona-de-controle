@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { navigation } from "@/config/navigation";
+import { addDays, daysBetween, toIsoDate } from "@/lib/dates";
 import {
   formatBytes,
   formatCurrency,
@@ -70,5 +71,15 @@ describe("navigation", () => {
     const allPaths = flattenNavigation(navigation).map((item) => item.path);
     expect(new Set(allPaths).size).toBe(allPaths.length);
     expect(allPaths).toHaveLength(16);
+  });
+});
+
+describe("dates", () => {
+  it("converte, soma e compara datas locais", () => {
+    expect(toIsoDate(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
+    expect(addDays("2026-02-28", 1)).toBe("2026-03-01");
+    expect(addDays("2026-01-01", -1)).toBe("2025-12-31");
+    expect(daysBetween("2026-09-25", "2026-10-05")).toBe(10);
+    expect(daysBetween("2026-09-25", "2026-09-20")).toBe(-5);
   });
 });

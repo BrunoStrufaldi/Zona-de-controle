@@ -4,8 +4,8 @@ import { WidgetCard } from "@/components/shared/widget-card";
 import { Badge } from "@/components/ui/badge";
 import { type BadgeVariantProps } from "@/components/ui/badge-variants";
 import { Progress } from "@/components/ui/progress";
-import { priorityLabels } from "@/features/productivity/domain/labels";
-import { type TaskPriority, type TasksOverview } from "@/features/productivity/types";
+import { priorityLabels } from "@/features/productivity/tasks/domain/labels";
+import { type TaskPriority, type TasksOverview } from "@/features/productivity/tasks/types";
 import { formatDate } from "@/lib/format";
 import { safeRatio } from "@/lib/math";
 
