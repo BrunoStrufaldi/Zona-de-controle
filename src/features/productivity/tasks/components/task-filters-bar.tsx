@@ -88,7 +88,7 @@ export function TaskFiltersBar({
           update({ priority: value as PriorityFilter });
         }}
       >
-        <SelectTrigger className="w-40" aria-label="Filtrar por prioridade">
+        <SelectTrigger className="w-48" aria-label="Filtrar por prioridade">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

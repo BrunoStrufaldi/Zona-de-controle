@@ -42,7 +42,7 @@ export function TaskCard({
         "group flex gap-2 rounded-lg border border-border bg-card p-3 shadow-card",
         "transition-[border-color,box-shadow,opacity] duration-150 hover:border-border-strong",
         dragging && "opacity-40",
-        overlay && "rotate-1 cursor-grabbing border-primary/50 shadow-glow",
+        overlay && "cursor-grabbing border-primary/50 shadow-glow",
       )}
     >
       <button
