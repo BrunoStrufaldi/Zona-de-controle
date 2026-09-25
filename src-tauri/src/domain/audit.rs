@@ -7,12 +7,14 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuditCategory {
     Settings,
+    Tasks,
 }
 
 impl AuditCategory {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Settings => "settings",
+            Self::Tasks => "tasks",
         }
     }
 }

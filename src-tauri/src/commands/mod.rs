@@ -11,3 +11,4 @@ pub mod audit;
 pub mod devices;
 pub mod optimization;
 pub mod settings;
+pub mod tasks;

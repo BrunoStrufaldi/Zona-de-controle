@@ -32,6 +32,12 @@ pub fn run() {
             commands::devices::list_battery_providers,
             commands::devices::list_battery_devices,
             commands::optimization::list_cleanup_categories,
+            commands::tasks::list_tasks,
+            commands::tasks::list_task_tags,
+            commands::tasks::create_task,
+            commands::tasks::update_task,
+            commands::tasks::move_task,
+            commands::tasks::delete_task,
         ])
         .run(tauri::generate_context!())
         .expect("falha ao iniciar o Zona de Controle");
