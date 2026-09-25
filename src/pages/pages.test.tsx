@@ -1,11 +1,13 @@
 import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { paths } from "@/app/router/paths";
-import { renderRoute } from "@/test/render";
+import { preloadDashboard, renderRoute } from "@/test/render";
 import { mockDesktopRuntime } from "@/test/tauri";
 
 describe("páginas integradas ao backend", () => {
+  beforeAll(preloadDashboard);
+
   it("Dispositivos lista os providers retornados pelo Rust", async () => {
     mockDesktopRuntime({
       list_battery_providers: () => [

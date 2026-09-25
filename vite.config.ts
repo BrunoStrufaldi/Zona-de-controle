@@ -44,5 +44,7 @@ export default defineConfig({
     css: false,
     restoreMocks: true,
     testTimeout: 15_000,
+    // Hooks podem pré-carregar chunks pesados (ver src/test/render.tsx).
+    hookTimeout: 60_000,
   },
 });

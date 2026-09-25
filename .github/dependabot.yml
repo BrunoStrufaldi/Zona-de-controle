@@ -1,0 +1,41 @@
+# Atualizações automáticas de dependências (PRs semanais, agrupados).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      tauri:
+        patterns: ["@tauri-apps/*"]
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom", "react-router"]
+      lint-format:
+        patterns: ["eslint*", "@eslint/*", "typescript-eslint", "prettier*", "globals"]
+      test:
+        patterns: ["vitest", "@testing-library/*", "jsdom"]
+    ignore:
+      # Fixado em ~6.0 até o typescript-eslint suportar TS >= 6.1 (ver CLAUDE.md).
+      - dependency-name: typescript
+        versions: [">=6.1.0"]
+
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      tauri:
+        patterns: ["tauri", "tauri-*"]
+    ignore:
+      # Migração para o Tauri 3 será feita manualmente quando sair a versão estável.
+      - dependency-name: "tauri*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

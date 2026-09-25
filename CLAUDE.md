@@ -22,6 +22,11 @@ npm run format:check   # Prettier
 ```
 
 Se mexeu em algo visível, abra o app (`npm run dev`) e confira a tela de verdade.
+
+A CI (`.github/workflows/ci.yml`) roda essas mesmas etapas a cada push: frontend no
+Ubuntu, Rust no Windows. Se adicionar um passo de validação, inclua-o nos dois lugares.
+Ao alterar `package.json` à mão, rode `npm install` para manter o `package-lock.json`
+em sincronia — senão o `npm ci` da CI falha.
 Em terminais novos no Windows, o `cargo` pode não estar no PATH até reabrir o VS Code.
 
 ## Idioma e localização
