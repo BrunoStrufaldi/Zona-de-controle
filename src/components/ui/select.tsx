@@ -1,0 +1,93 @@
+import { Check, ChevronDown } from "lucide-react";
+import { Select as SelectPrimitive } from "radix-ui";
+import { type ComponentProps } from "react";
+
+import { cn } from "@/lib/cn";
+
+export const Select = SelectPrimitive.Root;
+export const SelectGroup = SelectPrimitive.Group;
+export const SelectValue = SelectPrimitive.Value;
+
+export function SelectTrigger({
+  className,
+  children,
+  ...props
+}: ComponentProps<typeof SelectPrimitive.Trigger>) {
+  return (
+    <SelectPrimitive.Trigger
+      data-slot="select-trigger"
+      className={cn(
+        "flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-md border border-input bg-background/60 px-3 text-sm text-foreground",
+        "transition-[border-color,box-shadow] duration-150 outline-none",
+        "focus-visible:border-primary/70 focus-visible:shadow-glow-sm data-[placeholder]:text-subtle-foreground",
+        "disabled:cursor-not-allowed disabled:opacity-50 [&>span]:truncate",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      <SelectPrimitive.Icon asChild>
+        <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
+      </SelectPrimitive.Icon>
+    </SelectPrimitive.Trigger>
+  );
+}
+
+export function SelectContent({
+  className,
+  children,
+  position = "popper",
+  ...props
+}: ComponentProps<typeof SelectPrimitive.Content>) {
+  return (
+    <SelectPrimitive.Portal>
+      <SelectPrimitive.Content
+        data-slot="select-content"
+        position={position}
+        className={cn(
+          "relative z-50 max-h-72 min-w-32 animate-scale-in overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-card",
+          position === "popper" && "w-(--radix-select-trigger-width) translate-y-1",
+          className,
+        )}
+        {...props}
+      >
+        <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
+      </SelectPrimitive.Content>
+    </SelectPrimitive.Portal>
+  );
+}
+
+export function SelectLabel({ className, ...props }: ComponentProps<typeof SelectPrimitive.Label>) {
+  return (
+    <SelectPrimitive.Label
+      data-slot="select-label"
+      className={cn("px-2 py-1.5 text-xs text-muted-foreground", className)}
+      {...props}
+    />
+  );
+}
+
+export function SelectItem({
+  className,
+  children,
+  ...props
+}: ComponentProps<typeof SelectPrimitive.Item>) {
+  return (
+    <SelectPrimitive.Item
+      data-slot="select-item"
+      className={cn(
+        "relative flex w-full cursor-pointer items-center rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none select-none",
+        "focus:bg-hover focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        className,
+      )}
+      {...props}
+    >
+      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      <span className="absolute right-2 flex size-4 items-center justify-center">
+        <SelectPrimitive.ItemIndicator>
+          <Check className="size-4 text-primary" aria-hidden="true" />
+        </SelectPrimitive.ItemIndicator>
+      </span>
+    </SelectPrimitive.Item>
+  );
+}
