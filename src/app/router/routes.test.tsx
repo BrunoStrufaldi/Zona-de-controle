@@ -1,17 +1,19 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { paths } from "@/app/router/paths";
 import { navigation } from "@/config/navigation";
 import { flattenNavigation } from "@/lib/navigation";
-import { renderRoute } from "@/test/render";
+import { preloadDashboard, renderRoute } from "@/test/render";
 
 const pagesWithTitle = flattenNavigation(navigation).filter(
   (item) => item.path !== paths.dashboard,
 );
 
 describe("roteamento", () => {
+  beforeAll(preloadDashboard);
+
   it.each(pagesWithTitle.map((item) => [item.path, item.label] as const))(
     "%s renderiza a página “%s”",
     async (path, label) => {

@@ -1,9 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { App } from "@/app/app";
+import { preloadDashboard } from "@/test/render";
 
 describe("App", () => {
+  beforeAll(preloadDashboard);
+
   it("inicializa com layout, sidebar e dashboard", async () => {
     render(<App />);
 

@@ -1,0 +1,84 @@
+# Integração contínua: roda as mesmas validações exigidas no CLAUDE.md.
+#
+# - frontend (Ubuntu): typecheck, lint, formatação, testes e build do Vite.
+# - rust (Windows): fmt, clippy e testes — Windows porque é a plataforma-alvo
+#   e dispensa instalar as dependências GTK/WebKit que o Tauri exige no Linux.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+# Um novo push na mesma branch cancela a execução anterior (economiza minutos).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend (typecheck, lint, testes, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Formatação
+        run: npm run format:check
+
+      - name: Testes
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+  rust:
+    name: Rust (fmt, clippy, testes)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      # O generate_context! do Tauri valida o frontendDist (../dist); o conteúdo
+      # não importa para checagem e testes, então basta a pasta existir.
+      - name: Preparar pasta dist
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path ../dist | Out-Null
+
+      - name: Formatação
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Testes
+        run: cargo test --locked

@@ -1,5 +1,7 @@
 # Zona de Controle
 
+[![CI](https://github.com/BrunoStrufaldi/Zona-de-controle/actions/workflows/ci.yml/badge.svg)](https://github.com/BrunoStrufaldi/Zona-de-controle/actions/workflows/ci.yml)
+
 > Hub de produtividade pessoal, central do sistema e gestão financeira — um app desktop **local-first** para Windows.
 
 ![Dashboard do Zona de Controle](docs/screenshot-dashboard.png)
@@ -223,6 +225,20 @@ Os artefatos ficam em `src-tauri/target/release/`:
 - `bundle/msi/*.msi` e `bundle/nsis/*-setup.exe`: instaladores.
 
 O primeiro build de release demora alguns minutos, porque compila com LTO e baixa as ferramentas WiX e NSIS.
+
+## Integração contínua
+
+O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada push, em qualquer branch:
+
+| Job      | Runner  | Etapas                                                   |
+| -------- | ------- | -------------------------------------------------------- |
+| Frontend | Ubuntu  | `npm ci`, typecheck, lint, `format:check`, testes, build |
+| Rust     | Windows | `cargo fmt --check`, `clippy -D warnings`, `cargo test`  |
+
+- Um novo push na mesma branch cancela a execução anterior.
+- O cache de dependências (npm e Cargo) reduz o tempo das execuções seguintes.
+- O **Dependabot** ([`.github/dependabot.yml`](.github/dependabot.yml)) abre PRs semanais agrupados para npm e Cargo, e mensais para as Actions. O TypeScript ≥ 6.1 e as versões major do Tauri são ignorados de propósito (veja [Decisões técnicas](#decisões-técnicas)).
+- A versão do Node usada na CI vem de `.nvmrc`.
 
 ## Roadmap
 
