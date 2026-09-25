@@ -16,7 +16,7 @@ O **Zona de Controle** reúne em um só lugar três áreas do dia a dia:
 
 Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem, sem contas e sem APIs externas.
 
-> **Estado atual: Fase 2 em andamento.** A fundação está pronta e o módulo de **Tarefas** já funciona (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard). Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
+> **Estado atual: Fase 2 em andamento.** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard) e **Notas e diário** já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
 
 ## Stack
 
@@ -51,7 +51,7 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
 ### Produtividade (Fase 2)
 
 - **Tarefas** ✅ (2.1 e 2.2): lista e Kanban, status, prioridades, vencimento com destaque (atrasada, hoje, em breve), tags, busca e filtros, recorrência, checklists, categorias e arquivamento.
-- **Notas e diário**: editor Markdown, notas rápidas, diário por data, busca, tags, favoritos, pastas e histórico.
+- **Notas e diário** ✅ (2.3): editor Markdown, notas rápidas, diário por data, busca, tags, favoritos, pastas e histórico.
 - **Rotinas**: rotinas diárias e semanais, hábitos, histórico de execução e indicadores de consistência.
 - **Calendário**: eventos, lembretes, recorrência, notificações locais e visões mensal, semanal e diária.
 
@@ -88,9 +88,16 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
   - **categorias** criadas pelo usuário, com nome e cor (uma por tarefa), filtro por categoria e exclusão confirmada e auditada. A tarefa perde a categoria, mas não é excluída;
   - **arquivamento** manual ou em lote ("Arquivar concluídas"). Tarefas arquivadas saem da lista, do Kanban e do dashboard e ficam na aba Arquivadas, de onde podem ser restauradas ou excluídas;
   - widget "Tarefas de hoje" no dashboard com dados reais.
+- **Notas e diário**:
+  - editor Markdown com salvamento automático e modos Editar, Dividir (lado a lado) e Visualizar. A prévia suporta títulos, listas, tarefas (`- [ ]`), tabelas, citações e código. HTML bruto nunca é renderizado; links e imagens aparecem só como texto, sem abrir nem baixar nada;
+  - pastas (excluir uma pasta não exclui as notas), tags compartilhadas com as tarefas, favoritas e busca sem acentos no título, no conteúdo e nas tags;
+  - **diário**: uma nota por dia, com navegação por data. A nota do dia só é criada quando você começa a escrever;
+  - **histórico de versões** automático: guarda o texto anterior ao editar (no máximo uma versão a cada 5 minutos) e mantém as 20 mais recentes. Restaurar uma versão também guarda o texto atual;
+  - exclusão de nota ou pasta só após confirmação, registrada na auditoria.
 - Layout completo, navegação entre as 16 páginas e página 404.
 - Persistência SQLite com migrations versionadas executadas na inicialização.
 - **Configurações**: nome de exibição salvo no banco (usado na saudação), log de auditoria, informações do app e vitrine do design system.
+- **Backup** (Configurações › Dados): cópia completa e verificada do banco em `Documentos\Zona de Controle\Backups`, feita com o app aberto (`VACUUM INTO` + `quick_check`). O app nunca apaga nem sobrescreve backups. Para restaurar, feche o app e substitua `zona-de-controle.db` pela cópia, apagando os arquivos `-wal` e `-shm`.
 - Contratos Rust e TypeScript de dispositivos e otimização. Os providers já respondem ao frontend, com status "Planejado".
 
 ## Design System
@@ -171,11 +178,11 @@ src-tauri/                    Backend (Rust)
 │   ├── commands/             Camada IPC (fina), leitura e escrita separadas
 │   ├── services/             Casos de uso: validação, transações, auditoria
 │   ├── repositories/         Único lugar com SQL
-│   ├── domain/               Regras e contratos (audit, settings, tasks, calendar, devices…)
+│   ├── domain/               Regras e contratos (audit, settings, tasks, notes, tags, calendar…)
 │   ├── db/                   Conexão SQLite + runner de migrations
 │   ├── error.rs              AppError → { kind, message }
 │   └── state.rs              Estado gerenciado (banco, providers)
-├── migrations/               SQL versionado (0001_initial, 0002_tasks, 0003_tasks_extras…)
+├── migrations/               SQL versionado (0001_initial, 0002_tasks, 0003_tasks_extras, 0004_notes)
 ├── capabilities/             Permissões mínimas, comentadas
 └── build.rs                  Lista explícita de commands permitidos
 ```
@@ -189,8 +196,9 @@ src-tauri/                    Backend (Rust)
 - `tasks`, `tags` e `task_tags`: tarefas, com posição fracionária por coluna do Kanban, regra de recorrência em JSON e data de arquivamento. As tags são compartilhadas entre módulos.
 - `task_checklist_items`: itens de checklist de cada tarefa, excluídos em cascata junto com ela.
 - `task_categories`: categorias com nome único e uma cor da paleta de tokens. Excluir uma categoria só remove o vínculo com as tarefas (`ON DELETE SET NULL`).
+- `notes`, `note_tags`, `note_folders` e `note_versions`: notas em Markdown (as do diário têm `journal_date`, única por dia), tags na mesma tabela `tags` das tarefas, pastas (`ON DELETE SET NULL`) e histórico de versões, excluído em cascata com a nota.
 
-**Segurança:** a capability concede apenas os commands do próprio app, sem nenhum plugin e sem permissões `core:*`. A CSP é restritiva e não há execução de shell. As operações destrutivas são a exclusão de tarefas e a de categorias. Ambas exigem confirmação explícita e são auditadas, tanto no sucesso quanto na falha. Arquivar não apaga dados.
+**Segurança:** a capability concede apenas os commands do próprio app, sem nenhum plugin e sem permissões `core:*`. A CSP é restritiva e não há execução de shell. As operações destrutivas são a exclusão de tarefas, categorias, notas e pastas de notas. Todas exigem confirmação explícita e são auditadas, tanto no sucesso quanto na falha. Arquivar não apaga dados. O backup só cria arquivos novos (também auditado) e não existe command que apague, sobrescreva ou restaure arquivos.
 
 ## Pré-requisitos (Windows 11)
 
@@ -256,7 +264,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada pu
 ## Roadmap
 
 - **Fase 1 — Foundation** ✅: boilerplate, design system, layout, navegação, Tauri e SQLite preparado.
-- **Fase 2 — Productivity** 🚧: tarefas ✅ (2.1); recorrência, checklists, categorias e arquivamento ✅ (2.2); notas, rotinas e calendário.
+- **Fase 2 — Productivity** 🚧: tarefas ✅ (2.1); recorrência, checklists, categorias e arquivamento ✅ (2.2); notas e diário ✅ (2.3); rotinas e calendário.
 - **Fase 3 — System Monitor**: CPU, RAM, discos, diagnósticos, dispositivos e bateria (Bluetooth e controles Xbox primeiro; periféricos 2.4 GHz depois, por modelo).
 - **Fase 4 — Safe Optimization**: temporários, caches seguros, lixeira, logs e confirmação.
 - **Fase 5 — Finance Core**: lançamentos, categorias, recorrências e parcelamentos.

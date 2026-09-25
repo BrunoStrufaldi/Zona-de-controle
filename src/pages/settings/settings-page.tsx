@@ -1,10 +1,11 @@
-import { Info, Palette, ScrollText, Settings, UserRound } from "lucide-react";
+import { DatabaseBackup, Info, Palette, ScrollText, Settings, UserRound } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AboutSection } from "@/pages/settings/sections/about-section";
 import { AppearanceSection } from "@/pages/settings/sections/appearance-section";
 import { AuditSection } from "@/pages/settings/sections/audit-section";
+import { BackupSection } from "@/pages/settings/sections/backup-section";
 import { ProfileSection } from "@/pages/settings/sections/profile-section";
 
 export function SettingsPage() {
@@ -25,6 +26,10 @@ export function SettingsPage() {
             <Palette aria-hidden="true" />
             Aparência
           </TabsTrigger>
+          <TabsTrigger value="data">
+            <DatabaseBackup aria-hidden="true" />
+            Dados
+          </TabsTrigger>
           <TabsTrigger value="audit">
             <ScrollText aria-hidden="true" />
             Auditoria
@@ -39,6 +44,9 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="appearance">
           <AppearanceSection />
+        </TabsContent>
+        <TabsContent value="data">
+          <BackupSection />
         </TabsContent>
         <TabsContent value="audit">
           <AuditSection />

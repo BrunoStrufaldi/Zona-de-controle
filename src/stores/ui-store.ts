@@ -7,6 +7,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
  * do usuário ficam no SQLite (ver src/services/settings-service.ts).
  */
 export type TasksView = "list" | "kanban" | "archived";
+export type NotesEditorMode = "edit" | "split" | "preview";
 
 interface UiState {
   /** Sidebar recolhida manualmente pelo usuário (modo desktop). */
@@ -17,10 +18,13 @@ interface UiState {
   collapsedGroups: Record<string, boolean>;
   /** Visão preferida na página de Tarefas. */
   tasksView: TasksView;
+  /** Modo do editor de notas (texto, lado a lado ou pré-visualização). */
+  notesEditorMode: NotesEditorMode;
   toggleSidebar: () => void;
   setSidebarOverlayOpen: (open: boolean) => void;
   toggleGroup: (groupId: string) => void;
   setTasksView: (view: TasksView) => void;
+  setNotesEditorMode: (mode: NotesEditorMode) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -30,6 +34,7 @@ export const useUiStore = create<UiState>()(
       sidebarOverlayOpen: false,
       collapsedGroups: {},
       tasksView: "list",
+      notesEditorMode: "edit",
       toggleSidebar: () => {
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }));
       },
@@ -47,6 +52,9 @@ export const useUiStore = create<UiState>()(
       setTasksView: (view) => {
         set({ tasksView: view });
       },
+      setNotesEditorMode: (mode) => {
+        set({ notesEditorMode: mode });
+      },
     }),
     {
       name: "zdc.ui",
@@ -55,6 +63,7 @@ export const useUiStore = create<UiState>()(
         sidebarCollapsed: state.sidebarCollapsed,
         collapsedGroups: state.collapsedGroups,
         tasksView: state.tasksView,
+        notesEditorMode: state.notesEditorMode,
       }),
     },
   ),

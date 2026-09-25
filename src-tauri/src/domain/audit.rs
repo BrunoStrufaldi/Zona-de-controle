@@ -8,6 +8,8 @@
 pub enum AuditCategory {
     Settings,
     Tasks,
+    Notes,
+    Database,
 }
 
 impl AuditCategory {
@@ -15,6 +17,8 @@ impl AuditCategory {
         match self {
             Self::Settings => "settings",
             Self::Tasks => "tasks",
+            Self::Notes => "notes",
+            Self::Database => "database",
         }
     }
 }

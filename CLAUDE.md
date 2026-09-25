@@ -192,6 +192,16 @@ Regras:
   Arquivadas não podem ser editadas ou movidas: restaure antes.
 - **Cores de categoria** são nomes (`red`, `teal`…) mapeados para `--zdc-category-*` em
   `task-styles.ts`. Nunca grave hexadecimal no banco.
+- **Tags compartilhadas:** normalização em `domain/tags.rs` (Rust) e `src/lib/tags.ts` (TS); tarefas e
+  notas usam a mesma tabela `tags`. Busca sem acentos: `src/lib/text.ts`.
+- **Notas:** o editor salva sozinho (`use-autosave.ts`: debounce, fila sem saves paralelos e salvamento
+  ao desmontar). Salvar atualiza só a nota na lista; não recarregue tudo durante a edição. O histórico
+  é decidido no Rust (`services/notes.rs::update_note`: intervalo mínimo de 5 min e as 20 mais recentes).
+  Na prévia Markdown (`markdown-preview.tsx`), links e imagens não podem navegar nem carregar nada:
+  um link abriria a URL dentro da janela do app.
+- **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
+  que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
+  app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.
 - **Validação no app real:** `npm run dev` usa o banco de verdade (`%APPDATA%\com.brunostrufaldi.zonadecontrole`).
   Faça backup dos arquivos `zona-de-controle.db*` antes de criar dados de teste e restaure depois:
   o `audit_log` não permite apagar registros. Com `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`

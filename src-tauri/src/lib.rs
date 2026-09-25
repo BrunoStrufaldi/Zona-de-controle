@@ -29,6 +29,8 @@ pub fn run() {
             commands::settings::get_setting,
             commands::settings::set_setting,
             commands::audit::list_audit_entries,
+            commands::backup::list_database_backups,
+            commands::backup::create_database_backup,
             commands::devices::list_battery_providers,
             commands::devices::list_battery_devices,
             commands::optimization::list_cleanup_categories,
@@ -47,6 +49,17 @@ pub fn run() {
             commands::tasks::create_task_category,
             commands::tasks::update_task_category,
             commands::tasks::delete_task_category,
+            commands::notes::list_notes,
+            commands::notes::create_note,
+            commands::notes::update_note,
+            commands::notes::set_note_favorite,
+            commands::notes::delete_note,
+            commands::notes::list_note_versions,
+            commands::notes::restore_note_version,
+            commands::notes::list_note_folders,
+            commands::notes::create_note_folder,
+            commands::notes::rename_note_folder,
+            commands::notes::delete_note_folder,
         ])
         .run(tauri::generate_context!())
         .expect("falha ao iniciar o Zona de Controle");

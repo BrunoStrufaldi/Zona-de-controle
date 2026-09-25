@@ -4,13 +4,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::domain::calendar::CalendarDate;
+use crate::domain::tags::normalize_tags;
 use crate::domain::task_recurrence::Recurrence;
 use crate::error::{AppError, AppResult};
 
 pub const MAX_TITLE_CHARS: usize = 200;
 pub const MAX_DESCRIPTION_CHARS: usize = 10_000;
-pub const MAX_TAGS: usize = 10;
-pub const MAX_TAG_CHARS: usize = 32;
 pub const MAX_CHECKLIST_ITEMS: usize = 50;
 pub const MAX_CHECKLIST_ITEM_CHARS: usize = 200;
 
@@ -243,34 +242,6 @@ pub fn normalize_checklist(raw: Vec<ChecklistItemInput>) -> AppResult<Vec<Checkl
     Ok(items)
 }
 
-/// Tags: sem espaços nas pontas, espaços internos colapsados, minúsculas,
-/// sem duplicatas (mantendo a ordem de entrada).
-pub fn normalize_tags(raw: Vec<String>) -> AppResult<Vec<String>> {
-    let mut tags: Vec<String> = Vec::new();
-    for tag in raw {
-        let normalized = tag
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ")
-            .to_lowercase();
-        if normalized.is_empty() || tags.contains(&normalized) {
-            continue;
-        }
-        if normalized.chars().count() > MAX_TAG_CHARS {
-            return Err(AppError::Validation(format!(
-                "cada tag pode ter no máximo {MAX_TAG_CHARS} caracteres"
-            )));
-        }
-        tags.push(normalized);
-    }
-    if tags.len() > MAX_TAGS {
-        return Err(AppError::Validation(format!(
-            "uma tarefa pode ter no máximo {MAX_TAGS} tags"
-        )));
-    }
-    Ok(tags)
-}
-
 /// Valida `aaaa-mm-dd` com dia existente no mês (considera anos bissextos).
 pub fn is_valid_iso_date(value: &str) -> bool {
     CalendarDate::parse(value).is_some()
@@ -302,22 +273,6 @@ mod tests {
         );
         assert!(input("   ").validate().is_err());
         assert!(input(&"x".repeat(MAX_TITLE_CHARS + 1)).validate().is_err());
-    }
-
-    #[test]
-    fn normalizes_tags() {
-        let tags = normalize_tags(vec![
-            " Trabalho ".into(),
-            "trabalho".into(),
-            "casa  e   jardim".into(),
-            "".into(),
-        ])
-        .unwrap();
-        assert_eq!(tags, vec!["trabalho", "casa e jardim"]);
-
-        let too_many = (0..=MAX_TAGS).map(|i| format!("t{i}")).collect();
-        assert!(normalize_tags(too_many).is_err());
-        assert!(normalize_tags(vec!["x".repeat(MAX_TAG_CHARS + 1)]).is_err());
     }
 
     #[test]

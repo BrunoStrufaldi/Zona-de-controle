@@ -2,22 +2,8 @@ import { type IsoDate, type IsoDateTime } from "@/types/common";
 
 /**
  * Contratos futuros do módulo de Produtividade (Fase 2).
- * Tarefas já implementadas: ver `features/productivity/tasks/types.ts`.
+ * Já implementados: `features/productivity/tasks/types.ts` e `features/productivity/notes/types.ts`.
  */
-
-export interface Note {
-  id: string;
-  title: string;
-  /** Conteúdo em Markdown. */
-  content: string;
-  folderId?: string;
-  tags: readonly string[];
-  favorite: boolean;
-  /** Entradas de diário são notas vinculadas a uma data. */
-  journalDate?: IsoDate;
-  createdAt: IsoDateTime;
-  updatedAt: IsoDateTime;
-}
 
 export type RoutineFrequency = "daily" | "weekly";
 

@@ -1,32 +1,18 @@
 import { MAX_RECURRENCE_INTERVAL } from "@/features/productivity/tasks/domain/recurrence";
 import { type TaskInput } from "@/features/productivity/tasks/types";
+import { TAG_LIMITS } from "@/lib/tags";
 
 /** Limites espelhados de `src-tauri/src/domain/tasks.rs` (o backend é a fonte da verdade). */
 export const TASK_LIMITS = {
   titleChars: 200,
   descriptionChars: 10_000,
-  tags: 10,
-  tagChars: 32,
+  tags: TAG_LIMITS.tags,
+  tagChars: TAG_LIMITS.tagChars,
   checklistItems: 50,
   checklistItemChars: 200,
 } as const;
 
 export type TaskInputErrors = Partial<Record<keyof TaskInput, string>>;
-
-/** Normaliza uma tag como o backend: espaços colapsados e minúsculas. */
-export function normalizeTag(tag: string): string {
-  return tag.trim().split(/\s+/).join(" ").toLowerCase();
-}
-
-/** Adiciona tags normalizadas, ignorando vazias e duplicadas. */
-export function mergeTags(current: readonly string[], incoming: readonly string[]): string[] {
-  const result = [...current];
-  for (const raw of incoming) {
-    const tag = normalizeTag(raw);
-    if (tag !== "" && !result.includes(tag)) result.push(tag);
-  }
-  return result;
-}
 
 /** Validação para feedback imediato no formulário. Retorna `{}` quando válido. */
 export function validateTaskInput(input: TaskInput): TaskInputErrors {

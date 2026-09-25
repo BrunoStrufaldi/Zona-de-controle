@@ -8,6 +8,8 @@ const APP_COMMANDS: &[&str] = &[
     "get_setting",
     "set_setting",
     "list_audit_entries",
+    "list_database_backups",
+    "create_database_backup",
     "list_battery_providers",
     "list_battery_devices",
     "list_cleanup_categories",
@@ -26,6 +28,17 @@ const APP_COMMANDS: &[&str] = &[
     "create_task_category",
     "update_task_category",
     "delete_task_category",
+    "list_notes",
+    "create_note",
+    "update_note",
+    "set_note_favorite",
+    "delete_note",
+    "list_note_versions",
+    "restore_note_version",
+    "list_note_folders",
+    "create_note_folder",
+    "rename_note_folder",
+    "delete_note_folder",
 ];
 
 fn main() {

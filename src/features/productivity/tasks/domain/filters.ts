@@ -5,6 +5,7 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from "@/features/productivity/tasks/types";
+import { matchesSearch } from "@/lib/text";
 
 export type StatusFilter = "open" | "all" | TaskStatus;
 export type PriorityFilter = "all" | TaskPriority;
@@ -28,14 +29,6 @@ export const DEFAULT_TASK_FILTERS: TaskFilters = {
   category: "all",
 };
 
-/** Remove acentos e caixa para comparar texto de busca. */
-function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
-}
-
 function matchesStatus(task: Task, status: StatusFilter): boolean {
   if (status === "all") return true;
   if (status === "open") return task.status !== "done";
@@ -48,15 +41,11 @@ function matchesCategory(task: Task, category: CategoryFilter): boolean {
   return task.categoryId === category;
 }
 
-function matchesSearch(task: Task, search: string): boolean {
-  const query = normalizeText(search.trim());
-  if (query === "") return true;
-  const haystack = normalizeText(
-    [task.title, task.description, ...task.tags, ...task.checklist.map((item) => item.text)].join(
-      " ",
-    ),
+function matchesTaskSearch(task: Task, search: string): boolean {
+  return matchesSearch(
+    [task.title, task.description, ...task.tags, ...task.checklist.map((item) => item.text)],
+    search,
   );
-  return haystack.includes(query);
 }
 
 /**
@@ -74,7 +63,7 @@ export function filterTasks(
       (filters.priority === "all" || task.priority === filters.priority) &&
       (filters.tag === null || task.tags.includes(filters.tag)) &&
       matchesCategory(task, filters.category) &&
-      matchesSearch(task, filters.search),
+      matchesTaskSearch(task, filters.search),
   );
 }
 

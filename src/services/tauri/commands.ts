@@ -1,6 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import {
+  type Note,
+  type NoteFolder,
+  type NoteInput,
+  type NoteVersion,
+} from "@/features/productivity/notes/types";
+import {
   type BatteryProviderDescriptor,
   type DeviceBatteryInfo,
 } from "@/features/system/devices/types";
@@ -17,6 +23,7 @@ import { DESKTOP_ONLY_MESSAGE, ServiceError, toServiceError } from "@/services/t
 import { isDesktopRuntime } from "@/services/tauri/runtime";
 import { type AppInfo } from "@/types/app";
 import { type AuditEntry } from "@/types/audit";
+import { type BackupFile, type BackupOverview } from "@/types/backup";
 import { type JsonValue } from "@/types/json";
 import { type SettingEntry } from "@/types/settings";
 
@@ -31,6 +38,8 @@ export interface CommandMap {
   get_setting: { args: { key: string }; result: SettingEntry | null };
   set_setting: { args: { key: string; value: JsonValue }; result: SettingEntry };
   list_audit_entries: { args: { limit?: number }; result: AuditEntry[] };
+  list_database_backups: { args: undefined; result: BackupOverview };
+  create_database_backup: { args: undefined; result: BackupFile };
   list_battery_providers: { args: undefined; result: BatteryProviderDescriptor[] };
   list_battery_devices: { args: undefined; result: DeviceBatteryInfo[] };
   list_cleanup_categories: { args: undefined; result: CleanupCategoryDescriptor[] };
@@ -52,6 +61,17 @@ export interface CommandMap {
   create_task_category: { args: { input: TaskCategoryInput }; result: TaskCategory };
   update_task_category: { args: { id: number; input: TaskCategoryInput }; result: TaskCategory };
   delete_task_category: { args: { id: number }; result: null };
+  list_notes: { args: undefined; result: Note[] };
+  create_note: { args: { input: NoteInput }; result: Note };
+  update_note: { args: { id: number; input: NoteInput }; result: Note };
+  set_note_favorite: { args: { id: number; favorite: boolean }; result: Note };
+  delete_note: { args: { id: number }; result: null };
+  list_note_versions: { args: { noteId: number }; result: NoteVersion[] };
+  restore_note_version: { args: { versionId: number }; result: Note };
+  list_note_folders: { args: undefined; result: NoteFolder[] };
+  create_note_folder: { args: { name: string }; result: NoteFolder };
+  rename_note_folder: { args: { id: number; name: string }; result: NoteFolder };
+  delete_note_folder: { args: { id: number }; result: null };
 }
 
 export type CommandName = keyof CommandMap;

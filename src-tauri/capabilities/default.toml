@@ -24,6 +24,12 @@ permissions = [
   # Leitura do log de auditoria (somente leitura; o log é append-only).
   "allow-list-audit-entries",
 
+  # Backup do banco — listar os arquivos da pasta de backups (somente os com o
+  # nome gerado pelo app) e criar uma cópia nova. Não há command que apague,
+  # sobrescreva ou restaure arquivos; cada backup (ou falha) é auditado.
+  "allow-list-database-backups",
+  "allow-create-database-backup",
+
   # Leitura dos providers e dispositivos de bateria (sem escrita em dispositivos).
   "allow-list-battery-providers",
   "allow-list-battery-devices",
@@ -59,4 +65,24 @@ permissions = [
   # Excluir uma categoria não exclui tarefas: elas ficam sem categoria.
   "allow-delete-task",
   "allow-delete-task-category",
+
+  # Notas — leitura das notas, das pastas e do histórico de versões.
+  "allow-list-notes",
+  "allow-list-note-folders",
+  "allow-list-note-versions",
+
+  # Notas — escrita. Entradas validadas no Rust (título, tamanho, tags, data do
+  # diário). Salvar pode guardar o texto anterior no histórico; restaurar uma
+  # versão também guarda o texto atual antes, então nada se perde.
+  "allow-create-note",
+  "allow-update-note",
+  "allow-set-note-favorite",
+  "allow-restore-note-version",
+  "allow-create-note-folder",
+  "allow-rename-note-folder",
+
+  # Notas e pastas — exclusão definitiva. A interface exige confirmação explícita
+  # e cada exclusão (ou falha) é auditada. Excluir uma pasta não exclui notas.
+  "allow-delete-note",
+  "allow-delete-note-folder",
 ]

@@ -23,12 +23,13 @@ import {
   nextOccurrence,
 } from "@/features/productivity/tasks/domain/recurrence";
 import { summarizeToday } from "@/features/productivity/tasks/domain/summary";
-import { mergeTags, validateTaskInput } from "@/features/productivity/tasks/domain/validation";
+import { validateTaskInput } from "@/features/productivity/tasks/domain/validation";
 import {
   type Task,
   type TaskCategory,
   type TaskRecurrence,
 } from "@/features/productivity/tasks/types";
+import { mergeTags } from "@/lib/tags";
 
 let nextId = 1;
 function task(overrides: Partial<Task> = {}): Task {

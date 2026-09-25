@@ -30,7 +30,6 @@ import { categoryDotClass } from "@/features/productivity/tasks/components/task-
 import { emptyTaskInput, toTaskInput } from "@/features/productivity/tasks/domain/input";
 import { priorityLabels, statusLabels } from "@/features/productivity/tasks/domain/labels";
 import {
-  mergeTags,
   TASK_LIMITS,
   type TaskInputErrors,
   validateTaskInput,
@@ -46,6 +45,7 @@ import {
   type TaskStatus,
 } from "@/features/productivity/tasks/types";
 import { cn } from "@/lib/cn";
+import { mergeTags } from "@/lib/tags";
 import { toServiceError } from "@/services/tauri/errors";
 import { type IsoDate } from "@/types/common";
 
