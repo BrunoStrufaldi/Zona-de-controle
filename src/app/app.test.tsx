@@ -17,10 +17,13 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
   });
 
-  it("marca todos os widgets com dados fictícios como Demo", async () => {
+  it("marca como Demo apenas os widgets com dados fictícios", async () => {
     render(<App />);
 
-    await screen.findByRole("heading", { name: /Tarefas de hoje/ });
-    expect(screen.getAllByLabelText("Dados de demonstração").length).toBeGreaterThanOrEqual(8);
+    const tasksTitle = await screen.findByRole("heading", { name: /Tarefas de hoje/ });
+    // 7 widgets ainda usam src/mocks; "Tarefas de hoje" usa dados reais.
+    expect(screen.getAllByLabelText("Dados de demonstração")).toHaveLength(7);
+    const tasksCard = tasksTitle.closest("[data-slot='card']");
+    expect(tasksCard?.querySelector("[aria-label='Dados de demonstração']")).toBeNull();
   });
 });
