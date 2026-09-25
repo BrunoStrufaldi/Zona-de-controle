@@ -1,0 +1,33 @@
+# Capability da janela principal.
+#
+# Princípio do menor privilégio: nenhum plugin (shell, fs, sql, http...) e
+# nenhuma permissão `core:*` é concedida — o frontend só pode chamar os
+# commands próprios do app listados abaixo. Toda nova permissão deve vir com
+# um comentário justificando o motivo.
+
+identifier = "default"
+description = "Permissões mínimas da janela principal do Zona de Controle"
+windows = ["main"]
+
+permissions = [
+  # Leitura: nome, versão e caminho do banco local (tela Configurações > Sobre).
+  "allow-get-app-info",
+
+  # Leitura de preferências do app (tabela app_settings).
+  "allow-list-settings",
+  "allow-get-setting",
+
+  # Escrita de preferências. Chave e valor são validados no Rust e cada
+  # alteração gera um registro no log de auditoria.
+  "allow-set-setting",
+
+  # Leitura do log de auditoria (somente leitura; o log é append-only).
+  "allow-list-audit-entries",
+
+  # Leitura dos providers e dispositivos de bateria (sem escrita em dispositivos).
+  "allow-list-battery-providers",
+  "allow-list-battery-devices",
+
+  # Leitura das categorias de limpeza previstas. NÃO há command de limpeza/exclusão.
+  "allow-list-cleanup-categories",
+]

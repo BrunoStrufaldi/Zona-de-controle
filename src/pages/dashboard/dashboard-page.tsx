@@ -5,6 +5,7 @@ import { TasksSummaryWidget } from "@/features/productivity/components/tasks-sum
 import { StorageWidget } from "@/features/system/components/storage-widget";
 import { SystemStatusWidget } from "@/features/system/components/system-status-widget";
 import { DeviceBatteryWidget } from "@/features/system/devices/components/device-battery-widget";
+import { useDisplayName } from "@/hooks/use-display-name";
 import { dashboardDemoData as demo } from "@/mocks/dashboard";
 import { GreetingBanner } from "@/pages/dashboard/components/greeting-banner";
 import { RecentActivityWidget } from "@/pages/dashboard/components/recent-activity-widget";
@@ -15,21 +16,30 @@ import { RecentActivityWidget } from "@/pages/dashboard/components/recent-activi
  * fonte do widget pelo serviço real e remova a flag `demo`.
  */
 export function DashboardPage() {
+  const displayName = useDisplayName();
+
   return (
     <>
-      <GreetingBanner />
+      <GreetingBanner displayName={displayName} />
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        <TasksSummaryWidget data={demo.tasks} demo />
-        <RoutineProgressWidget data={demo.routine} demo />
-        <SystemStatusWidget data={demo.system} demo />
+      {/* Colunas pela largura da área de conteúdo (container query), não da janela. */}
+      <div className="@container">
+        <div className="grid gap-6 @3xl:grid-cols-2 @6xl:grid-cols-3">
+          <TasksSummaryWidget data={demo.tasks} demo />
+          <RoutineProgressWidget data={demo.routine} demo />
+          <SystemStatusWidget data={demo.system} demo />
 
-        <FinanceSummaryWidget income={demo.finance.income} expenses={demo.finance.expenses} demo />
-        <CashflowChartWidget data={demo.cashflow} demo className="md:col-span-2 xl:col-span-2" />
+          <FinanceSummaryWidget
+            income={demo.finance.income}
+            expenses={demo.finance.expenses}
+            demo
+          />
+          <CashflowChartWidget data={demo.cashflow} demo className="@3xl:col-span-2" />
 
-        <StorageWidget volumes={demo.storage} demo />
-        <DeviceBatteryWidget devices={demo.devices} demo />
-        <RecentActivityWidget entries={demo.activity} demo />
+          <StorageWidget volumes={demo.storage} demo />
+          <DeviceBatteryWidget devices={demo.devices} demo />
+          <RecentActivityWidget entries={demo.activity} demo />
+        </div>
       </div>
     </>
   );

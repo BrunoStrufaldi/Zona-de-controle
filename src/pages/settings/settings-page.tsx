@@ -1,8 +1,11 @@
-import { Palette, Settings } from "lucide-react";
+import { Info, Palette, ScrollText, Settings, UserRound } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AboutSection } from "@/pages/settings/sections/about-section";
 import { AppearanceSection } from "@/pages/settings/sections/appearance-section";
+import { AuditSection } from "@/pages/settings/sections/audit-section";
+import { ProfileSection } from "@/pages/settings/sections/profile-section";
 
 export function SettingsPage() {
   return (
@@ -12,15 +15,36 @@ export function SettingsPage() {
         description="Preferências do aplicativo, dados locais e informações do sistema."
         icon={Settings}
       />
-      <Tabs defaultValue="appearance">
+      <Tabs defaultValue="general">
         <TabsList>
+          <TabsTrigger value="general">
+            <UserRound aria-hidden="true" />
+            Geral
+          </TabsTrigger>
           <TabsTrigger value="appearance">
             <Palette aria-hidden="true" />
             Aparência
           </TabsTrigger>
+          <TabsTrigger value="audit">
+            <ScrollText aria-hidden="true" />
+            Auditoria
+          </TabsTrigger>
+          <TabsTrigger value="about">
+            <Info aria-hidden="true" />
+            Sobre
+          </TabsTrigger>
         </TabsList>
+        <TabsContent value="general">
+          <ProfileSection />
+        </TabsContent>
         <TabsContent value="appearance">
           <AppearanceSection />
+        </TabsContent>
+        <TabsContent value="audit">
+          <AuditSection />
+        </TabsContent>
+        <TabsContent value="about">
+          <AboutSection />
         </TabsContent>
       </Tabs>
     </>

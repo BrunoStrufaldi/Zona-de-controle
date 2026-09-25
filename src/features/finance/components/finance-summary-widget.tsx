@@ -73,7 +73,7 @@ function Metric({ label, value, icon: Icon, tone }: MetricProps) {
         <Icon className={cn("size-3.5", metricToneClasses[tone])} aria-hidden="true" />
         {label}
       </dt>
-      <dd className="truncate font-mono text-base font-semibold tabular">{value}</dd>
+      <dd className="font-mono text-base font-semibold tabular">{value}</dd>
     </div>
   );
 }

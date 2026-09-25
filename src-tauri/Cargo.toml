@@ -20,9 +20,16 @@ tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
+# SQLite embarcado (feature `bundled`): não depende de SQLite instalado no sistema.
+rusqlite = { version = "0.40", features = ["bundled"] }
 
 [profile.release]
 codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+[lints.rust]
+# O linker MSVC imprime "Criando biblioteca ... .lib" ao gerar o cdylib; é
+# apenas informativo e não indica problema.
+linker_messages = "allow"
