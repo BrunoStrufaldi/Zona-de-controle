@@ -11,10 +11,10 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useState } from "react";
 
 import { KanbanColumn } from "@/features/productivity/tasks/components/kanban-column";
+import { kanbanKeyboardCoordinates } from "@/features/productivity/tasks/components/kanban-keyboard";
 import { TaskCard } from "@/features/productivity/tasks/components/task-card";
 import { type TaskItemHandlers } from "@/features/productivity/tasks/components/task-list";
 import { type TaskColumns } from "@/features/productivity/tasks/domain/filters";
@@ -38,8 +38,9 @@ type DropData = { type: "task" } | { type: "column"; status: TaskStatus };
 
 const screenReaderInstructions: ScreenReaderInstructions = {
   draggable:
-    "Para mover uma tarefa, pressione espaço ou Enter. Use as setas para escolher a posição " +
-    "e pressione espaço ou Enter para soltar, ou Esc para cancelar. " +
+    "Para mover uma tarefa, pressione espaço ou Enter. Use as setas para cima e para baixo " +
+    "para mudar a posição na coluna e as setas para os lados para trocar de coluna. " +
+    "Pressione espaço ou Enter para soltar, ou Esc para cancelar. " +
     "Também é possível usar o menu de ações → Mover para.",
 };
 
@@ -64,7 +65,7 @@ export function KanbanBoard({
   const sensors = useSensors(
     // Distância mínima: permite clicar no card sem iniciar um arraste.
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, { coordinateGetter: kanbanKeyboardCoordinates }),
   );
 
   const describeOver = (overId: string | number, data: DropData | undefined) => {

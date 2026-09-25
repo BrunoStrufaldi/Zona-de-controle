@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAsyncResource } from "@/hooks/use-async-resource";
+import { auditTargetLabel } from "@/lib/audit";
 import { formatDateTime } from "@/lib/format";
 import { listAuditEntries } from "@/services/audit-service";
 import { type AuditEntry, type AuditOutcome } from "@/types/audit";
@@ -91,7 +92,7 @@ function AuditTable({ entries }: { entries: readonly AuditEntry[] }) {
             <TableCell>{entry.category}</TableCell>
             <TableCell className="font-mono text-xs">{entry.action}</TableCell>
             <TableCell className="font-mono text-xs text-muted-foreground">
-              {entry.target ?? "—"}
+              {auditTargetLabel(entry)}
             </TableCell>
             <TableCell>
               <Badge variant={outcomeVariants[entry.outcome]}>{outcomeLabels[entry.outcome]}</Badge>

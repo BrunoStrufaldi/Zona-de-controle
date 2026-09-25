@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { navigation } from "@/config/navigation";
+import { auditTargetLabel } from "@/lib/audit";
 import { addDays, daysBetween, toIsoDate } from "@/lib/dates";
 import {
   formatBytes,
@@ -81,5 +82,17 @@ describe("dates", () => {
     expect(addDays("2026-01-01", -1)).toBe("2025-12-31");
     expect(daysBetween("2026-09-25", "2026-10-05")).toBe(10);
     expect(daysBetween("2026-09-25", "2026-09-20")).toBe(-5);
+  });
+});
+
+describe("audit", () => {
+  it("usa o título dos detalhes quando disponível", () => {
+    expect(auditTargetLabel({ target: "1", details: { title: "Pagar conta" } })).toBe(
+      "Pagar conta (#1)",
+    );
+    expect(auditTargetLabel({ target: "profile.display_name", details: null })).toBe(
+      "profile.display_name",
+    );
+    expect(auditTargetLabel({ target: null, details: ["x"] })).toBe("—");
   });
 });
