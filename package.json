@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "description": "Zona de Controle — hub local-first de produtividade pessoal, central do sistema e gestão financeira.",
   "type": "module",
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
+  },
   "scripts": {
     "dev": "tauri dev",
     "dev:web": "vite",

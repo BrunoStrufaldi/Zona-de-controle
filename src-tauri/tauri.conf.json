@@ -47,9 +47,7 @@
         "language": "pt-BR"
       },
       "nsis": {
-        "languages": [
-          "PortugueseBR"
-        ]
+        "languages": ["PortugueseBR"]
       }
     }
   }
