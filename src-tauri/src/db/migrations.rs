@@ -16,11 +16,18 @@ pub struct Migration {
 }
 
 /// Lista ordenada de migrations. As versões devem ser consecutivas a partir de 1.
-pub const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    name: "initial",
-    sql: include_str!("../../migrations/0001_initial.sql"),
-}];
+pub const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        name: "initial",
+        sql: include_str!("../../migrations/0001_initial.sql"),
+    },
+    Migration {
+        version: 2,
+        name: "tasks",
+        sql: include_str!("../../migrations/0002_tasks.sql"),
+    },
+];
 
 const CREATE_SCHEMA_MIGRATIONS: &str = "
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -112,8 +119,30 @@ mod tests {
         let version = run(&mut connection).unwrap();
 
         assert_eq!(version, latest_version());
-        assert!(table_exists(&connection, "app_settings"));
-        assert!(table_exists(&connection, "audit_log"));
+        for table in ["app_settings", "audit_log", "tasks", "tags", "task_tags"] {
+            assert!(table_exists(&connection, table), "{table}");
+        }
+    }
+
+    #[test]
+    fn upgrades_an_existing_database_preserving_data() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(CREATE_SCHEMA_MIGRATIONS).unwrap();
+        apply(&mut connection, &MIGRATIONS[0]).unwrap();
+        connection
+            .execute(
+                "INSERT INTO app_settings (key, value) VALUES ('profile.display_name', '\"Ana\"')",
+                [],
+            )
+            .unwrap();
+
+        let version = run(&mut connection).unwrap();
+
+        assert_eq!(version, latest_version());
+        let value: String = connection
+            .query_row("SELECT value FROM app_settings", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(value, "\"Ana\"");
     }
 
     #[test]

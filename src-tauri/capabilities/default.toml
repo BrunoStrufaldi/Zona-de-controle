@@ -30,4 +30,17 @@ permissions = [
 
   # Leitura das categorias de limpeza previstas. NÃO há command de limpeza/exclusão.
   "allow-list-cleanup-categories",
+
+  # Tarefas — leitura da lista e das tags em uso.
+  "allow-list-tasks",
+  "allow-list-task-tags",
+
+  # Tarefas — escrita. Entradas validadas no Rust (título, datas, tags).
+  "allow-create-task",
+  "allow-update-task",
+  "allow-move-task",
+
+  # Tarefas — exclusão definitiva. A interface exige confirmação explícita e
+  # cada exclusão (ou falha) é registrada no log de auditoria.
+  "allow-delete-task",
 ]

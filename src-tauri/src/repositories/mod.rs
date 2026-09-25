@@ -3,3 +3,4 @@
 
 pub mod audit;
 pub mod settings;
+pub mod tasks;

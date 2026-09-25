@@ -27,6 +27,10 @@ pub enum AppError {
     #[error("{0}")]
     Validation(String),
 
+    /// Recurso inexistente; a mensagem é exibida ao usuário (ex.: "tarefa não encontrada").
+    #[error("{0}")]
+    NotFound(&'static str),
+
     #[error("estado interno indisponível")]
     StatePoisoned,
 }
@@ -41,6 +45,7 @@ impl AppError {
             Self::Io(_) => "io",
             Self::Tauri(_) => "tauri",
             Self::Validation(_) => "validation",
+            Self::NotFound(_) => "not_found",
             Self::StatePoisoned => "internal",
         }
     }
