@@ -5,18 +5,21 @@ import { TasksSummaryWidget } from "@/features/productivity/tasks/components/tas
 import { StorageWidget } from "@/features/system/components/storage-widget";
 import { SystemStatusWidget } from "@/features/system/components/system-status-widget";
 import { DeviceBatteryWidget } from "@/features/system/devices/components/device-battery-widget";
+import { useAsyncResource } from "@/hooks/use-async-resource";
 import { useDisplayName } from "@/hooks/use-display-name";
 import { dashboardDemoData as demo } from "@/mocks/dashboard";
+import { listTasks } from "@/services/tasks-service";
 import { GreetingBanner } from "@/pages/dashboard/components/greeting-banner";
 import { RecentActivityWidget } from "@/pages/dashboard/components/recent-activity-widget";
 
 /**
- * Dashboard inicial. Enquanto os módulos não existem, os widgets recebem dados
- * de `src/mocks` e são marcados como Demo. Ao implementar um módulo, troque a
- * fonte do widget pelo serviço real e remova a flag `demo`.
+ * Dashboard. Widgets de módulos já implementados usam dados reais (Tarefas);
+ * os demais ainda recebem dados de `src/mocks` e são marcados como Demo. Ao
+ * implementar um módulo, troque a fonte do widget pelo serviço real e remova `demo`.
  */
 export function DashboardPage() {
   const displayName = useDisplayName();
+  const tasks = useAsyncResource(listTasks);
 
   return (
     <>
@@ -25,7 +28,7 @@ export function DashboardPage() {
       {/* Colunas pela largura da área de conteúdo (container query), não da janela. */}
       <div className="@container">
         <div className="grid gap-6 @3xl:grid-cols-2 @6xl:grid-cols-3">
-          <TasksSummaryWidget data={demo.tasks} demo />
+          <TasksSummaryWidget tasks={tasks} />
           <RoutineProgressWidget data={demo.routine} demo />
           <SystemStatusWidget data={demo.system} demo />
 

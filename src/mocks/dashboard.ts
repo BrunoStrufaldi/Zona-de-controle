@@ -7,14 +7,12 @@
  *  - Nunca apresente estes valores como métricas reais.
  */
 import { type MonthlyCashflow } from "@/features/finance/types";
-import { type TasksOverview } from "@/features/productivity/tasks/types";
 import { type RoutineProgressSummary } from "@/features/productivity/types";
 import { type DeviceBatteryInfo } from "@/features/system/devices/types";
 import { type StorageVolume, type SystemOverview } from "@/features/system/types";
 import { type ActivityEntry } from "@/types/activity";
 
 export interface DashboardDemoData {
-  tasks: TasksOverview;
   routine: RoutineProgressSummary;
   system: SystemOverview;
   storage: readonly StorageVolume[];
@@ -27,16 +25,6 @@ export interface DashboardDemoData {
 const GIB = 1024 ** 3;
 
 export const dashboardDemoData: DashboardDemoData = {
-  tasks: {
-    completedToday: 5,
-    plannedToday: 8,
-    overdue: 1,
-    upcoming: [
-      { id: 1, title: "Revisar orçamento do mês", dueDate: "2026-09-26", priority: "high" },
-      { id: 2, title: "Agendar revisão do carro", dueDate: "2026-09-29", priority: "medium" },
-      { id: 3, title: "Organizar notas da semana", dueDate: "2026-10-01", priority: "low" },
-    ],
-  },
   routine: {
     name: "Rotina matinal",
     completedHabits: 4,
