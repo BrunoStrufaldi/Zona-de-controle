@@ -16,26 +16,27 @@ O **Zona de Controle** reúne em um só lugar três áreas do dia a dia:
 
 Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem, sem contas e sem APIs externas.
 
-> **Estado atual: Fase 1 (Foundation).** A arquitetura, o design system, a navegação, a persistência e os contratos dos módulos estão prontos. As funcionalidades reais serão implementadas módulo a módulo (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
+> **Estado atual: Fase 2 em andamento.** A fundação está pronta e o módulo de **Tarefas** já funciona (lista, Kanban e dashboard). Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
 
 ## Stack
 
-| Camada           | Tecnologia                                                   | Por quê                                                                                                                            |
-| ---------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Desktop          | **Tauri 2** (Rust)                                           | Binário pequeno, usa o WebView2 nativo do Windows, com modelo de permissões granular (capabilities) e acesso seguro ao SO via Rust |
-| Linguagem nativa | **Rust** (stable)                                            | Segurança de memória e acesso ao sistema (bateria, discos, arquivos) sem expor nada ao JavaScript                                  |
-| UI               | **React 19 + TypeScript 6 (strict)**                         | Ecossistema maduro, tipagem forte de ponta a ponta                                                                                 |
-| Build            | **Vite 8**                                                   | Dev server rápido, HMR e code splitting por rota                                                                                   |
-| Rotas            | **React Router 8** (data router)                             | Rotas declarativas, carregamento sob demanda e tratamento de erro por rota                                                         |
-| Estilo           | **Tailwind CSS 4** + tokens em CSS variables                 | Tema centralizado e fácil de trocar, sem CSS espalhado                                                                             |
-| Componentes      | Padrão **shadcn/ui** (Radix UI + CVA)                        | Acessibilidade pronta (Radix) com código dentro do projeto, sem lock-in                                                            |
-| Ícones           | **Lucide React**                                             | Conjunto consistente e leve                                                                                                        |
-| Estado global    | **Zustand**                                                  | Mínimo e sem boilerplate. Usado só para estado de UI                                                                               |
-| Gráficos         | **Recharts**                                                 | Declarativo, integra bem com React e aceita os tokens do tema                                                                      |
-| Toasts           | **Sonner**                                                   | Notificações acessíveis, recomendadas pelo shadcn                                                                                  |
-| Banco            | **SQLite via `rusqlite` (bundled)**                          | Arquivo único local; o SQLite vem embutido, sem instalação. **Todo SQL fica no Rust**                                              |
-| Testes           | **Vitest + Testing Library** / `cargo test`                  | Testes rápidos e o mesmo pipeline do Vite                                                                                          |
-| Qualidade        | ESLint (type-checked), Prettier, `cargo fmt`, `cargo clippy` | Padrão consistente e verificável                                                                                                   |
+| Camada            | Tecnologia                                                   | Por quê                                                                                                                            |
+| ----------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Desktop           | **Tauri 2** (Rust)                                           | Binário pequeno, usa o WebView2 nativo do Windows, com modelo de permissões granular (capabilities) e acesso seguro ao SO via Rust |
+| Linguagem nativa  | **Rust** (stable)                                            | Segurança de memória e acesso ao sistema (bateria, discos, arquivos) sem expor nada ao JavaScript                                  |
+| UI                | **React 19 + TypeScript 6 (strict)**                         | Ecossistema maduro, tipagem forte de ponta a ponta                                                                                 |
+| Build             | **Vite 8**                                                   | Dev server rápido, HMR e code splitting por rota                                                                                   |
+| Rotas             | **React Router 8** (data router)                             | Rotas declarativas, carregamento sob demanda e tratamento de erro por rota                                                         |
+| Estilo            | **Tailwind CSS 4** + tokens em CSS variables                 | Tema centralizado e fácil de trocar, sem CSS espalhado                                                                             |
+| Componentes       | Padrão **shadcn/ui** (Radix UI + CVA)                        | Acessibilidade pronta (Radix) com código dentro do projeto, sem lock-in                                                            |
+| Ícones            | **Lucide React**                                             | Conjunto consistente e leve                                                                                                        |
+| Estado global     | **Zustand**                                                  | Mínimo e sem boilerplate. Usado só para estado de UI                                                                               |
+| Gráficos          | **Recharts**                                                 | Declarativo, integra bem com React e aceita os tokens do tema                                                                      |
+| Arrastar e soltar | **@dnd-kit** (core + sortable)                               | Kanban acessível: funciona com mouse e teclado, com anúncios para leitores de tela                                                 |
+| Toasts            | **Sonner**                                                   | Notificações acessíveis, recomendadas pelo shadcn                                                                                  |
+| Banco             | **SQLite via `rusqlite` (bundled)**                          | Arquivo único local; o SQLite vem embutido, sem instalação. **Todo SQL fica no Rust**                                              |
+| Testes            | **Vitest + Testing Library** / `cargo test`                  | Testes rápidos e o mesmo pipeline do Vite                                                                                          |
+| Qualidade         | ESLint (type-checked), Prettier, `cargo fmt`, `cargo clippy` | Padrão consistente e verificável                                                                                                   |
 
 ### Decisões técnicas
 
@@ -49,7 +50,7 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
 
 ### Produtividade (Fase 2)
 
-- **Tarefas**: To-Do e Kanban, prioridades, categorias, tags, status, vencimento, recorrência e checklists.
+- **Tarefas** ✅ (2.1): lista e Kanban, status, prioridades, vencimento com destaque (atrasada, hoje, em breve), tags, busca e filtros. _Na 2.2: recorrência, checklists, categorias e arquivamento._
 - **Notas e diário**: editor Markdown, notas rápidas, diário por data, busca, tags, favoritos, pastas e histórico.
 - **Rotinas**: rotinas diárias e semanais, hábitos, histórico de execução e indicadores de consistência.
 - **Calendário**: eventos, lembretes, recorrência, notificações locais e visões mensal, semanal e diária.
@@ -76,8 +77,13 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
 - **Investimentos**: Renda Fixa, Ações, FIIs, ETFs, Cripto e Outros, com patrimônio, distribuição, evolução e rentabilidade.
 - **Analytics**: receita x despesa, gastos por categoria, fluxo de caixa, projeção de 6 meses e impacto das parcelas.
 
-### Já funcional nesta fase
+### Já funcional
 
+- **Tarefas**:
+  - criar, editar, concluir e excluir, com exclusão só após confirmação e registrada na auditoria;
+  - visão Lista com busca sem acentos e filtros por status, prioridade e tag;
+  - visão Kanban com arrastar e soltar pelo mouse ou pelo teclado (↑↓ muda a posição, ←→ muda de coluna) e a opção "Mover para" no menu;
+  - widget "Tarefas de hoje" no dashboard com dados reais.
 - Layout completo, navegação entre as 16 páginas e página 404.
 - Persistência SQLite com migrations versionadas executadas na inicialização.
 - **Configurações**: nome de exibição salvo no banco (usado na saudação), log de auditoria, informações do app e vitrine do design system.
@@ -116,8 +122,8 @@ Para trocar o tema, basta editar `tokens.css`. Os componentes não usam hexadeci
 
 ### Componentes
 
-- **Base (`components/ui`)**: Button, Card, Badge, Input, Label, Select, Dialog, DropdownMenu, Tabs, Progress, Table, Tooltip, Skeleton e Toaster.
-- **Compostos (`components/shared`)**: PageHeader, EmptyState, LoadingState, ErrorState, DemoBadge, WidgetCard, ModulePlaceholder e ResourceView.
+- **Base (`components/ui`)**: Button, Card, Badge, Input, Textarea, Label, Checkbox, Select, Dialog, AlertDialog, DropdownMenu, Tabs, Progress, Table, Tooltip, Skeleton e Toaster.
+- **Compostos (`components/shared`)**: PageHeader, EmptyState, LoadingState, ErrorState, DemoBadge, WidgetCard, ModulePlaceholder, ResourceView e TagInput.
 - A aba **Configurações → Aparência** mostra todos os componentes ao vivo.
 
 ### Sidebar
@@ -143,7 +149,7 @@ src/                          Frontend (React)
 │   ├── layout/               Sidebar, header, breadcrumb
 │   └── shared/               Componentes compostos reutilizáveis
 ├── features/                 Um diretório por módulo
-│   ├── productivity/         types.ts, domain/, components/, module-info.ts
+│   ├── productivity/         tasks/ (types, domain, hooks, components) + contratos futuros
 │   ├── system/               + devices/ e optimization/ (contratos)
 │   └── finance/
 ├── pages/                    Páginas das rotas (compõem features)
@@ -161,23 +167,24 @@ src-tauri/                    Backend (Rust)
 │   ├── commands/             Camada IPC (fina), leitura e escrita separadas
 │   ├── services/             Casos de uso: validação, transações, auditoria
 │   ├── repositories/         Único lugar com SQL
-│   ├── domain/               Regras e contratos (audit, settings, devices, optimization)
+│   ├── domain/               Regras e contratos (audit, settings, tasks, devices, optimization)
 │   ├── db/                   Conexão SQLite + runner de migrations
 │   ├── error.rs              AppError → { kind, message }
 │   └── state.rs              Estado gerenciado (banco, providers)
-├── migrations/               SQL versionado (0001_initial.sql…)
+├── migrations/               SQL versionado (0001_initial, 0002_tasks…)
 ├── capabilities/             Permissões mínimas, comentadas
 └── build.rs                  Lista explícita de commands permitidos
 ```
 
 **Fluxo de dados:** página → hook → `services/*` → `invokeCommand` → _IPC_ → `commands` → `services` → `repositories`/`domain` → SQLite.
 
-**Banco de dados:** `%APPDATA%\com.brunostrufaldi.zonadecontrole\zona-de-controle.db`. As migrations rodam na inicialização. Tabelas iniciais:
+**Banco de dados:** `%APPDATA%\com.brunostrufaldi.zonadecontrole\zona-de-controle.db`. As migrations rodam na inicialização. Tabelas:
 
 - `app_settings`: preferências em chave/valor, com o valor em JSON validado.
 - `audit_log`: registro de operações sensíveis. É somente inserção, com triggers que impedem alteração e exclusão.
+- `tasks`, `tags` e `task_tags`: tarefas, com posição fracionária por coluna do Kanban. As tags são compartilhadas entre módulos.
 
-**Segurança:** a capability concede apenas os commands do próprio app, sem nenhum plugin e sem permissões `core:*`. A CSP é restritiva, não há execução de shell e nenhuma operação destrutiva existe nesta fase.
+**Segurança:** a capability concede apenas os commands do próprio app, sem nenhum plugin e sem permissões `core:*`. A CSP é restritiva e não há execução de shell. A única operação destrutiva é a exclusão de tarefas: ela exige confirmação explícita e é auditada, tanto no sucesso quanto na falha.
 
 ## Pré-requisitos (Windows 11)
 
@@ -243,7 +250,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada pu
 ## Roadmap
 
 - **Fase 1 — Foundation** ✅: boilerplate, design system, layout, navegação, Tauri e SQLite preparado.
-- **Fase 2 — Productivity**: tarefas, notas, rotinas e calendário.
+- **Fase 2 — Productivity** 🚧: tarefas ✅ (2.1); recorrência e checklists (2.2); notas, rotinas e calendário.
 - **Fase 3 — System Monitor**: CPU, RAM, discos, diagnósticos, dispositivos e bateria (Bluetooth e controles Xbox primeiro; periféricos 2.4 GHz depois, por modelo).
 - **Fase 4 — Safe Optimization**: temporários, caches seguros, lixeira, logs e confirmação.
 - **Fase 5 — Finance Core**: lançamentos, categorias, recorrências e parcelamentos.

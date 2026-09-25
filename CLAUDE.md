@@ -107,14 +107,21 @@ Regras:
 4. Adicione o item em `src/config/navigation.ts` (título/ícone da página vêm daqui).
 5. O teste de roteamento cobre automaticamente todo item da navegação.
 
-## Como implementar um módulo (ex.: Tarefas)
+## Como implementar um módulo
 
-1. Contratos em `features/<módulo>/types.ts`; regras puras em `features/<módulo>/domain/` + testes.
-2. Migration nova em `src-tauri/migrations/` (+ registro em `db/migrations.rs`).
-3. Rust: `domain/` → `repositories/` (SQL + testes com `Database::open_in_memory`) → `services/` → `commands/`.
+**Referência completa: Tarefas.** Use como modelo:
+
+- **Rust:** `src-tauri/src/{domain,repositories,services,commands}/tasks.rs` + `migrations/0002_tasks.sql`.
+- **Frontend:** `src/features/productivity/tasks/` (types, domain, hooks, components), a página `pages/productivity/tasks-page.tsx` e o serviço `services/tasks-service.ts`.
+
+1. Contratos em `features/<módulo>/types.ts` (espelhando o Rust); regras puras em `features/<módulo>/domain/` + testes.
+2. Migration nova em `src-tauri/migrations/` (+ registro em `db/migrations.rs`). Teste também a atualização a partir da versão anterior.
+3. Rust: `domain/` (validação) → `repositories/` (SQL + testes com `Database::open_in_memory`) → `services/` (transações/auditoria) → `commands/`.
 4. Exponha o command (checklist abaixo).
-5. Frontend: função em `src/services/<módulo>-service.ts`, componentes em `features/<módulo>/components`, página em `pages/`.
-6. Troque os widgets do dashboard de `src/mocks` pela fonte real e **remova a flag `demo`**.
+5. Frontend: função em `src/services/<módulo>-service.ts`, hook de estado em `features/<módulo>/hooks/`, componentes em `features/<módulo>/components`, página em `pages/`.
+6. Testes de página com backend em memória (ver `src/test/fake-tasks-backend.ts`).
+7. Troque os widgets do dashboard de `src/mocks` pela fonte real e **remova a flag `demo`**.
+8. Valide no app real (`npm run dev`), não só nos testes.
 
 ## Como expor um novo command Rust
 
@@ -141,6 +148,9 @@ Regras:
   e comentário na capability. O plugin SQL do Tauri **não** deve ser usado: SQL só no Rust.
 - Nunca armazenar senhas/segredos em texto puro.
 - `audit_log` é somente inserção (triggers bloqueiam UPDATE/DELETE). Operações sensíveis devem auditar sucesso **e** falha.
+- Padrão de exclusão: `AlertDialog` que nomeia o item e avisa que é permanente e auditado
+  (ver `DeleteTaskDialog`) → service Rust que exclui + audita na mesma transação
+  (ver `services/tasks.rs::delete_task`). Guarde nos `details` do log algo legível (ex.: título).
 - Não reative `app.security.freezePrototype` no `tauri.conf.json`: quebra o `decimal.js-light` usado pelo Recharts.
 
 ## Regra de mocks
@@ -165,3 +175,9 @@ Regras:
 - **Tauri fixado em `2`** (a v3 está em alpha).
 - Testes do frontend simulam o Tauri com `mockDesktopRuntime` (`src/test/tauri.ts`); fora dele,
   os services lançam `ServiceError` com `kind: "desktop-only"` (útil para `npm run dev:web`).
+- Commands Rust recebem argumentos em camelCase do JS (`beforeId` → `before_id`), padrão do Tauri.
+- Testes que renderizam o dashboard chamam `preloadDashboard` em `beforeAll` (a importação a frio
+  do Recharts passa do timeout na CI).
+- **Kanban (@dnd-kit):** o teclado usa `kanbanKeyboardCoordinates` (←/→ trocam de coluna). Não
+  aplique `rotate`/`scale` no `DragOverlay`: distorce o retângulo de colisão. Arrastar não roda no
+  jsdom — teste `resolveDrop`/`applyMove` (domínio) e valide o arraste num Chromium real.
