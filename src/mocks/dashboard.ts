@@ -7,7 +7,8 @@
  *  - Nunca apresente estes valores como métricas reais.
  */
 import { type MonthlyCashflow } from "@/features/finance/types";
-import { type RoutineProgressSummary, type TasksOverview } from "@/features/productivity/types";
+import { type TasksOverview } from "@/features/productivity/tasks/types";
+import { type RoutineProgressSummary } from "@/features/productivity/types";
 import { type DeviceBatteryInfo } from "@/features/system/devices/types";
 import { type StorageVolume, type SystemOverview } from "@/features/system/types";
 import { type ActivityEntry } from "@/types/activity";
@@ -31,9 +32,9 @@ export const dashboardDemoData: DashboardDemoData = {
     plannedToday: 8,
     overdue: 1,
     upcoming: [
-      { id: "t1", title: "Revisar orçamento do mês", dueDate: "2026-09-26", priority: "high" },
-      { id: "t2", title: "Agendar revisão do carro", dueDate: "2026-09-29", priority: "medium" },
-      { id: "t3", title: "Organizar notas da semana", dueDate: "2026-10-01", priority: "low" },
+      { id: 1, title: "Revisar orçamento do mês", dueDate: "2026-09-26", priority: "high" },
+      { id: 2, title: "Agendar revisão do carro", dueDate: "2026-09-29", priority: "medium" },
+      { id: 3, title: "Organizar notas da semana", dueDate: "2026-10-01", priority: "low" },
     ],
   },
   routine: {
