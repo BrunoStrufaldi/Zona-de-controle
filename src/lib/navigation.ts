@@ -31,3 +31,12 @@ export function findNavigationTrail(config: NavigationConfig, pathname: string):
 export function normalizePath(pathname: string): string {
   return pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
 }
+
+/** Item de navegação correspondente ao caminho, se existir. */
+export function findNavigationItem(
+  config: NavigationConfig,
+  pathname: string,
+): NavLinkItem | undefined {
+  const normalized = normalizePath(pathname);
+  return flattenNavigation(config).find((item) => item.path === normalized);
+}

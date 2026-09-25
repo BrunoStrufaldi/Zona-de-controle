@@ -119,3 +119,12 @@ export function formatBytes(bytes: number, maximumFractionDigits = 1): string {
   const value = bytes / 1024 ** exponent;
   return `${formatNumber(value, maximumFractionDigits)} ${BYTE_UNITS[exponent] ?? "B"}`;
 }
+
+/** 13320 → "3h 42min"; 2700 → "45min". */
+export function formatDuration(totalSeconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  if (hours === 0) return `${minutes}min`;
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}min`;
+}

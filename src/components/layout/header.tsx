@@ -53,7 +53,7 @@ export function Header({ trail, sidebarExpanded, onToggleSidebar }: HeaderProps)
       <div aria-hidden="true" className="h-5 w-px bg-border" />
       <Breadcrumb trail={trail} className="flex-1" />
 
-      <span className="hidden text-xs text-muted-foreground capitalize md:inline">
+      <span className="hidden text-xs text-muted-foreground first-letter:uppercase md:inline-block">
         {formatLongDate(new Date())}
       </span>
 

@@ -31,11 +31,10 @@
   --zdc-danger: #ff4d4f;
   --zdc-info: #5b8def;
 
-  /* Gráficos (séries em ordem de uso) */
+  /* Gráficos — paleta categórica validada (contraste, daltonismo) sobre --zdc-surface.
+     Adicione novas séries só após validar a paleta completa. */
   --zdc-chart-1: #ff2a4b;
-  --zdc-chart-2: #8e8e93;
-  --zdc-chart-3: #f5a524;
-  --zdc-chart-4: #5b8def;
+  --zdc-chart-2: #5b8def;
   --zdc-chart-grid: #26262b;
 
   /* Forma */

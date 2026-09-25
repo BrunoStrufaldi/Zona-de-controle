@@ -42,8 +42,8 @@
   --radius-lg: var(--zdc-radius);
   --radius-xl: calc(var(--zdc-radius) + 0.25rem);
 
-  --shadow-glow: 0 0 0 1px rgb(var(--zdc-primary-rgb) / 0.35),
-    0 0 24px -6px rgb(var(--zdc-primary-rgb) / 0.55);
+  --shadow-glow:
+    0 0 0 1px rgb(var(--zdc-primary-rgb) / 0.35), 0 0 24px -6px rgb(var(--zdc-primary-rgb) / 0.55);
   --shadow-glow-sm: 0 0 12px -4px rgb(var(--zdc-primary-rgb) / 0.6);
   --shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.03) inset, 0 12px 32px -16px rgb(0 0 0 / 0.8);
 
@@ -118,9 +118,7 @@
     background-attachment: fixed;
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-feature-settings:
-      "cv11",
-      "ss01";
+    font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     user-select: none;

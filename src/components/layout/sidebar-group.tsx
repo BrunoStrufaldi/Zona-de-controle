@@ -73,13 +73,7 @@ export function SidebarGroup({
         className="grid animate-fade-in gap-0.5"
       >
         {group.items.map((item) => (
-          <SidebarLink
-            key={item.id}
-            item={item}
-            collapsed={false}
-            nested
-            onNavigate={onNavigate}
-          />
+          <SidebarLink key={item.id} item={item} collapsed={false} nested onNavigate={onNavigate} />
         ))}
       </div>
     </div>

@@ -28,7 +28,7 @@ export function WidgetCard({
   contentClassName,
 }: WidgetCardProps) {
   return (
-    <Card interactive className={cn("animate-slide-up", className)}>
+    <Card interactive className={cn("min-w-0 animate-slide-up", className)}>
       <CardHeader>
         <div className="flex items-center gap-2">
           {Icon && <Icon className="size-4 text-primary" aria-hidden="true" />}
