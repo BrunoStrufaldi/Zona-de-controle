@@ -16,7 +16,7 @@ O **Zona de Controle** reúne em um só lugar três áreas do dia a dia:
 
 Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem, sem contas e sem APIs externas.
 
-> **Estado atual: Fase 2 em andamento.** A fundação está pronta e o módulo de **Tarefas** já funciona (lista, Kanban e dashboard). Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
+> **Estado atual: Fase 2 em andamento.** A fundação está pronta e o módulo de **Tarefas** já funciona (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard). Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
 
 ## Stack
 
@@ -50,7 +50,7 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
 
 ### Produtividade (Fase 2)
 
-- **Tarefas** ✅ (2.1): lista e Kanban, status, prioridades, vencimento com destaque (atrasada, hoje, em breve), tags, busca e filtros. _Na 2.2: recorrência, checklists, categorias e arquivamento._
+- **Tarefas** ✅ (2.1 e 2.2): lista e Kanban, status, prioridades, vencimento com destaque (atrasada, hoje, em breve), tags, busca e filtros, recorrência, checklists, categorias e arquivamento.
 - **Notas e diário**: editor Markdown, notas rápidas, diário por data, busca, tags, favoritos, pastas e histórico.
 - **Rotinas**: rotinas diárias e semanais, hábitos, histórico de execução e indicadores de consistência.
 - **Calendário**: eventos, lembretes, recorrência, notificações locais e visões mensal, semanal e diária.
@@ -83,6 +83,10 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
   - criar, editar, concluir e excluir, com exclusão só após confirmação e registrada na auditoria;
   - visão Lista com busca sem acentos e filtros por status, prioridade e tag;
   - visão Kanban com arrastar e soltar pelo mouse ou pelo teclado (↑↓ muda a posição, ←→ muda de coluna) e a opção "Mover para" no menu;
+  - **recorrência** diária, semanal (com dias da semana), mensal ou anual, a cada N períodos. Ao concluir, a próxima ocorrência é criada com o vencimento seguinte e a regra passa para ela. Concluir com atraso pula as datas que já passaram;
+  - **checklists** dentro da tarefa, com progresso ("2/5") e itens marcáveis direto na lista e no Kanban;
+  - **categorias** criadas pelo usuário, com nome e cor (uma por tarefa), filtro por categoria e exclusão confirmada e auditada. A tarefa perde a categoria, mas não é excluída;
+  - **arquivamento** manual ou em lote ("Arquivar concluídas"). Tarefas arquivadas saem da lista, do Kanban e do dashboard e ficam na aba Arquivadas, de onde podem ser restauradas ou excluídas;
   - widget "Tarefas de hoje" no dashboard com dados reais.
 - Layout completo, navegação entre as 16 páginas e página 404.
 - Persistência SQLite com migrations versionadas executadas na inicialização.
@@ -167,11 +171,11 @@ src-tauri/                    Backend (Rust)
 │   ├── commands/             Camada IPC (fina), leitura e escrita separadas
 │   ├── services/             Casos de uso: validação, transações, auditoria
 │   ├── repositories/         Único lugar com SQL
-│   ├── domain/               Regras e contratos (audit, settings, tasks, devices, optimization)
+│   ├── domain/               Regras e contratos (audit, settings, tasks, calendar, devices…)
 │   ├── db/                   Conexão SQLite + runner de migrations
 │   ├── error.rs              AppError → { kind, message }
 │   └── state.rs              Estado gerenciado (banco, providers)
-├── migrations/               SQL versionado (0001_initial, 0002_tasks…)
+├── migrations/               SQL versionado (0001_initial, 0002_tasks, 0003_tasks_extras…)
 ├── capabilities/             Permissões mínimas, comentadas
 └── build.rs                  Lista explícita de commands permitidos
 ```
@@ -182,9 +186,11 @@ src-tauri/                    Backend (Rust)
 
 - `app_settings`: preferências em chave/valor, com o valor em JSON validado.
 - `audit_log`: registro de operações sensíveis. É somente inserção, com triggers que impedem alteração e exclusão.
-- `tasks`, `tags` e `task_tags`: tarefas, com posição fracionária por coluna do Kanban. As tags são compartilhadas entre módulos.
+- `tasks`, `tags` e `task_tags`: tarefas, com posição fracionária por coluna do Kanban, regra de recorrência em JSON e data de arquivamento. As tags são compartilhadas entre módulos.
+- `task_checklist_items`: itens de checklist de cada tarefa, excluídos em cascata junto com ela.
+- `task_categories`: categorias com nome único e uma cor da paleta de tokens. Excluir uma categoria só remove o vínculo com as tarefas (`ON DELETE SET NULL`).
 
-**Segurança:** a capability concede apenas os commands do próprio app, sem nenhum plugin e sem permissões `core:*`. A CSP é restritiva e não há execução de shell. A única operação destrutiva é a exclusão de tarefas: ela exige confirmação explícita e é auditada, tanto no sucesso quanto na falha.
+**Segurança:** a capability concede apenas os commands do próprio app, sem nenhum plugin e sem permissões `core:*`. A CSP é restritiva e não há execução de shell. As operações destrutivas são a exclusão de tarefas e a de categorias. Ambas exigem confirmação explícita e são auditadas, tanto no sucesso quanto na falha. Arquivar não apaga dados.
 
 ## Pré-requisitos (Windows 11)
 
@@ -250,7 +256,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada pu
 ## Roadmap
 
 - **Fase 1 — Foundation** ✅: boilerplate, design system, layout, navegação, Tauri e SQLite preparado.
-- **Fase 2 — Productivity** 🚧: tarefas ✅ (2.1); recorrência e checklists (2.2); notas, rotinas e calendário.
+- **Fase 2 — Productivity** 🚧: tarefas ✅ (2.1); recorrência, checklists, categorias e arquivamento ✅ (2.2); notas, rotinas e calendário.
 - **Fase 3 — System Monitor**: CPU, RAM, discos, diagnósticos, dispositivos e bateria (Bluetooth e controles Xbox primeiro; periféricos 2.4 GHz depois, por modelo).
 - **Fase 4 — Safe Optimization**: temporários, caches seguros, lixeira, logs e confirmação.
 - **Fase 5 — Finance Core**: lançamentos, categorias, recorrências e parcelamentos.

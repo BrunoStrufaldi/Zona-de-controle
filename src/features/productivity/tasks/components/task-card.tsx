@@ -4,12 +4,9 @@ import { GripVertical } from "lucide-react";
 import { type ComponentProps } from "react";
 
 import { TaskActionsMenu } from "@/features/productivity/tasks/components/task-actions-menu";
-import {
-  DueBadge,
-  PriorityBadge,
-  TagList,
-} from "@/features/productivity/tasks/components/task-badges";
 import { type TaskItemHandlers } from "@/features/productivity/tasks/components/task-list";
+import { TaskMeta } from "@/features/productivity/tasks/components/task-meta";
+import { type CategoriesById } from "@/features/productivity/tasks/domain/categories";
 import { type Task } from "@/features/productivity/tasks/types";
 import { cn } from "@/lib/cn";
 import { type IsoDate } from "@/types/common";
@@ -17,6 +14,7 @@ import { type IsoDate } from "@/types/common";
 interface TaskCardProps extends Omit<TaskItemHandlers, "onToggleDone"> {
   task: Task;
   today: IsoDate;
+  categories: CategoriesById;
   /** Props da alça de arrastar (vindas do `useSortable`). */
   handleProps?: ComponentProps<"button">;
   /** Card flutuante exibido durante o arraste. */
@@ -27,12 +25,15 @@ interface TaskCardProps extends Omit<TaskItemHandlers, "onToggleDone"> {
 export function TaskCard({
   task,
   today,
+  categories,
   handleProps,
   overlay = false,
   dragging = false,
   onEdit,
   onMove,
+  onArchive,
   onDelete,
+  onToggleChecklistItem,
 }: TaskCardProps) {
   const done = task.status === "done";
 
@@ -69,17 +70,24 @@ export function TaskCard({
             {task.title}
           </button>
           {!overlay && (
-            <TaskActionsMenu task={task} onEdit={onEdit} onMove={onMove} onDelete={onDelete} />
+            <TaskActionsMenu
+              task={task}
+              onEdit={onEdit}
+              onMove={onMove}
+              onArchive={onArchive}
+              onDelete={onDelete}
+            />
           )}
         </div>
         {task.description !== "" && (
           <p className="line-clamp-2 text-xs text-muted-foreground">{task.description}</p>
         )}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <PriorityBadge priority={task.priority} />
-          <DueBadge task={task} today={today} />
-          <TagList tags={task.tags} />
-        </div>
+        <TaskMeta
+          task={task}
+          today={today}
+          categories={categories}
+          onToggleChecklistItem={overlay ? undefined : onToggleChecklistItem}
+        />
       </div>
     </div>
   );

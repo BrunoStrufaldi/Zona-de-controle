@@ -4,7 +4,14 @@ import {
   type BatteryProviderDescriptor,
   type DeviceBatteryInfo,
 } from "@/features/system/devices/types";
-import { type Task, type TaskInput, type TaskStatus } from "@/features/productivity/tasks/types";
+import {
+  type Task,
+  type TaskCategory,
+  type TaskCategoryInput,
+  type TaskChange,
+  type TaskInput,
+  type TaskStatus,
+} from "@/features/productivity/tasks/types";
 import { type CleanupCategoryDescriptor } from "@/features/system/optimization/types";
 import { DESKTOP_ONLY_MESSAGE, ServiceError, toServiceError } from "@/services/tauri/errors";
 import { isDesktopRuntime } from "@/services/tauri/runtime";
@@ -28,11 +35,23 @@ export interface CommandMap {
   list_battery_devices: { args: undefined; result: DeviceBatteryInfo[] };
   list_cleanup_categories: { args: undefined; result: CleanupCategoryDescriptor[] };
   list_tasks: { args: undefined; result: Task[] };
+  list_archived_tasks: { args: undefined; result: Task[] };
   list_task_tags: { args: undefined; result: string[] };
-  create_task: { args: { input: TaskInput }; result: Task };
-  update_task: { args: { id: number; input: TaskInput }; result: Task };
-  move_task: { args: { id: number; status: TaskStatus; beforeId: number | null }; result: Task };
+  create_task: { args: { input: TaskInput }; result: TaskChange };
+  update_task: { args: { id: number; input: TaskInput }; result: TaskChange };
+  move_task: {
+    args: { id: number; status: TaskStatus; beforeId: number | null };
+    result: TaskChange;
+  };
+  set_checklist_item_done: { args: { itemId: number; done: boolean }; result: Task };
+  archive_task: { args: { id: number }; result: Task };
+  archive_completed_tasks: { args: undefined; result: number };
+  restore_task: { args: { id: number }; result: Task };
   delete_task: { args: { id: number }; result: null };
+  list_task_categories: { args: undefined; result: TaskCategory[] };
+  create_task_category: { args: { input: TaskCategoryInput }; result: TaskCategory };
+  update_task_category: { args: { id: number; input: TaskCategoryInput }; result: TaskCategory };
+  delete_task_category: { args: { id: number }; result: null };
 }
 
 export type CommandName = keyof CommandMap;

@@ -27,6 +27,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "tasks",
         sql: include_str!("../../migrations/0002_tasks.sql"),
     },
+    Migration {
+        version: 3,
+        name: "tasks_extras",
+        sql: include_str!("../../migrations/0003_tasks_extras.sql"),
+    },
 ];
 
 const CREATE_SCHEMA_MIGRATIONS: &str = "
@@ -119,7 +124,15 @@ mod tests {
         let version = run(&mut connection).unwrap();
 
         assert_eq!(version, latest_version());
-        for table in ["app_settings", "audit_log", "tasks", "tags", "task_tags"] {
+        for table in [
+            "app_settings",
+            "audit_log",
+            "tasks",
+            "tags",
+            "task_tags",
+            "task_categories",
+            "task_checklist_items",
+        ] {
             assert!(table_exists(&connection, table), "{table}");
         }
     }
@@ -143,6 +156,37 @@ mod tests {
             .query_row("SELECT value FROM app_settings", [], |row| row.get(0))
             .unwrap();
         assert_eq!(value, "\"Ana\"");
+    }
+
+    #[test]
+    fn upgrades_tasks_from_version_2_keeping_rows() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(CREATE_SCHEMA_MIGRATIONS).unwrap();
+        apply(&mut connection, &MIGRATIONS[0]).unwrap();
+        apply(&mut connection, &MIGRATIONS[1]).unwrap();
+        connection
+            .execute(
+                "INSERT INTO tasks (title, due_date) VALUES ('Antiga', '2026-09-25')",
+                [],
+            )
+            .unwrap();
+
+        run(&mut connection).unwrap();
+
+        let (title, category, recurrence, archived): (
+            String,
+            Option<i64>,
+            Option<String>,
+            Option<String>,
+        ) = connection
+            .query_row(
+                "SELECT title, category_id, recurrence, archived_at FROM tasks",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(title, "Antiga");
+        assert_eq!((category, recurrence, archived), (None, None, None));
     }
 
     #[test]

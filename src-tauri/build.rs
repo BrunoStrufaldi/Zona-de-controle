@@ -12,11 +12,20 @@ const APP_COMMANDS: &[&str] = &[
     "list_battery_devices",
     "list_cleanup_categories",
     "list_tasks",
+    "list_archived_tasks",
     "list_task_tags",
     "create_task",
     "update_task",
     "move_task",
+    "set_checklist_item_done",
+    "archive_task",
+    "archive_completed_tasks",
+    "restore_task",
     "delete_task",
+    "list_task_categories",
+    "create_task_category",
+    "update_task_category",
+    "delete_task_category",
 ];
 
 fn main() {

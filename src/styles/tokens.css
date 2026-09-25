@@ -37,6 +37,18 @@
   --zdc-chart-2: #5b8def;
   --zdc-chart-grid: #26262b;
 
+  /* Categorias de tarefas — contraste ≥ 5,7:1 sobre --zdc-surface. A cor nunca é
+     o único sinal: a categoria sempre aparece com o nome. */
+  --zdc-category-red: #ff5a6e;
+  --zdc-category-orange: #ff8a3d;
+  --zdc-category-amber: #f5c542;
+  --zdc-category-green: #3ecf7a;
+  --zdc-category-teal: #2ec4b6;
+  --zdc-category-blue: #5b8def;
+  --zdc-category-violet: #a78bfa;
+  --zdc-category-pink: #f472b6;
+  --zdc-category-slate: #94a3b8;
+
   /* Forma */
   --zdc-radius: 0.75rem;
 

@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SortableTaskCard } from "@/features/productivity/tasks/components/task-card";
 import { type TaskItemHandlers } from "@/features/productivity/tasks/components/task-list";
+import { type CategoriesById } from "@/features/productivity/tasks/domain/categories";
 import { statusLabels } from "@/features/productivity/tasks/domain/labels";
 import { type Task, type TaskStatus } from "@/features/productivity/tasks/types";
 import { cn } from "@/lib/cn";
@@ -23,10 +24,18 @@ interface KanbanColumnProps extends Omit<TaskItemHandlers, "onToggleDone"> {
   status: TaskStatus;
   tasks: readonly Task[];
   today: IsoDate;
+  categories: CategoriesById;
   onCreate: (status: TaskStatus) => void;
 }
 
-export function KanbanColumn({ status, tasks, today, onCreate, ...handlers }: KanbanColumnProps) {
+export function KanbanColumn({
+  status,
+  tasks,
+  today,
+  categories,
+  onCreate,
+  ...handlers
+}: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: columnDropId(status),
     data: { type: "column", status },
@@ -68,7 +77,13 @@ export function KanbanColumn({ status, tasks, today, onCreate, ...handlers }: Ka
           aria-label={`Tarefas em ${label}`}
         >
           {tasks.map((task) => (
-            <SortableTaskCard key={task.id} task={task} today={today} {...handlers} />
+            <SortableTaskCard
+              key={task.id}
+              task={task}
+              today={today}
+              categories={categories}
+              {...handlers}
+            />
           ))}
           {tasks.length === 0 && (
             <li className="flex flex-1 list-none items-center justify-center rounded-lg border border-dashed border-border px-3 py-8 text-center text-xs text-subtle-foreground">

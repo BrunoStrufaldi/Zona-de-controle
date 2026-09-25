@@ -31,16 +31,32 @@ permissions = [
   # Leitura das categorias de limpeza previstas. NÃO há command de limpeza/exclusão.
   "allow-list-cleanup-categories",
 
-  # Tarefas — leitura da lista e das tags em uso.
+  # Tarefas — leitura da lista (ativas e arquivadas), das tags e das categorias.
   "allow-list-tasks",
+  "allow-list-archived-tasks",
   "allow-list-task-tags",
+  "allow-list-task-categories",
 
-  # Tarefas — escrita. Entradas validadas no Rust (título, datas, tags).
+  # Tarefas — escrita. Entradas validadas no Rust (título, datas, tags,
+  # recorrência, checklist, categoria).
   "allow-create-task",
   "allow-update-task",
   "allow-move-task",
+  "allow-set-checklist-item-done",
 
-  # Tarefas — exclusão definitiva. A interface exige confirmação explícita e
-  # cada exclusão (ou falha) é registrada no log de auditoria.
+  # Tarefas — arquivar/restaurar. Reversível: só marca a data de arquivamento,
+  # nenhum dado é apagado.
+  "allow-archive-task",
+  "allow-archive-completed-tasks",
+  "allow-restore-task",
+
+  # Categorias de tarefas — criar e editar (nome e cor validados no Rust).
+  "allow-create-task-category",
+  "allow-update-task-category",
+
+  # Tarefas e categorias — exclusão definitiva. A interface exige confirmação
+  # explícita e cada exclusão (ou falha) é registrada no log de auditoria.
+  # Excluir uma categoria não exclui tarefas: elas ficam sem categoria.
   "allow-delete-task",
+  "allow-delete-task-category",
 ]

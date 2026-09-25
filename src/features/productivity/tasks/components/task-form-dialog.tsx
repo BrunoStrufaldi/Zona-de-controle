@@ -1,5 +1,5 @@
 import { Save } from "lucide-react";
-import { type ReactNode, type SyntheticEvent, useId, useState } from "react";
+import { type SyntheticEvent, useId, useState } from "react";
 
 import { TagInput } from "@/components/shared/tag-input";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -21,6 +20,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ChecklistEditor } from "@/features/productivity/tasks/components/checklist-editor";
+import { Field } from "@/features/productivity/tasks/components/form-field";
+import {
+  RecurrenceDetails,
+  RecurrenceSelect,
+} from "@/features/productivity/tasks/components/recurrence-field";
+import { categoryDotClass } from "@/features/productivity/tasks/components/task-styles";
 import { emptyTaskInput, toTaskInput } from "@/features/productivity/tasks/domain/input";
 import { priorityLabels, statusLabels } from "@/features/productivity/tasks/domain/labels";
 import {
@@ -33,11 +39,17 @@ import {
   TASK_PRIORITIES,
   TASK_STATUSES,
   type Task,
+  type TaskCategory,
   type TaskInput,
   type TaskPriority,
+  type TaskRecurrence,
   type TaskStatus,
 } from "@/features/productivity/tasks/types";
+import { cn } from "@/lib/cn";
 import { toServiceError } from "@/services/tauri/errors";
+import { type IsoDate } from "@/types/common";
+
+const NO_CATEGORY = "none";
 
 export type TaskFormMode = { kind: "create"; status?: TaskStatus } | { kind: "edit"; task: Task };
 
@@ -45,6 +57,8 @@ interface TaskFormDialogProps {
   /** `null` fecha o diálogo. */
   mode: TaskFormMode | null;
   tagSuggestions: readonly string[];
+  categories: readonly TaskCategory[];
+  today: IsoDate;
   onSubmit: (input: TaskInput) => Promise<void>;
   onClose: () => void;
 }
@@ -53,7 +67,14 @@ function initialInput(mode: TaskFormMode): TaskInput {
   return mode.kind === "edit" ? toTaskInput(mode.task) : emptyTaskInput(mode.status);
 }
 
-export function TaskFormDialog({ mode, tagSuggestions, onSubmit, onClose }: TaskFormDialogProps) {
+export function TaskFormDialog({
+  mode,
+  tagSuggestions,
+  categories,
+  today,
+  onSubmit,
+  onClose,
+}: TaskFormDialogProps) {
   return (
     <Dialog
       open={mode !== null}
@@ -62,11 +83,11 @@ export function TaskFormDialog({ mode, tagSuggestions, onSubmit, onClose }: Task
       }}
     >
       {mode && (
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{mode.kind === "edit" ? "Editar tarefa" : "Nova tarefa"}</DialogTitle>
             <DialogDescription>
-              Campos com * são obrigatórios. Tags ajudam a filtrar depois.
+              Campos com * são obrigatórios. Categorias e tags ajudam a filtrar depois.
             </DialogDescription>
           </DialogHeader>
           <TaskForm
@@ -74,6 +95,8 @@ export function TaskFormDialog({ mode, tagSuggestions, onSubmit, onClose }: Task
             initial={initialInput(mode)}
             submitLabel={mode.kind === "edit" ? "Salvar alterações" : "Criar tarefa"}
             tagSuggestions={tagSuggestions}
+            categories={categories}
+            today={today}
             onSubmit={onSubmit}
             onCancel={onClose}
           />
@@ -87,11 +110,21 @@ interface TaskFormProps {
   initial: TaskInput;
   submitLabel: string;
   tagSuggestions: readonly string[];
+  categories: readonly TaskCategory[];
+  today: IsoDate;
   onSubmit: (input: TaskInput) => Promise<void>;
   onCancel: () => void;
 }
 
-function TaskForm({ initial, submitLabel, tagSuggestions, onSubmit, onCancel }: TaskFormProps) {
+function TaskForm({
+  initial,
+  submitLabel,
+  tagSuggestions,
+  categories,
+  today,
+  onSubmit,
+  onCancel,
+}: TaskFormProps) {
   const [draft, setDraft] = useState<TaskInput>(initial);
   const [errors, setErrors] = useState<TaskInputErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -102,11 +135,22 @@ function TaskForm({ initial, submitLabel, tagSuggestions, onSubmit, onCancel }: 
     status: useId(),
     priority: useId(),
     due: useId(),
+    category: useId(),
+    checklist: useId(),
     tags: useId(),
   };
 
   const update = (patch: Partial<TaskInput>) => {
     setDraft((current) => ({ ...current, ...patch }));
+  };
+
+  // Recorrência precisa de vencimento: ao ativá-la sem data, sugere hoje.
+  const updateRecurrence = (recurrence: TaskRecurrence | null) => {
+    setDraft((current) => ({
+      ...current,
+      recurrence,
+      dueDate: recurrence !== null && current.dueDate === null ? today : current.dueDate,
+    }));
   };
 
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
@@ -122,6 +166,9 @@ function TaskForm({ initial, submitLabel, tagSuggestions, onSubmit, onCancel }: 
         ...draft,
         title: draft.title.trim(),
         description: draft.description.trim(),
+        checklist: draft.checklist
+          .map((item) => ({ ...item, text: item.text.trim() }))
+          .filter((item) => item.text !== ""),
       });
     } catch (error) {
       setSubmitError(toServiceError(error).message);
@@ -218,6 +265,63 @@ function TaskForm({ initial, submitLabel, tagSuggestions, onSubmit, onCancel }: 
         </Field>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Categoria" htmlFor={ids.category}>
+          <Select
+            value={draft.categoryId === null ? NO_CATEGORY : String(draft.categoryId)}
+            onValueChange={(value) => {
+              update({ categoryId: value === NO_CATEGORY ? null : Number(value) });
+            }}
+          >
+            <SelectTrigger id={ids.category}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_CATEGORY}>Sem categoria</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={String(category.id)}>
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "mr-2 inline-block size-2 rounded-full align-middle",
+                      categoryDotClass[category.color],
+                    )}
+                  />
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <RecurrenceSelect
+          value={draft.recurrence}
+          onChange={updateRecurrence}
+          dueDate={draft.dueDate}
+          today={today}
+          error={errors.recurrence}
+        />
+      </div>
+
+      <RecurrenceDetails
+        value={draft.recurrence}
+        onChange={updateRecurrence}
+        dueDate={draft.dueDate}
+        today={today}
+        error={errors.recurrence}
+      />
+
+      <Field label="Checklist" htmlFor={ids.checklist} error={errors.checklist}>
+        <ChecklistEditor
+          id={ids.checklist}
+          value={draft.checklist}
+          onChange={(checklist) => {
+            update({ checklist });
+          }}
+          invalid={errors.checklist !== undefined}
+        />
+      </Field>
+
       <Field label="Tags" htmlFor={ids.tags} error={errors.tags}>
         <TagInput
           id={ids.tags}
@@ -251,26 +355,5 @@ function TaskForm({ initial, submitLabel, tagSuggestions, onSubmit, onCancel }: 
         </Button>
       </DialogFooter>
     </form>
-  );
-}
-
-interface FieldProps {
-  label: string;
-  htmlFor: string;
-  error?: string | undefined;
-  children: ReactNode;
-}
-
-function Field({ label, htmlFor, error, children }: FieldProps) {
-  return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
-      {error && (
-        <p className="text-xs text-danger" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
   );
 }

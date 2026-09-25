@@ -3,12 +3,16 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::domain::calendar::CalendarDate;
+use crate::domain::task_recurrence::Recurrence;
 use crate::error::{AppError, AppResult};
 
 pub const MAX_TITLE_CHARS: usize = 200;
 pub const MAX_DESCRIPTION_CHARS: usize = 10_000;
 pub const MAX_TAGS: usize = 10;
 pub const MAX_TAG_CHARS: usize = 32;
+pub const MAX_CHECKLIST_ITEMS: usize = 50;
+pub const MAX_CHECKLIST_ITEM_CHARS: usize = 200;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -82,9 +86,40 @@ pub struct Task {
     pub due_date: Option<String>,
     pub position: f64,
     pub tags: Vec<String>,
+    pub category_id: Option<i64>,
+    pub recurrence: Option<Recurrence>,
+    pub checklist: Vec<ChecklistItem>,
     pub completed_at: Option<String>,
+    /// Preenchida quando arquivada (fora da lista, do Kanban e do dashboard).
+    pub archived_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChecklistItem {
+    pub id: i64,
+    pub text: String,
+    pub done: bool,
+}
+
+/// Item de checklist enviado no formulário (a lista inteira é substituída).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChecklistItemInput {
+    pub text: String,
+    #[serde(default)]
+    pub done: bool,
+}
+
+/// Resultado de uma alteração: a tarefa e, se ela concluiu uma recorrência,
+/// a próxima ocorrência criada.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskChange {
+    pub task: Task,
+    pub next_occurrence: Option<Task>,
 }
 
 /// Dados enviados pelo frontend para criar ou editar (substituição completa).
@@ -102,6 +137,12 @@ pub struct TaskInput {
     pub due_date: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub category_id: Option<i64>,
+    #[serde(default)]
+    pub recurrence: Option<Recurrence>,
+    #[serde(default)]
+    pub checklist: Vec<ChecklistItemInput>,
 }
 
 fn default_status() -> TaskStatus {
@@ -121,6 +162,9 @@ pub struct ValidTask {
     pub priority: TaskPriority,
     pub due_date: Option<String>,
     pub tags: Vec<String>,
+    pub category_id: Option<i64>,
+    pub recurrence: Option<Recurrence>,
+    pub checklist: Vec<ChecklistItemInput>,
 }
 
 impl TaskInput {
@@ -152,6 +196,13 @@ impl TaskInput {
             }
         };
 
+        let recurrence = self.recurrence.map(Recurrence::validate).transpose()?;
+        if recurrence.is_some() && due_date.is_none() {
+            return Err(AppError::Validation(
+                "tarefas recorrentes precisam de data de vencimento".into(),
+            ));
+        }
+
         Ok(ValidTask {
             title,
             description,
@@ -159,8 +210,37 @@ impl TaskInput {
             priority: self.priority,
             due_date,
             tags: normalize_tags(self.tags)?,
+            category_id: self.category_id,
+            recurrence,
+            checklist: normalize_checklist(self.checklist)?,
         })
     }
+}
+
+/// Checklist: texto sem espaços nas pontas; itens vazios são descartados.
+pub fn normalize_checklist(raw: Vec<ChecklistItemInput>) -> AppResult<Vec<ChecklistItemInput>> {
+    let items: Vec<ChecklistItemInput> = raw
+        .into_iter()
+        .map(|item| ChecklistItemInput {
+            text: item.text.trim().to_string(),
+            done: item.done,
+        })
+        .filter(|item| !item.text.is_empty())
+        .collect();
+    if items.len() > MAX_CHECKLIST_ITEMS {
+        return Err(AppError::Validation(format!(
+            "uma checklist pode ter no máximo {MAX_CHECKLIST_ITEMS} itens"
+        )));
+    }
+    if items
+        .iter()
+        .any(|item| item.text.chars().count() > MAX_CHECKLIST_ITEM_CHARS)
+    {
+        return Err(AppError::Validation(format!(
+            "cada item da checklist pode ter no máximo {MAX_CHECKLIST_ITEM_CHARS} caracteres"
+        )));
+    }
+    Ok(items)
 }
 
 /// Tags: sem espaços nas pontas, espaços internos colapsados, minúsculas,
@@ -193,29 +273,7 @@ pub fn normalize_tags(raw: Vec<String>) -> AppResult<Vec<String>> {
 
 /// Valida `aaaa-mm-dd` com dia existente no mês (considera anos bissextos).
 pub fn is_valid_iso_date(value: &str) -> bool {
-    let bytes = value.as_bytes();
-    if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
-        return false;
-    }
-    let parse = |range: std::ops::Range<usize>| -> Option<u32> {
-        let part = &value[range];
-        part.bytes()
-            .all(|b| b.is_ascii_digit())
-            .then(|| part.parse().ok())
-            .flatten()
-    };
-    let (Some(year), Some(month), Some(day)) = (parse(0..4), parse(5..7), parse(8..10)) else {
-        return false;
-    };
-    let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
-    let days_in_month = match month {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        2 if leap => 29,
-        2 => 28,
-        _ => return false,
-    };
-    year >= 1 && (1..=days_in_month).contains(&day)
+    CalendarDate::parse(value).is_some()
 }
 
 #[cfg(test)]
@@ -230,6 +288,9 @@ mod tests {
             priority: TaskPriority::Medium,
             due_date: None,
             tags: Vec::new(),
+            category_id: None,
+            recurrence: None,
+            checklist: Vec::new(),
         }
     }
 
@@ -281,12 +342,49 @@ mod tests {
     }
 
     #[test]
+    fn recurrence_requires_a_due_date() {
+        use crate::domain::task_recurrence::RecurrenceFrequency;
+
+        let mut recurring = input("Regar plantas");
+        recurring.recurrence = Some(Recurrence {
+            frequency: RecurrenceFrequency::Daily,
+            interval: 1,
+            weekdays: vec![3],
+        });
+        assert!(recurring.clone().validate().is_err());
+
+        recurring.due_date = Some("2026-09-25".into());
+        let valid = recurring.validate().unwrap();
+        // Dias da semana só valem para a frequência semanal.
+        assert!(valid.recurrence.unwrap().weekdays.is_empty());
+    }
+
+    #[test]
+    fn normalizes_checklist() {
+        let item = |text: &str| ChecklistItemInput {
+            text: text.into(),
+            done: false,
+        };
+        let items = normalize_checklist(vec![item("  Comprar tinta "), item("   ")]).unwrap();
+        assert_eq!(items, vec![item("Comprar tinta")]);
+
+        let too_many = (0..=MAX_CHECKLIST_ITEMS)
+            .map(|i| item(&format!("{i}")))
+            .collect();
+        assert!(normalize_checklist(too_many).is_err());
+        assert!(
+            normalize_checklist(vec![item(&"x".repeat(MAX_CHECKLIST_ITEM_CHARS + 1))]).is_err()
+        );
+    }
+
+    #[test]
     fn deserializes_with_defaults() {
         let parsed: TaskInput =
             serde_json::from_str(r#"{ "title": "Ler", "dueDate": "2026-10-01" }"#).unwrap();
         assert_eq!(parsed.status, TaskStatus::Todo);
         assert_eq!(parsed.priority, TaskPriority::Medium);
         assert_eq!(parsed.due_date.as_deref(), Some("2026-10-01"));
+        assert!(parsed.checklist.is_empty() && parsed.recurrence.is_none());
         assert_eq!(
             serde_json::to_value(TaskStatus::InProgress).unwrap(),
             serde_json::json!("in_progress")

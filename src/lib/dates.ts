@@ -34,3 +34,25 @@ export function daysBetween(from: IsoDate, to: IsoDate): number {
   };
   return Math.round((utc(to) - utc(from)) / MS_PER_DAY);
 }
+
+/** Dia da semana: 0 = domingo … 6 = sábado. */
+export function weekdayOf(value: IsoDate): number {
+  return parseIsoDate(value).getDay();
+}
+
+/**
+ * Soma meses mantendo o dia `anchorDay`, limitado ao último dia do mês
+ * (ex.: 31/01 + 1 mês = 28/02 ou 29/02).
+ */
+export function addMonths(value: IsoDate, months: number, anchorDay: number): IsoDate {
+  const date = parseIsoDate(value);
+  const lastDay = new Date(date.getFullYear(), date.getMonth() + months + 1, 0).getDate();
+  return toIsoDate(
+    new Date(date.getFullYear(), date.getMonth() + months, Math.min(anchorDay, lastDay)),
+  );
+}
+
+/** Dia do mês (1–31) de uma data `aaaa-mm-dd`. */
+export function dayOfMonth(value: IsoDate): number {
+  return parseIsoDate(value).getDate();
+}

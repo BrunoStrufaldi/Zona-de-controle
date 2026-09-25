@@ -9,10 +9,25 @@ export function toTaskInput(task: Task): TaskInput {
     priority: task.priority,
     dueDate: task.dueDate,
     tags: [...task.tags],
+    categoryId: task.categoryId,
+    recurrence: task.recurrence
+      ? { ...task.recurrence, weekdays: [...task.recurrence.weekdays] }
+      : null,
+    checklist: task.checklist.map(({ text, done }) => ({ text, done })),
   };
 }
 
 /** Dados iniciais de uma nova tarefa. */
 export function emptyTaskInput(status: TaskStatus = "todo"): TaskInput {
-  return { title: "", description: "", status, priority: "medium", dueDate: null, tags: [] };
+  return {
+    title: "",
+    description: "",
+    status,
+    priority: "medium",
+    dueDate: null,
+    tags: [],
+    categoryId: null,
+    recurrence: null,
+    checklist: [],
+  };
 }

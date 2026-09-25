@@ -6,7 +6,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
  * Persistido no localStorage por ser preferência local da janela; configurações
  * do usuário ficam no SQLite (ver src/services/settings-service.ts).
  */
-export type TasksView = "list" | "kanban";
+export type TasksView = "list" | "kanban" | "archived";
 
 interface UiState {
   /** Sidebar recolhida manualmente pelo usuário (modo desktop). */

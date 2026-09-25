@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  suggestCategoryColor,
+  validateCategoryInput,
+} from "@/features/productivity/tasks/domain/categories";
+import {
+  applyChecklistToggle,
+  checklistProgress,
+} from "@/features/productivity/tasks/domain/checklist";
 import { describeDue, getDueState } from "@/features/productivity/tasks/domain/due";
 import {
   DEFAULT_TASK_FILTERS,
@@ -8,10 +16,19 @@ import {
   hasActiveFilters,
   sortForList,
 } from "@/features/productivity/tasks/domain/filters";
+import { emptyTaskInput } from "@/features/productivity/tasks/domain/input";
 import { applyMove, resolveDrop } from "@/features/productivity/tasks/domain/ordering";
+import {
+  describeRecurrence,
+  nextOccurrence,
+} from "@/features/productivity/tasks/domain/recurrence";
 import { summarizeToday } from "@/features/productivity/tasks/domain/summary";
 import { mergeTags, validateTaskInput } from "@/features/productivity/tasks/domain/validation";
-import { type Task } from "@/features/productivity/tasks/types";
+import {
+  type Task,
+  type TaskCategory,
+  type TaskRecurrence,
+} from "@/features/productivity/tasks/types";
 
 let nextId = 1;
 function task(overrides: Partial<Task> = {}): Task {
@@ -25,7 +42,11 @@ function task(overrides: Partial<Task> = {}): Task {
     dueDate: null,
     position: id,
     tags: [],
+    categoryId: null,
+    recurrence: null,
+    checklist: [],
     completedAt: null,
+    archivedAt: null,
     createdAt: "2026-09-01T12:00:00Z",
     updatedAt: "2026-09-01T12:00:00Z",
     ...overrides,
@@ -57,10 +78,16 @@ describe("filtros e ordenação", () => {
     task({ id: 1, title: "Relatório mensal", tags: ["trabalho"], priority: "high" }),
     task({ id: 2, title: "Comprar pão", status: "done", completedAt: "2026-09-25T10:00:00Z" }),
     task({ id: 3, title: "Revisão", description: "Ver ORÇAMENTO", status: "in_progress" }),
+    task({
+      id: 4,
+      title: "Mudança",
+      categoryId: 7,
+      checklist: [{ id: 1, text: "Contratar caminhão", done: false }],
+    }),
   ];
 
   it("mostra só as abertas por padrão", () => {
-    expect(filterTasks(tasks, DEFAULT_TASK_FILTERS).map((t) => t.id)).toEqual([1, 3]);
+    expect(filterTasks(tasks, DEFAULT_TASK_FILTERS).map((t) => t.id)).toEqual([1, 3, 4]);
     expect(hasActiveFilters(DEFAULT_TASK_FILTERS)).toBe(false);
   });
 
@@ -71,6 +98,17 @@ describe("filtros e ordenação", () => {
       search: "orcamento",
     });
     expect(result.map((t) => t.id)).toEqual([3]);
+  });
+
+  it("busca também nos itens da checklist e filtra por categoria", () => {
+    const search = { ...DEFAULT_TASK_FILTERS, search: "caminhao" };
+    expect(filterTasks(tasks, search).map((t) => t.id)).toEqual([4]);
+
+    const byCategory = { ...DEFAULT_TASK_FILTERS, category: 7 };
+    expect(filterTasks(tasks, byCategory).map((t) => t.id)).toEqual([4]);
+    expect(hasActiveFilters(byCategory)).toBe(true);
+    const uncategorized = { ...DEFAULT_TASK_FILTERS, category: "none" as const };
+    expect(filterTasks(tasks, uncategorized).map((t) => t.id)).toEqual([1, 3]);
   });
 
   it("filtra por prioridade e tag; o Kanban ignora o status", () => {
@@ -167,19 +205,33 @@ describe("Kanban", () => {
 });
 
 describe("validação", () => {
+  const base = { ...emptyTaskInput(), title: "Ok" };
+
   it("exige título e respeita limites", () => {
-    const base = {
-      title: "Ok",
-      description: "",
-      status: "todo",
-      priority: "low",
-      dueDate: null,
-      tags: [],
-    } as const;
-    expect(validateTaskInput({ ...base, tags: [] })).toEqual({});
-    expect(validateTaskInput({ ...base, title: "  ", tags: [] }).title).toBeDefined();
+    expect(validateTaskInput(base)).toEqual({});
+    expect(validateTaskInput({ ...base, title: "  " }).title).toBeDefined();
     expect(
       validateTaskInput({ ...base, tags: Array.from({ length: 11 }, (_, i) => `t${i}`) }).tags,
+    ).toBeDefined();
+  });
+
+  it("exige vencimento e intervalo válido na recorrência", () => {
+    const weekly: TaskRecurrence = { frequency: "weekly", interval: 1, weekdays: [] };
+    expect(validateTaskInput({ ...base, recurrence: weekly }).recurrence).toMatch(/vencimento/);
+    expect(
+      validateTaskInput({ ...base, dueDate: TODAY, recurrence: { ...weekly, interval: 0 } })
+        .recurrence,
+    ).toMatch(/intervalo/);
+    expect(validateTaskInput({ ...base, dueDate: TODAY, recurrence: weekly })).toEqual({});
+  });
+
+  it("limita a checklist, ignorando itens vazios", () => {
+    const items = (count: number, text = "item") =>
+      Array.from({ length: count }, () => ({ text, done: false }));
+    expect(validateTaskInput({ ...base, checklist: [...items(50), ...items(3, " ")] })).toEqual({});
+    expect(validateTaskInput({ ...base, checklist: items(51) }).checklist).toBeDefined();
+    expect(
+      validateTaskInput({ ...base, checklist: items(1, "x".repeat(201)) }).checklist,
     ).toBeDefined();
   });
 
@@ -188,5 +240,85 @@ describe("validação", () => {
       "casa",
       "trabalho remoto",
     ]);
+  });
+});
+
+describe("recorrência", () => {
+  const rule = (
+    frequency: TaskRecurrence["frequency"],
+    interval = 1,
+    weekdays: number[] = [],
+  ): TaskRecurrence => ({ frequency, interval, weekdays });
+
+  // Mesmos casos de `src-tauri/src/domain/task_recurrence.rs`.
+  it("calcula a próxima ocorrência como o backend", () => {
+    expect(nextOccurrence(rule("daily"), TODAY, TODAY)).toBe("2026-09-26");
+    expect(nextOccurrence(rule("daily", 3), TODAY, "2026-09-01")).toBe("2026-09-28");
+    expect(nextOccurrence(rule("weekly", 2), TODAY, TODAY)).toBe("2026-10-09");
+    expect(nextOccurrence(rule("weekly", 1, [1, 3, 5]), "2026-09-21", "2026-09-21")).toBe(
+      "2026-09-23",
+    );
+    expect(nextOccurrence(rule("weekly", 1, [1, 3, 5]), TODAY, TODAY)).toBe("2026-09-28");
+    expect(nextOccurrence(rule("weekly", 2, [2]), "2026-09-22", "2026-09-22")).toBe("2026-10-06");
+    expect(nextOccurrence(rule("monthly"), "2026-01-31", "2026-01-31")).toBe("2026-02-28");
+    expect(nextOccurrence(rule("monthly"), "2026-01-31", "2026-03-01")).toBe("2026-03-31");
+    expect(nextOccurrence(rule("yearly"), "2024-02-29", "2024-02-29")).toBe("2025-02-28");
+    expect(nextOccurrence(rule("monthly", 6), TODAY, TODAY)).toBe("2027-03-25");
+  });
+
+  it("pula ocorrências já vencidas ao concluir com atraso", () => {
+    expect(nextOccurrence(rule("daily"), "2026-09-15", TODAY)).toBe("2026-09-26");
+    expect(nextOccurrence(rule("daily", 3), "2026-09-15", TODAY)).toBe("2026-09-27");
+    expect(nextOccurrence(rule("monthly"), "2026-07-10", TODAY)).toBe("2026-10-10");
+  });
+
+  it("descreve a regra em pt-BR", () => {
+    expect(describeRecurrence(rule("daily"))).toBe("Todo dia");
+    expect(describeRecurrence(rule("daily", 2))).toBe("A cada 2 dias");
+    expect(describeRecurrence(rule("weekly", 1, [5, 1]))).toBe("Toda semana: seg, sex");
+    expect(describeRecurrence(rule("monthly", 3))).toBe("A cada 3 meses");
+    expect(describeRecurrence(rule("yearly"))).toBe("Todo ano");
+  });
+});
+
+describe("checklist", () => {
+  it("calcula o progresso e marca itens localmente", () => {
+    const tasks = [
+      task({
+        id: 1,
+        checklist: [
+          { id: 10, text: "a", done: true },
+          { id: 11, text: "b", done: false },
+        ],
+      }),
+      task({ id: 2 }),
+    ];
+    expect(checklistProgress(tasks[0]?.checklist ?? [])).toEqual({ done: 1, total: 2 });
+
+    const toggled = applyChecklistToggle(tasks, 11, true);
+    expect(checklistProgress(toggled[0]?.checklist ?? [])).toEqual({ done: 2, total: 2 });
+    expect(toggled[1]).toBe(tasks[1]);
+  });
+});
+
+describe("categorias", () => {
+  const categories: TaskCategory[] = [
+    { id: 1, name: "Trabalho", color: "red", taskCount: 2 },
+    { id: 2, name: "Casa", color: "orange", taskCount: 0 },
+  ];
+
+  it("valida nome obrigatório e único sem diferenciar maiúsculas", () => {
+    expect(validateCategoryInput({ name: "  ", color: "blue" }, categories)).toMatch(/nome/);
+    expect(validateCategoryInput({ name: "trabalho", color: "blue" }, categories)).toMatch(
+      /Já existe/,
+    );
+    // Renomear a própria categoria é permitido.
+    expect(validateCategoryInput({ name: "TRABALHO", color: "blue" }, categories, 1)).toBeNull();
+    expect(validateCategoryInput({ name: "Estudos", color: "blue" }, categories)).toBeNull();
+  });
+
+  it("sugere a primeira cor ainda não usada", () => {
+    expect(suggestCategoryColor(categories)).toBe("amber");
+    expect(suggestCategoryColor([])).toBe("red");
   });
 });

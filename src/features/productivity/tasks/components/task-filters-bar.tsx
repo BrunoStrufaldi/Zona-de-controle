@@ -9,7 +9,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { categoryDotClass } from "@/features/productivity/tasks/components/task-styles";
 import {
+  type CategoryFilter,
   DEFAULT_TASK_FILTERS,
   hasActiveFilters,
   type PriorityFilter,
@@ -17,7 +19,12 @@ import {
   type TaskFilters,
 } from "@/features/productivity/tasks/domain/filters";
 import { priorityLabels, statusLabels } from "@/features/productivity/tasks/domain/labels";
-import { TASK_PRIORITIES, TASK_STATUSES } from "@/features/productivity/tasks/types";
+import {
+  TASK_PRIORITIES,
+  TASK_STATUSES,
+  type TaskCategory,
+} from "@/features/productivity/tasks/types";
+import { cn } from "@/lib/cn";
 
 const ALL_TAGS = "__all__";
 
@@ -25,6 +32,7 @@ interface TaskFiltersBarProps {
   filters: TaskFilters;
   onChange: (filters: TaskFilters) => void;
   tags: readonly string[];
+  categories: readonly TaskCategory[];
   /** No Kanban o status é representado pelas colunas. */
   showStatus?: boolean;
 }
@@ -33,6 +41,7 @@ export function TaskFiltersBar({
   filters,
   onChange,
   tags,
+  categories,
   showStatus = true,
 }: TaskFiltersBarProps) {
   const update = (patch: Partial<TaskFilters>) => {
@@ -121,6 +130,34 @@ export function TaskFiltersBar({
         </SelectContent>
       </Select>
 
+      <Select
+        value={String(filters.category)}
+        onValueChange={(value) => {
+          update({ category: parseCategoryFilter(value) });
+        }}
+        disabled={categories.length === 0}
+      >
+        <SelectTrigger className="w-48" aria-label="Filtrar por categoria">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todas as categorias</SelectItem>
+          <SelectItem value="none">Sem categoria</SelectItem>
+          {categories.map((category) => (
+            <SelectItem key={category.id} value={String(category.id)}>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "mr-2 inline-block size-2 rounded-full align-middle",
+                  categoryDotClass[category.color],
+                )}
+              />
+              {category.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
       {active && (
         <Button
           variant="ghost"
@@ -139,4 +176,8 @@ export function TaskFiltersBar({
       )}
     </div>
   );
+}
+
+function parseCategoryFilter(value: string): CategoryFilter {
+  return value === "all" || value === "none" ? value : Number(value);
 }

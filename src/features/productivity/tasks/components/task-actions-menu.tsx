@@ -1,4 +1,4 @@
-import { ArrowRight, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Archive, ArrowRight, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,11 +16,18 @@ interface TaskActionsMenuProps {
   task: Task;
   onEdit: (task: Task) => void;
   onMove: (task: Task, status: TaskStatus) => void;
+  onArchive: (task: Task) => void;
   onDelete: (task: Task) => void;
 }
 
 /** Ações de uma tarefa. "Mover para" é a alternativa acessível ao arrastar. */
-export function TaskActionsMenu({ task, onEdit, onMove, onDelete }: TaskActionsMenuProps) {
+export function TaskActionsMenu({
+  task,
+  onEdit,
+  onMove,
+  onArchive,
+  onDelete,
+}: TaskActionsMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -56,6 +63,14 @@ export function TaskActionsMenu({ task, onEdit, onMove, onDelete }: TaskActionsM
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={() => {
+            onArchive(task);
+          }}
+        >
+          <Archive aria-hidden="true" />
+          Arquivar
+        </DropdownMenuItem>
         <DropdownMenuItem
           className="text-danger focus:text-danger [&_svg]:text-danger"
           onSelect={() => {

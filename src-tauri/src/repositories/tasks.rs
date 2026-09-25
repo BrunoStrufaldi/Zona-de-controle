@@ -1,23 +1,27 @@
-//! Acesso às tabelas `tasks`, `tags` e `task_tags`.
+//! Acesso às tabelas `tasks`, `tags`, `task_tags` e `task_checklist_items`.
 
 use std::collections::HashMap;
 
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
-use crate::domain::tasks::{Task, TaskPriority, TaskStatus, ValidTask};
+use crate::domain::task_recurrence::Recurrence;
+use crate::domain::tasks::{
+    ChecklistItem, ChecklistItemInput, Task, TaskPriority, TaskStatus, ValidTask,
+};
 use crate::error::{AppError, AppResult};
 
 const TASK_NOT_FOUND: &str = "tarefa não encontrada";
+const ITEM_NOT_FOUND: &str = "item da checklist não encontrado";
 
 /// Menor distância entre posições antes de renumerar a coluna.
 const MIN_POSITION_GAP: f64 = 1e-6;
 
 const SELECT_TASK: &str = "SELECT id, title, description, status, priority, due_date,
-       position, completed_at, created_at, updated_at
+       position, category_id, recurrence, completed_at, archived_at, created_at, updated_at
 FROM tasks";
 
-/// Linha crua do banco; status/prioridade são convertidos fora do mapeamento
-/// para reportar valores inválidos como `AppError`.
+/// Linha crua do banco; status, prioridade e recorrência são convertidos fora
+/// do mapeamento para reportar valores inválidos como `AppError`.
 struct TaskRow {
     id: i64,
     title: String,
@@ -26,9 +30,19 @@ struct TaskRow {
     priority: String,
     due_date: Option<String>,
     position: f64,
+    category_id: Option<i64>,
+    recurrence: Option<String>,
     completed_at: Option<String>,
+    archived_at: Option<String>,
     created_at: String,
     updated_at: String,
+}
+
+/// Tags e itens de checklist de uma tarefa, carregados à parte.
+#[derive(Default)]
+struct TaskChildren {
+    tags: Vec<String>,
+    checklist: Vec<ChecklistItem>,
 }
 
 impl TaskRow {
@@ -41,13 +55,16 @@ impl TaskRow {
             priority: row.get(4)?,
             due_date: row.get(5)?,
             position: row.get(6)?,
-            completed_at: row.get(7)?,
-            created_at: row.get(8)?,
-            updated_at: row.get(9)?,
+            category_id: row.get(7)?,
+            recurrence: row.get(8)?,
+            completed_at: row.get(9)?,
+            archived_at: row.get(10)?,
+            created_at: row.get(11)?,
+            updated_at: row.get(12)?,
         })
     }
 
-    fn into_task(self, tags: Vec<String>) -> AppResult<Task> {
+    fn into_task(self, children: TaskChildren) -> AppResult<Task> {
         Ok(Task {
             id: self.id,
             title: self.title,
@@ -56,27 +73,49 @@ impl TaskRow {
             priority: TaskPriority::parse(&self.priority)?,
             due_date: self.due_date,
             position: self.position,
-            tags,
+            tags: children.tags,
+            category_id: self.category_id,
+            recurrence: self
+                .recurrence
+                .as_deref()
+                .map(serde_json::from_str::<Recurrence>)
+                .transpose()?,
+            checklist: children.checklist,
             completed_at: self.completed_at,
+            archived_at: self.archived_at,
             created_at: self.created_at,
             updated_at: self.updated_at,
         })
     }
 }
 
-/// Todas as tarefas, agrupadas por status e ordenadas pela posição.
+/// Tarefas ativas (não arquivadas), agrupadas por status e ordenadas pela posição.
 pub fn list(connection: &Connection) -> AppResult<Vec<Task>> {
-    let mut statement =
-        connection.prepare(&format!("{SELECT_TASK} ORDER BY status, position, id"))?;
+    query_tasks(
+        connection,
+        "WHERE archived_at IS NULL ORDER BY status, position, id",
+    )
+}
+
+/// Tarefas arquivadas, das arquivadas mais recentemente para as mais antigas.
+pub fn list_archived(connection: &Connection) -> AppResult<Vec<Task>> {
+    query_tasks(
+        connection,
+        "WHERE archived_at IS NOT NULL ORDER BY archived_at DESC, id DESC",
+    )
+}
+
+fn query_tasks(connection: &Connection, filter_and_order: &str) -> AppResult<Vec<Task>> {
+    let mut statement = connection.prepare(&format!("{SELECT_TASK} {filter_and_order}"))?;
     let rows = statement
         .query_map([], TaskRow::from_row)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
 
-    let mut tags = tags_by_task(connection)?;
+    let mut children = children_by_task(connection)?;
     rows.into_iter()
         .map(|row| {
-            let task_tags = tags.remove(&row.id).unwrap_or_default();
-            row.into_task(task_tags)
+            let task_children = children.remove(&row.id).unwrap_or_default();
+            row.into_task(task_children)
         })
         .collect()
 }
@@ -91,19 +130,30 @@ pub fn find(connection: &Connection, id: i64) -> AppResult<Option<Task>> {
         .optional()?;
     match row {
         Some(row) => {
-            let tags = tags_of(connection, id)?;
-            Ok(Some(row.into_task(tags)?))
+            let children = TaskChildren {
+                tags: tags_of(connection, id)?,
+                checklist: checklist_of(connection, id)?,
+            };
+            Ok(Some(row.into_task(children)?))
         }
         None => Ok(None),
     }
 }
 
+/// Data local de hoje (`aaaa-mm-dd`), segundo o fuso do sistema operacional.
+pub fn local_today(connection: &Connection) -> AppResult<String> {
+    let today = connection.query_row("SELECT date('now', 'localtime')", [], |row| row.get(0))?;
+    Ok(today)
+}
+
 /// Insere a tarefa no fim da coluna do seu status. Retorna o id.
 pub fn insert(connection: &Connection, task: &ValidTask) -> AppResult<i64> {
+    ensure_category_exists(connection, task.category_id)?;
     let position = next_position(connection, task.status)?;
     connection.execute(
-        "INSERT INTO tasks (title, description, status, priority, due_date, position, completed_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6,
+        "INSERT INTO tasks (title, description, status, priority, due_date, position,
+                            category_id, recurrence, completed_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
                  CASE WHEN ?3 = 'done' THEN strftime('%Y-%m-%dT%H:%M:%fZ', 'now') END)",
         params![
             task.title,
@@ -111,18 +161,23 @@ pub fn insert(connection: &Connection, task: &ValidTask) -> AppResult<i64> {
             task.status.as_str(),
             task.priority.as_str(),
             task.due_date,
-            position
+            position,
+            task.category_id,
+            recurrence_json(task)?
         ],
     )?;
     let id = connection.last_insert_rowid();
     replace_tags(connection, id, &task.tags)?;
+    replace_checklist(connection, id, &task.checklist)?;
     Ok(id)
 }
 
 /// Substitui todos os campos editáveis. Mudando de status, a tarefa vai para o
 /// fim da nova coluna; a data de conclusão é mantida/definida/limpa conforme o status.
+/// Tarefas arquivadas precisam ser restauradas antes.
 pub fn update(connection: &Connection, id: i64, task: &ValidTask) -> AppResult<()> {
-    let current_status = status_of(connection, id)?;
+    let current_status = active_status_of(connection, id)?;
+    ensure_category_exists(connection, task.category_id)?;
     let new_position = if current_status == task.status {
         None
     } else {
@@ -132,7 +187,7 @@ pub fn update(connection: &Connection, id: i64, task: &ValidTask) -> AppResult<(
     connection.execute(
         "UPDATE tasks
          SET title = ?2, description = ?3, status = ?4, priority = ?5, due_date = ?6,
-             position = COALESCE(?7, position),
+             position = COALESCE(?7, position), category_id = ?8, recurrence = ?9,
              completed_at = CASE WHEN ?4 = 'done'
                                  THEN COALESCE(completed_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
                             END,
@@ -145,10 +200,13 @@ pub fn update(connection: &Connection, id: i64, task: &ValidTask) -> AppResult<(
             task.status.as_str(),
             task.priority.as_str(),
             task.due_date,
-            new_position
+            new_position,
+            task.category_id,
+            recurrence_json(task)?
         ],
     )?;
-    replace_tags(connection, id, &task.tags)
+    replace_tags(connection, id, &task.tags)?;
+    replace_checklist(connection, id, &task.checklist)
 }
 
 /// Move a tarefa para `status`, imediatamente antes de `before_id`
@@ -159,7 +217,7 @@ pub fn move_to(
     status: TaskStatus,
     before_id: Option<i64>,
 ) -> AppResult<()> {
-    status_of(connection, id)?;
+    active_status_of(connection, id)?;
     if before_id == Some(id) {
         return Ok(());
     }
@@ -178,7 +236,78 @@ pub fn move_to(
     Ok(())
 }
 
-/// Exclui a tarefa (tags vinculadas saem em cascata). Retorna o título excluído.
+/// Arquiva a tarefa (idempotente).
+pub fn archive(connection: &Connection, id: i64) -> AppResult<()> {
+    status_of(connection, id)?;
+    connection.execute(
+        "UPDATE tasks
+         SET archived_at = COALESCE(archived_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ?1",
+        [id],
+    )?;
+    Ok(())
+}
+
+/// Arquiva todas as tarefas concluídas ainda ativas. Retorna quantas foram arquivadas.
+pub fn archive_done(connection: &Connection) -> AppResult<usize> {
+    let count = connection.execute(
+        "UPDATE tasks
+         SET archived_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE status = 'done' AND archived_at IS NULL",
+        [],
+    )?;
+    Ok(count)
+}
+
+/// Restaura uma tarefa arquivada para o fim da coluna do seu status (idempotente).
+pub fn restore(connection: &Connection, id: i64) -> AppResult<()> {
+    let status = status_of(connection, id)?;
+    let position = next_position(connection, status)?;
+    connection.execute(
+        "UPDATE tasks
+         SET archived_at = NULL, position = ?2,
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ?1 AND archived_at IS NOT NULL",
+        params![id, position],
+    )?;
+    Ok(())
+}
+
+/// Remove a regra de recorrência (usada quando ela passa para a próxima ocorrência).
+pub fn clear_recurrence(connection: &Connection, id: i64) -> AppResult<()> {
+    connection.execute("UPDATE tasks SET recurrence = NULL WHERE id = ?1", [id])?;
+    Ok(())
+}
+
+/// Marca/desmarca um item da checklist. Retorna o id da tarefa dona do item.
+pub fn set_checklist_item_done(
+    connection: &Connection,
+    item_id: i64,
+    done: bool,
+) -> AppResult<i64> {
+    let task_id: i64 = connection
+        .query_row(
+            "SELECT task_id FROM task_checklist_items WHERE id = ?1",
+            [item_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .ok_or(AppError::NotFound(ITEM_NOT_FOUND))?;
+    active_status_of(connection, task_id)?;
+    connection.execute(
+        "UPDATE task_checklist_items SET done = ?2 WHERE id = ?1",
+        params![item_id, done],
+    )?;
+    connection.execute(
+        "UPDATE tasks SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?1",
+        [task_id],
+    )?;
+    Ok(task_id)
+}
+
+/// Exclui a tarefa (tags vinculadas e checklist saem em cascata). Retorna o título excluído.
 pub fn delete(connection: &Connection, id: i64) -> AppResult<String> {
     let title: String = connection
         .query_row("SELECT title FROM tasks WHERE id = ?1", [id], |row| {
@@ -211,6 +340,48 @@ fn status_of(connection: &Connection, id: i64) -> AppResult<TaskStatus> {
         .optional()?
         .ok_or(AppError::NotFound(TASK_NOT_FOUND))?;
     TaskStatus::parse(&status)
+}
+
+/// Status de uma tarefa que pode ser alterada (existe e não está arquivada).
+fn active_status_of(connection: &Connection, id: i64) -> AppResult<TaskStatus> {
+    let (status, archived): (String, bool) = connection
+        .query_row(
+            "SELECT status, archived_at IS NOT NULL FROM tasks WHERE id = ?1",
+            [id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?
+        .ok_or(AppError::NotFound(TASK_NOT_FOUND))?;
+    if archived {
+        return Err(AppError::Validation(
+            "a tarefa está arquivada; restaure-a para alterá-la".into(),
+        ));
+    }
+    TaskStatus::parse(&status)
+}
+
+fn ensure_category_exists(connection: &Connection, category_id: Option<i64>) -> AppResult<()> {
+    let Some(category_id) = category_id else {
+        return Ok(());
+    };
+    let exists: bool = connection.query_row(
+        "SELECT EXISTS (SELECT 1 FROM task_categories WHERE id = ?1)",
+        [category_id],
+        |row| row.get(0),
+    )?;
+    if exists {
+        Ok(())
+    } else {
+        Err(AppError::Validation("categoria não encontrada".into()))
+    }
+}
+
+fn recurrence_json(task: &ValidTask) -> AppResult<Option<String>> {
+    Ok(task
+        .recurrence
+        .as_ref()
+        .map(serde_json::to_string)
+        .transpose()?)
 }
 
 fn next_position(connection: &Connection, status: TaskStatus) -> AppResult<f64> {
@@ -300,6 +471,42 @@ fn replace_tags(connection: &Connection, task_id: i64, tags: &[String]) -> AppRe
     Ok(())
 }
 
+fn replace_checklist(
+    connection: &Connection,
+    task_id: i64,
+    items: &[ChecklistItemInput],
+) -> AppResult<()> {
+    connection.execute(
+        "DELETE FROM task_checklist_items WHERE task_id = ?1",
+        [task_id],
+    )?;
+    for (index, item) in items.iter().enumerate() {
+        connection.execute(
+            "INSERT INTO task_checklist_items (task_id, text, done, position)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![task_id, item.text, item.done, index as i64],
+        )?;
+    }
+    Ok(())
+}
+
+fn checklist_of(connection: &Connection, task_id: i64) -> AppResult<Vec<ChecklistItem>> {
+    let mut statement = connection.prepare(
+        "SELECT id, text, done FROM task_checklist_items
+         WHERE task_id = ?1 ORDER BY position, id",
+    )?;
+    let items = statement
+        .query_map([task_id], |row| {
+            Ok(ChecklistItem {
+                id: row.get(0)?,
+                text: row.get(1)?,
+                done: row.get(2)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(items)
+}
+
 fn tags_of(connection: &Connection, task_id: i64) -> AppResult<Vec<String>> {
     let mut statement = connection.prepare(
         "SELECT t.name FROM task_tags tt JOIN tags t ON t.id = tt.tag_id
@@ -311,19 +518,39 @@ fn tags_of(connection: &Connection, task_id: i64) -> AppResult<Vec<String>> {
     Ok(tags)
 }
 
-fn tags_by_task(connection: &Connection) -> AppResult<HashMap<i64, Vec<String>>> {
-    let mut statement = connection.prepare(
+fn children_by_task(connection: &Connection) -> AppResult<HashMap<i64, TaskChildren>> {
+    let mut map: HashMap<i64, TaskChildren> = HashMap::new();
+
+    let mut tags = connection.prepare(
         "SELECT tt.task_id, t.name FROM task_tags tt JOIN tags t ON t.id = tt.tag_id
          ORDER BY t.name",
     )?;
-    let mut map: HashMap<i64, Vec<String>> = HashMap::new();
-    let rows = statement.query_map([], |row| {
+    let rows = tags.query_map([], |row| {
         Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
     })?;
     for row in rows {
         let (task_id, name) = row?;
-        map.entry(task_id).or_default().push(name);
+        map.entry(task_id).or_default().tags.push(name);
     }
+
+    let mut items = connection.prepare(
+        "SELECT task_id, id, text, done FROM task_checklist_items ORDER BY task_id, position, id",
+    )?;
+    let rows = items.query_map([], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            ChecklistItem {
+                id: row.get(1)?,
+                text: row.get(2)?,
+                done: row.get(3)?,
+            },
+        ))
+    })?;
+    for row in rows {
+        let (task_id, item) = row?;
+        map.entry(task_id).or_default().checklist.push(item);
+    }
+
     Ok(map)
 }
 
@@ -340,6 +567,16 @@ mod tests {
             priority: TaskPriority::Medium,
             due_date: None,
             tags: Vec::new(),
+            category_id: None,
+            recurrence: None,
+            checklist: Vec::new(),
+        }
+    }
+
+    fn item(text: &str, done: bool) -> ChecklistItemInput {
+        ChecklistItemInput {
+            text: text.into(),
+            done,
         }
     }
 
@@ -469,6 +706,127 @@ mod tests {
                 connection.query_row("SELECT COUNT(*) FROM task_tags", [], |row| row.get(0))?;
             assert_eq!(links, 0);
             assert!(matches!(delete(connection, id), Err(AppError::NotFound(_))));
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn stores_checklist_in_order_and_toggles_items() {
+        with_db(|connection| {
+            let mut task = valid("Pintar a sala", TaskStatus::Todo);
+            task.checklist = vec![item("Comprar tinta", true), item("Cobrir móveis", false)];
+            let id = insert(connection, &task)?;
+
+            let stored = find(connection, id)?.unwrap();
+            let texts: Vec<_> = stored.checklist.iter().map(|i| i.text.as_str()).collect();
+            assert_eq!(texts, vec!["Comprar tinta", "Cobrir móveis"]);
+            assert!(stored.checklist[0].done && !stored.checklist[1].done);
+
+            let second = stored.checklist[1].id;
+            assert_eq!(set_checklist_item_done(connection, second, true)?, id);
+            assert!(list(connection)?[0].checklist[1].done);
+            assert!(matches!(
+                set_checklist_item_done(connection, 999, true),
+                Err(AppError::NotFound(_))
+            ));
+
+            // Salvar o formulário substitui a checklist inteira.
+            task.checklist = vec![item("Só este", false)];
+            update(connection, id, &task)?;
+            assert_eq!(find(connection, id)?.unwrap().checklist.len(), 1);
+
+            delete(connection, id)?;
+            let orphans: i64 =
+                connection.query_row("SELECT COUNT(*) FROM task_checklist_items", [], |row| {
+                    row.get(0)
+                })?;
+            assert_eq!(orphans, 0);
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn stores_recurrence_and_category() {
+        use crate::domain::task_recurrence::RecurrenceFrequency;
+
+        with_db(|connection| {
+            connection.execute(
+                "INSERT INTO task_categories (name, color) VALUES ('Casa', 'green')",
+                [],
+            )?;
+            let category_id = connection.last_insert_rowid();
+
+            let mut task = valid("Regar plantas", TaskStatus::Todo);
+            task.due_date = Some("2026-09-25".into());
+            task.category_id = Some(category_id);
+            task.recurrence = Some(Recurrence {
+                frequency: RecurrenceFrequency::Weekly,
+                interval: 1,
+                weekdays: vec![1, 4],
+            });
+            let id = insert(connection, &task)?;
+
+            let stored = find(connection, id)?.unwrap();
+            assert_eq!(stored.category_id, Some(category_id));
+            assert_eq!(stored.recurrence, task.recurrence);
+
+            clear_recurrence(connection, id)?;
+            assert!(find(connection, id)?.unwrap().recurrence.is_none());
+
+            // Excluir a categoria deixa a tarefa sem categoria.
+            connection.execute("DELETE FROM task_categories WHERE id = ?1", [category_id])?;
+            assert_eq!(find(connection, id)?.unwrap().category_id, None);
+
+            assert!(matches!(
+                insert(connection, &task),
+                Err(AppError::Validation(_))
+            ));
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn archives_restores_and_blocks_changes_while_archived() {
+        with_db(|connection| {
+            let open = insert(connection, &valid("Aberta", TaskStatus::Todo))?;
+            let done = insert(connection, &valid("Feita", TaskStatus::Done))?;
+            insert(connection, &valid("Outra feita", TaskStatus::Done))?;
+
+            archive(connection, open)?;
+            assert_eq!(list(connection)?.len(), 2);
+            assert_eq!(list_archived(connection)?[0].title, "Aberta");
+            assert!(matches!(
+                move_to(connection, open, TaskStatus::Done, None),
+                Err(AppError::Validation(_))
+            ));
+            assert!(matches!(
+                update(connection, open, &valid("x", TaskStatus::Todo)),
+                Err(AppError::Validation(_))
+            ));
+
+            assert_eq!(archive_done(connection)?, 2);
+            assert!(list(connection)?.is_empty());
+            assert_eq!(archive_done(connection)?, 0);
+
+            restore(connection, done)?;
+            let restored = find(connection, done)?.unwrap();
+            assert!(restored.archived_at.is_none());
+            assert_eq!(restored.status, TaskStatus::Done);
+            assert_eq!(column(connection, TaskStatus::Done), vec!["Feita"]);
+
+            assert!(matches!(
+                archive(connection, 999),
+                Err(AppError::NotFound(_))
+            ));
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn reads_the_local_date() {
+        with_db(|connection| {
+            let today = local_today(connection)?;
+            assert!(crate::domain::tasks::is_valid_iso_date(&today), "{today}");
             Ok(())
         });
     }

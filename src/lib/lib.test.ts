@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { navigation } from "@/config/navigation";
 import { auditTargetLabel } from "@/lib/audit";
-import { addDays, daysBetween, toIsoDate } from "@/lib/dates";
+import { addDays, addMonths, daysBetween, toIsoDate, weekdayOf } from "@/lib/dates";
 import {
   formatBytes,
   formatCurrency,
@@ -83,6 +83,15 @@ describe("dates", () => {
     expect(daysBetween("2026-09-25", "2026-10-05")).toBe(10);
     expect(daysBetween("2026-09-25", "2026-09-20")).toBe(-5);
   });
+
+  it("soma meses limitando ao fim do mês e calcula o dia da semana", () => {
+    expect(addMonths("2026-01-31", 1, 31)).toBe("2026-02-28");
+    expect(addMonths("2024-01-31", 1, 31)).toBe("2024-02-29");
+    expect(addMonths("2026-02-28", 1, 31)).toBe("2026-03-31");
+    expect(addMonths("2026-11-15", 3, 15)).toBe("2027-02-15");
+    expect(weekdayOf("2026-09-25")).toBe(5);
+    expect(weekdayOf("2026-09-27")).toBe(0);
+  });
 });
 
 describe("audit", () => {
@@ -93,6 +102,7 @@ describe("audit", () => {
     expect(auditTargetLabel({ target: "profile.display_name", details: null })).toBe(
       "profile.display_name",
     );
+    expect(auditTargetLabel({ target: "4", details: { name: "Viagem" } })).toBe("Viagem (#4)");
     expect(auditTargetLabel({ target: null, details: ["x"] })).toBe("—");
   });
 });

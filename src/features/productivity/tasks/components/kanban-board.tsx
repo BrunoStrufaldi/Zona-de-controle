@@ -17,6 +17,7 @@ import { KanbanColumn } from "@/features/productivity/tasks/components/kanban-co
 import { kanbanKeyboardCoordinates } from "@/features/productivity/tasks/components/kanban-keyboard";
 import { TaskCard } from "@/features/productivity/tasks/components/task-card";
 import { type TaskItemHandlers } from "@/features/productivity/tasks/components/task-list";
+import { type CategoriesById } from "@/features/productivity/tasks/domain/categories";
 import { type TaskColumns } from "@/features/productivity/tasks/domain/filters";
 import { statusLabels } from "@/features/productivity/tasks/domain/labels";
 import {
@@ -30,6 +31,7 @@ import { type IsoDate } from "@/types/common";
 interface KanbanBoardProps extends Omit<TaskItemHandlers, "onToggleDone"> {
   columns: TaskColumns;
   today: IsoDate;
+  categories: CategoriesById;
   onReorder: (task: Task, target: MoveTarget) => void;
   onCreate: (status: TaskStatus) => void;
 }
@@ -53,6 +55,7 @@ function toDropLocation(overId: string | number, data: DropData | undefined): Dr
 export function KanbanBoard({
   columns,
   today,
+  categories,
   onReorder,
   onCreate,
   ...handlers
@@ -117,13 +120,16 @@ export function KanbanBoard({
             status={status}
             tasks={columns[status]}
             today={today}
+            categories={categories}
             onCreate={onCreate}
             {...handlers}
           />
         ))}
       </div>
       <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }}>
-        {activeTask && <TaskCard task={activeTask} today={today} overlay {...handlers} />}
+        {activeTask && (
+          <TaskCard task={activeTask} today={today} categories={categories} overlay {...handlers} />
+        )}
       </DragOverlay>
     </DndContext>
   );

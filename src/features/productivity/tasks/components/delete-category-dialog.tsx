@@ -11,37 +11,40 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { type Task } from "@/features/productivity/tasks/types";
+import { type TaskCategory } from "@/features/productivity/tasks/types";
 
-interface DeleteTaskDialogProps {
-  /** Tarefa a excluir; `null` fecha o diálogo. */
-  task: Task | null;
-  onConfirm: (task: Task) => Promise<void>;
+interface DeleteCategoryDialogProps {
+  /** Categoria a excluir; `null` fecha o diálogo. */
+  category: TaskCategory | null;
+  onConfirm: (category: TaskCategory) => Promise<void>;
   onCancel: () => void;
 }
 
 /**
- * Confirmação explícita da exclusão definitiva (regra de segurança do projeto):
- * informa exatamente o que será removido e que a ação fica registrada.
+ * Confirmação explícita da exclusão de uma categoria: nomeia a categoria, diz
+ * quantas tarefas ficarão sem categoria e avisa que é permanente e auditada.
  */
-export function DeleteTaskDialog({ task, onConfirm, onCancel }: DeleteTaskDialogProps) {
+export function DeleteCategoryDialog({ category, onConfirm, onCancel }: DeleteCategoryDialogProps) {
   const [pending, setPending] = useState(false);
 
   return (
     <AlertDialog
-      open={task !== null}
+      open={category !== null}
       onOpenChange={(open) => {
         if (!open && !pending) onCancel();
       }}
     >
-      {task && (
+      {category && (
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir tarefa?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir categoria?</AlertDialogTitle>
             <AlertDialogDescription>
-              A tarefa <strong className="text-foreground">“{task.title}”</strong> será excluída
-              permanentemente, junto com suas tags e checklist. Esta ação não pode ser desfeita e
-              será registrada no log de auditoria.
+              A categoria <strong className="text-foreground">“{category.name}”</strong> será
+              excluída permanentemente.{" "}
+              {category.taskCount === 0
+                ? "Nenhuma tarefa usa esta categoria."
+                : `${category.taskCount} ${category.taskCount === 1 ? "tarefa ficará" : "tarefas ficarão"} sem categoria (as tarefas não são excluídas).`}{" "}
+              Esta ação não pode ser desfeita e será registrada no log de auditoria.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -52,13 +55,13 @@ export function DeleteTaskDialog({ task, onConfirm, onCancel }: DeleteTaskDialog
                 // Mantém o diálogo aberto até a operação terminar.
                 event.preventDefault();
                 setPending(true);
-                void onConfirm(task).finally(() => {
+                void onConfirm(category).finally(() => {
                   setPending(false);
                 });
               }}
             >
               <Trash2 aria-hidden="true" />
-              {pending ? "Excluindo…" : "Excluir tarefa"}
+              {pending ? "Excluindo…" : "Excluir categoria"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

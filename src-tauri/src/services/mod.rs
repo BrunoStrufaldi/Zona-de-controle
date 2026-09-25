@@ -2,4 +2,5 @@
 //! Os commands (camada IPC) apenas delegam para cá.
 
 pub mod settings;
+pub mod task_categories;
 pub mod tasks;

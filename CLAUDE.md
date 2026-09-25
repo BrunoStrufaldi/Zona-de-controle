@@ -111,7 +111,8 @@ Regras:
 
 **Referência completa: Tarefas.** Use como modelo:
 
-- **Rust:** `src-tauri/src/{domain,repositories,services,commands}/tasks.rs` + `migrations/0002_tasks.sql`.
+- **Rust:** `src-tauri/src/{domain,repositories,services,commands}/tasks.rs` + `migrations/0002_tasks.sql`
+  (e, na 2.2, `task_categories.rs`, `task_recurrence.rs` e `migrations/0003_tasks_extras.sql`).
 - **Frontend:** `src/features/productivity/tasks/` (types, domain, hooks, components), a página `pages/productivity/tasks-page.tsx` e o serviço `services/tasks-service.ts`.
 
 1. Contratos em `features/<módulo>/types.ts` (espelhando o Rust); regras puras em `features/<módulo>/domain/` + testes.
@@ -181,3 +182,17 @@ Regras:
 - **Kanban (@dnd-kit):** o teclado usa `kanbanKeyboardCoordinates` (←/→ trocam de coluna). Não
   aplique `rotate`/`scale` no `DragOverlay`: distorce o retângulo de colisão. Arrastar não roda no
   jsdom — teste `resolveDrop`/`applyMove` (domínio) e valide o arraste num Chromium real.
+- **Datas no Rust:** sem `chrono`. Use `domain/calendar.rs` (`CalendarDate`) e, para "hoje" no fuso
+  local, `repositories::tasks::local_today` (`date('now', 'localtime')` do SQLite).
+- **Recorrência de tarefas:** modelo "gera ao concluir". A regra passa para a nova ocorrência (a
+  concluída fica sem regra), então reabrir e concluir de novo não duplica. O cálculo existe no Rust
+  (`task_recurrence.rs`, fonte da verdade) e no TS (`domain/recurrence.ts`, só para a prévia). Os dois
+  têm os mesmos casos de teste: altere os dois juntos.
+- **Tarefas arquivadas** não aparecem em `list_tasks` (nem no dashboard); use `list_archived_tasks`.
+  Arquivadas não podem ser editadas ou movidas: restaure antes.
+- **Cores de categoria** são nomes (`red`, `teal`…) mapeados para `--zdc-category-*` em
+  `task-styles.ts`. Nunca grave hexadecimal no banco.
+- **Validação no app real:** `npm run dev` usa o banco de verdade (`%APPDATA%\com.brunostrufaldi.zonadecontrole`).
+  Faça backup dos arquivos `zona-de-controle.db*` antes de criar dados de teste e restaure depois:
+  o `audit_log` não permite apagar registros. Com `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222`
+  dá para dirigir o WebView2 via CDP (puppeteer-core).

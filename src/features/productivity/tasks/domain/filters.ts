@@ -8,6 +8,8 @@ import {
 
 export type StatusFilter = "open" | "all" | TaskStatus;
 export type PriorityFilter = "all" | TaskPriority;
+/** Id de uma categoria, "none" (sem categoria) ou "all". */
+export type CategoryFilter = "all" | "none" | number;
 
 export interface TaskFilters {
   search: string;
@@ -15,6 +17,7 @@ export interface TaskFilters {
   priority: PriorityFilter;
   /** Tag selecionada, ou `null` para todas. */
   tag: string | null;
+  category: CategoryFilter;
 }
 
 export const DEFAULT_TASK_FILTERS: TaskFilters = {
@@ -22,6 +25,7 @@ export const DEFAULT_TASK_FILTERS: TaskFilters = {
   status: "open",
   priority: "all",
   tag: null,
+  category: "all",
 };
 
 /** Remove acentos e caixa para comparar texto de busca. */
@@ -38,10 +42,20 @@ function matchesStatus(task: Task, status: StatusFilter): boolean {
   return task.status === status;
 }
 
+function matchesCategory(task: Task, category: CategoryFilter): boolean {
+  if (category === "all") return true;
+  if (category === "none") return task.categoryId === null;
+  return task.categoryId === category;
+}
+
 function matchesSearch(task: Task, search: string): boolean {
   const query = normalizeText(search.trim());
   if (query === "") return true;
-  const haystack = normalizeText([task.title, task.description, ...task.tags].join(" "));
+  const haystack = normalizeText(
+    [task.title, task.description, ...task.tags, ...task.checklist.map((item) => item.text)].join(
+      " ",
+    ),
+  );
   return haystack.includes(query);
 }
 
@@ -59,6 +73,7 @@ export function filterTasks(
       (ignoreStatus || matchesStatus(task, filters.status)) &&
       (filters.priority === "all" || task.priority === filters.priority) &&
       (filters.tag === null || task.tags.includes(filters.tag)) &&
+      matchesCategory(task, filters.category) &&
       matchesSearch(task, filters.search),
   );
 }
@@ -68,7 +83,8 @@ export function hasActiveFilters(filters: TaskFilters): boolean {
     filters.search.trim() !== "" ||
     filters.status !== DEFAULT_TASK_FILTERS.status ||
     filters.priority !== "all" ||
-    filters.tag !== null
+    filters.tag !== null ||
+    filters.category !== "all"
   );
 }
 

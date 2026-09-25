@@ -34,6 +34,16 @@
   --color-danger: var(--zdc-danger);
   --color-info: var(--zdc-info);
 
+  --color-category-red: var(--zdc-category-red);
+  --color-category-orange: var(--zdc-category-orange);
+  --color-category-amber: var(--zdc-category-amber);
+  --color-category-green: var(--zdc-category-green);
+  --color-category-teal: var(--zdc-category-teal);
+  --color-category-blue: var(--zdc-category-blue);
+  --color-category-violet: var(--zdc-category-violet);
+  --color-category-pink: var(--zdc-category-pink);
+  --color-category-slate: var(--zdc-category-slate);
+
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Code", monospace;
 
