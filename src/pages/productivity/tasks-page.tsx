@@ -122,6 +122,11 @@ export function TasksPage() {
                   notifyError("Não foi possível mover a tarefa", error);
                 });
             }}
+            onReorder={(task, target) => {
+              actions.move(task.id, target).catch((error: unknown) => {
+                notifyError("Não foi possível mover a tarefa", error);
+              });
+            }}
             onEdit={(task) => {
               setFormMode({ kind: "edit", task });
             }}
