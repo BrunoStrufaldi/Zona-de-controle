@@ -4,6 +4,7 @@
 pub mod audit;
 pub mod backup;
 pub mod calendar_events;
+pub mod cleanup_history;
 pub mod clock;
 pub mod device_battery_readings;
 pub mod device_markings;

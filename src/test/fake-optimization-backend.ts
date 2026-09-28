@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 
 import {
+  type CleanupHistory,
   type CleanupItem,
   type CleanupProgress,
   type CleanupReport,
@@ -109,12 +110,53 @@ export function sampleReport(scan: CleanupScan, sources: CleanupSource[]): Clean
   };
 }
 
+/** Histórico típico: uma recusa (mais recente), uma cancelada e uma concluída. */
+export const SAMPLE_HISTORY: CleanupHistory = {
+  totalRuns: 2,
+  totalRemovedBytes: 1536 * MIB,
+  entries: [
+    {
+      id: 30,
+      occurredAt: "2026-09-28T16:40:00.000Z",
+      outcome: "failed",
+      sources: ["chrome"],
+      removedCount: 0,
+      removedBytes: 0,
+      keptCount: 0,
+      error: "Feche o Google Chrome antes de limpar o cache dele.",
+    },
+    {
+      id: 20,
+      occurredAt: "2026-09-27T12:00:00.000Z",
+      outcome: "cancelled",
+      sources: ["userTemp"],
+      removedCount: 100,
+      removedBytes: 512 * MIB,
+      keptCount: 150,
+      error: null,
+    },
+    {
+      id: 10,
+      occurredAt: "2026-09-20T12:00:00.000Z",
+      outcome: "completed",
+      sources: ["userTemp", "edge", "recycleBin"],
+      removedCount: 1200,
+      removedBytes: 1024 * MIB,
+      keptCount: 0,
+      error: null,
+    },
+  ],
+};
+
+export const EMPTY_HISTORY: CleanupHistory = { totalRuns: 0, totalRemovedBytes: 0, entries: [] };
+
 type RunArgs = { scanId: number; sources: CleanupSource[] };
 
 interface BackendOptions {
   /** Substitui a limpeza simulada (ex.: para testar cancelamento ou erro). */
   runCleanup?: (args: RunArgs) => CleanupReport | Promise<CleanupReport>;
   progress?: CleanupProgress | null;
+  history?: CleanupHistory;
 }
 
 export function mockOptimizationBackend(
@@ -136,6 +178,10 @@ export function mockOptimizationBackend(
     run_cleanup: vi.fn(options.runCleanup ?? ((args: RunArgs) => sampleReport(scan, args.sources))),
     get_cleanup_progress: vi.fn(() => options.progress ?? null),
     cancel_cleanup: vi.fn(() => true),
+    list_cleanup_history: vi.fn((args: { limit: number }) => {
+      const history = options.history ?? SAMPLE_HISTORY;
+      return { ...history, entries: history.entries.slice(0, args.limit) };
+    }),
   };
   mockDesktopRuntime(handlers);
   return { handlers };

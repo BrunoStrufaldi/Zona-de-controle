@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tauri::State;
 
 use crate::domain::optimization::{
-    CleanupItemPage, CleanupProgress, CleanupReport, CleanupScan, CleanupSource,
+    CleanupHistory, CleanupItemPage, CleanupProgress, CleanupReport, CleanupScan, CleanupSource,
 };
 use crate::domain::system_monitor::DiskUsage;
 use crate::error::{AppError, AppResult};
@@ -94,4 +94,13 @@ pub async fn get_cleanup_progress(
 #[tauri::command]
 pub async fn cancel_cleanup(state: State<'_, AppState>) -> AppResult<bool> {
     state.cleanup_run.request_cancel()
+}
+
+/// Limpezas mais recentes e os totais do histórico (lidos do log de auditoria).
+#[tauri::command]
+pub async fn list_cleanup_history(
+    state: State<'_, AppState>,
+    limit: u32,
+) -> AppResult<CleanupHistory> {
+    service::cleanup_history(&state.db, limit)
 }

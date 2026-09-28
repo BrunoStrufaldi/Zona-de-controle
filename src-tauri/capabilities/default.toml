@@ -79,6 +79,10 @@ permissions = [
   "allow-get-cleanup-progress",
   "allow-cancel-cleanup",
 
+  # Otimização — histórico das limpezas (somente leitura): os registros
+  # `cleanup.executed` do log de auditoria e o total liberado.
+  "allow-list-cleanup-history",
+
   # Tarefas — leitura da lista (ativas e arquivadas), das tags e das categorias.
   "allow-list-tasks",
   "allow-list-archived-tasks",

@@ -50,6 +50,7 @@ pub fn run() {
             commands::optimization::run_cleanup,
             commands::optimization::get_cleanup_progress,
             commands::optimization::cancel_cleanup,
+            commands::optimization::list_cleanup_history,
             commands::tasks::list_tasks,
             commands::tasks::list_archived_tasks,
             commands::tasks::list_task_tags,

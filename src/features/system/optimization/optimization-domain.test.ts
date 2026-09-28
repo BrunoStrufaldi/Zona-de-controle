@@ -4,6 +4,8 @@ import {
   confirmationNotes,
   defaultSelection,
   groupByCategory,
+  historyEntrySummary,
+  historyTotalLabel,
   itemCountLabel,
   progressPercent,
   removedOfLabel,
@@ -11,10 +13,16 @@ import {
   resultNotes,
   scanTotals,
   selectionTotals,
+  sourceNamesLabel,
   sourceNotes,
 } from "@/features/system/optimization/domain/cleanup";
 import { type CleanupSource, type SourceSummary } from "@/features/system/optimization/types";
-import { SAMPLE_SCAN, sampleReport } from "@/test/fake-optimization-backend";
+import {
+  EMPTY_HISTORY,
+  SAMPLE_HISTORY,
+  SAMPLE_SCAN,
+  sampleReport,
+} from "@/test/fake-optimization-backend";
 
 const MIB = 1024 ** 2;
 
@@ -156,5 +164,25 @@ describe("limpeza", () => {
     };
     expect(progressPercent(progress)).toBe(25);
     expect(progressPercent({ ...progress, totalItems: 0 })).toBe(0);
+  });
+});
+
+describe("histórico", () => {
+  it("resume o total e cada limpeza", () => {
+    expect(historyTotalLabel(SAMPLE_HISTORY)).toBe("1,5 GB liberados em 2 limpezas");
+    expect(historyTotalLabel(EMPTY_HISTORY)).toBeNull();
+    const [failed, cancelled, completed] = SAMPLE_HISTORY.entries;
+    if (!failed || !cancelled || !completed) throw new Error("histórico de exemplo incompleto");
+    expect(historyEntrySummary(failed)).toBe("Feche o Google Chrome antes de limpar o cache dele.");
+    expect(historyEntrySummary(cancelled)).toBe(
+      "512 MB liberados · 100 itens removidos · 150 ficaram",
+    );
+    expect(historyEntrySummary(completed)).toBe("1 GB liberados · 1.200 itens removidos");
+  });
+
+  it("junta os nomes dos locais", () => {
+    expect(sourceNamesLabel(["edge"])).toBe("Microsoft Edge");
+    expect(sourceNamesLabel(["edge", "recycleBin"])).toBe("Microsoft Edge e Lixeira do Windows");
+    expect(sourceNamesLabel([])).toBe("");
   });
 });

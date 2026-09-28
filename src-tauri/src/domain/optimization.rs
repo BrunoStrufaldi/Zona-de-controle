@@ -438,8 +438,8 @@ pub struct CleanupProgress {
     pub cancel_requested: bool,
 }
 
-/// Contagem por origem ao fim da limpeza.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+/// Contagem por origem ao fim da limpeza (também lida de volta do `audit_log`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceCleanupResult {
     pub source: CleanupSource,
@@ -491,6 +491,107 @@ pub struct NotRemovedItem {
 
 /// Quantos itens não removidos o relatório guarda (os demais só são contados).
 pub const NOT_REMOVED_SAMPLE: usize = 50;
+
+/// Ação gravada no `audit_log` a cada limpeza: é a fonte do histórico (não há
+/// tabela própria).
+pub const CLEANUP_AUDIT_ACTION: &str = "cleanup.executed";
+
+/// Maior quantidade de limpezas pedida de uma vez ao histórico.
+pub const HISTORY_MAX: u32 = 100;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CleanupRunOutcome {
+    Completed,
+    Cancelled,
+    /// Não chegou a limpar (recusada ou com erro antes de começar).
+    Failed,
+}
+
+/// Uma limpeza do histórico.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupHistoryEntry {
+    pub id: i64,
+    /// Instante ISO 8601 (UTC) gravado pelo `audit_log`.
+    pub occurred_at: String,
+    pub outcome: CleanupRunOutcome,
+    /// Locais escolhidos, na ordem da limpeza.
+    pub sources: Vec<CleanupSource>,
+    pub removed_count: u64,
+    pub removed_bytes: u64,
+    /// Planejados que ficaram: em uso, alterados, com erro ou não processados.
+    pub kept_count: u64,
+    /// Motivo da falha (só em `Failed`).
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupHistory {
+    pub entries: Vec<CleanupHistoryEntry>,
+    /// Limpezas feitas (concluídas ou canceladas no meio), em todo o histórico.
+    pub total_runs: u64,
+    pub total_removed_bytes: u64,
+}
+
+/// Interpreta um registro `cleanup.executed` do `audit_log`. `outcome` é o
+/// texto gravado ("success", "cancelled" ou "failure"); registro desconhecido
+/// ou com `details` ilegível vira `None` (não aparece no histórico).
+pub fn history_entry(
+    id: i64,
+    occurred_at: &str,
+    outcome: &str,
+    details: Option<&serde_json::Value>,
+) -> Option<CleanupHistoryEntry> {
+    let details = details?;
+    let mut entry = CleanupHistoryEntry {
+        id,
+        occurred_at: occurred_at.to_string(),
+        outcome: CleanupRunOutcome::Failed,
+        sources: Vec::new(),
+        removed_count: 0,
+        removed_bytes: 0,
+        kept_count: 0,
+        error: None,
+    };
+    match outcome {
+        "success" | "cancelled" => {
+            entry.outcome = if outcome == "success" {
+                CleanupRunOutcome::Completed
+            } else {
+                CleanupRunOutcome::Cancelled
+            };
+            let results: Vec<SourceCleanupResult> =
+                serde_json::from_value(details.get("sources")?.clone()).ok()?;
+            for result in results {
+                entry.sources.push(result.source);
+                entry.removed_count += result.removed_count;
+                entry.removed_bytes += result.removed_bytes;
+                entry.kept_count += result.planned_count.saturating_sub(result.removed_count);
+            }
+        }
+        "failure" => {
+            // Falhas gravam só os locais pedidos (texto) e o erro.
+            entry.sources = details
+                .get("sources")
+                .and_then(serde_json::Value::as_array)
+                .map(|sources| {
+                    sources
+                        .iter()
+                        .filter_map(|source| serde_json::from_value(source.clone()).ok())
+                        .collect()
+                })
+                .unwrap_or_default();
+            entry.error = details
+                .get("error")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string);
+        }
+        _ => return None,
+    }
+    Some(entry)
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -889,5 +990,66 @@ mod tests {
                 "{source:?}"
             );
         }
+    }
+
+    #[test]
+    fn reads_completed_and_cancelled_runs_from_the_audit_details() {
+        let details = serde_json::json!({
+            "cancelled": false,
+            "removedCount": 5,
+            "removedBytes": 150,
+            "notRemoved": [],
+            "sources": [
+                {
+                    "source": "userTemp", "plannedCount": 4, "removedCount": 3,
+                    "removedBytes": 100, "inUseCount": 1, "changedCount": 0, "failedCount": 0
+                },
+                {
+                    "source": "recycleBin", "plannedCount": 2, "removedCount": 2,
+                    "removedBytes": 50, "inUseCount": 0, "changedCount": 0, "failedCount": 0
+                }
+            ]
+        });
+        let entry =
+            history_entry(9, "2026-09-28T16:33:00.000Z", "success", Some(&details)).unwrap();
+        assert_eq!(entry.outcome, CleanupRunOutcome::Completed);
+        assert_eq!(
+            entry.sources,
+            [CleanupSource::UserTemp, CleanupSource::RecycleBin]
+        );
+        assert_eq!((entry.removed_count, entry.removed_bytes), (5, 150));
+        assert_eq!(entry.kept_count, 1);
+        assert_eq!(entry.error, None);
+
+        let cancelled = history_entry(10, "x", "cancelled", Some(&details)).unwrap();
+        assert_eq!(cancelled.outcome, CleanupRunOutcome::Cancelled);
+    }
+
+    #[test]
+    fn reads_failures_with_the_reason() {
+        let details = serde_json::json!({
+            "sources": ["chrome", "algoAntigo"],
+            "error": "Feche o Google Chrome antes de limpar o cache dele."
+        });
+        let entry = history_entry(3, "x", "failure", Some(&details)).unwrap();
+        assert_eq!(entry.outcome, CleanupRunOutcome::Failed);
+        // Origem desconhecida (ex.: de uma versão futura) é ignorada.
+        assert_eq!(entry.sources, [CleanupSource::Chrome]);
+        assert_eq!(entry.removed_bytes, 0);
+        assert_eq!(
+            entry.error.as_deref(),
+            Some("Feche o Google Chrome antes de limpar o cache dele.")
+        );
+    }
+
+    #[test]
+    fn unreadable_records_stay_out_of_the_history() {
+        let broken = serde_json::json!({ "sources": "não é lista" });
+        assert_eq!(history_entry(1, "x", "success", Some(&broken)), None);
+        assert_eq!(history_entry(1, "x", "success", None), None);
+        assert_eq!(
+            history_entry(1, "x", "outro", Some(&serde_json::json!({}))),
+            None
+        );
     }
 }

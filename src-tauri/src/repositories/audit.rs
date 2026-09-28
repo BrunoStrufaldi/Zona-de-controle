@@ -3,7 +3,7 @@
 use rusqlite::{params, Connection};
 use serde::Serialize;
 
-use crate::domain::audit::NewAuditEntry;
+use crate::domain::audit::{AuditCategory, NewAuditEntry};
 use crate::error::AppResult;
 
 #[derive(Debug, Clone, Serialize)]
@@ -47,22 +47,48 @@ pub fn list_recent(connection: &Connection, limit: u32) -> AppResult<Vec<AuditEn
          ORDER BY occurred_at DESC, id DESC
          LIMIT ?1",
     )?;
+    let rows = statement.query_map(params![limit], read_row)?;
+    collect_entries(rows)
+}
 
-    let rows = statement.query_map([limit], |row| {
-        Ok((
-            AuditEntry {
-                id: row.get(0)?,
-                occurred_at: row.get(1)?,
-                category: row.get(2)?,
-                action: row.get(3)?,
-                target: row.get(4)?,
-                outcome: row.get(5)?,
-                details: None,
-            },
-            row.get::<_, Option<String>>(6)?,
-        ))
-    })?;
+/// Registros de uma ação (ex.: `cleanup.executed`), mais recentes primeiro.
+pub fn list_by_action(
+    connection: &Connection,
+    category: AuditCategory,
+    action: &str,
+    limit: u32,
+) -> AppResult<Vec<AuditEntry>> {
+    let mut statement = connection.prepare(
+        "SELECT id, occurred_at, category, action, target, outcome, details
+         FROM audit_log
+         WHERE category = ?1 AND action = ?2
+         ORDER BY occurred_at DESC, id DESC
+         LIMIT ?3",
+    )?;
+    let rows = statement.query_map(params![category.as_str(), action, limit], read_row)?;
+    collect_entries(rows)
+}
 
+type RawEntry = (AuditEntry, Option<String>);
+
+fn read_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RawEntry> {
+    Ok((
+        AuditEntry {
+            id: row.get(0)?,
+            occurred_at: row.get(1)?,
+            category: row.get(2)?,
+            action: row.get(3)?,
+            target: row.get(4)?,
+            outcome: row.get(5)?,
+            details: None,
+        },
+        row.get::<_, Option<String>>(6)?,
+    ))
+}
+
+fn collect_entries(
+    rows: impl Iterator<Item = rusqlite::Result<RawEntry>>,
+) -> AppResult<Vec<AuditEntry>> {
     rows.map(|row| {
         let (mut entry, details) = row?;
         entry.details = details.as_deref().map(serde_json::from_str).transpose()?;
@@ -75,7 +101,7 @@ pub fn list_recent(connection: &Connection, limit: u32) -> AppResult<Vec<AuditEn
 mod tests {
     use super::*;
     use crate::db::Database;
-    use crate::domain::audit::{AuditCategory, AuditOutcome};
+    use crate::domain::audit::AuditOutcome;
 
     fn sample(action: &str) -> NewAuditEntry<'_> {
         NewAuditEntry {
@@ -113,6 +139,39 @@ mod tests {
                 .execute("UPDATE audit_log SET action = 'x'", [])
                 .is_err());
             assert!(connection.execute("DELETE FROM audit_log", []).is_err());
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn lists_only_the_requested_action() {
+        let db = Database::open_in_memory().unwrap();
+        db.with_connection(|connection| {
+            record(connection, &sample("setting.updated"))?;
+            record(
+                connection,
+                &NewAuditEntry {
+                    category: AuditCategory::Optimization,
+                    action: "cleanup.executed",
+                    target: None,
+                    outcome: AuditOutcome::Cancelled,
+                    details: None,
+                },
+            )?;
+
+            let entries = list_by_action(
+                connection,
+                AuditCategory::Optimization,
+                "cleanup.executed",
+                10,
+            )?;
+            assert_eq!(entries.len(), 1);
+            assert_eq!(entries[0].outcome, "cancelled");
+            assert!(
+                list_by_action(connection, AuditCategory::Settings, "cleanup.executed", 10)?
+                    .is_empty()
+            );
             Ok(())
         })
         .unwrap();

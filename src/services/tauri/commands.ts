@@ -34,6 +34,7 @@ import {
   type DiagnosticThresholds,
 } from "@/features/system/diagnostics/types";
 import {
+  type CleanupHistory,
   type CleanupItemPage,
   type CleanupProgress,
   type CleanupReport,
@@ -86,6 +87,7 @@ export interface CommandMap {
   run_cleanup: { args: { scanId: number; sources: CleanupSource[] }; result: CleanupReport };
   get_cleanup_progress: { args: undefined; result: CleanupProgress | null };
   cancel_cleanup: { args: undefined; result: boolean };
+  list_cleanup_history: { args: { limit: number }; result: CleanupHistory };
   list_tasks: { args: undefined; result: Task[] };
   list_archived_tasks: { args: undefined; result: Task[] };
   list_task_tags: { args: undefined; result: string[] };

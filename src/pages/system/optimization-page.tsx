@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ResourceView } from "@/components/shared/resource-view";
 import { Button } from "@/components/ui/button";
 import { CleanupCategoryCard } from "@/features/system/optimization/components/cleanup-category-card";
+import { CleanupHistoryCard } from "@/features/system/optimization/components/cleanup-history-card";
 import { CleanupItemsDialog } from "@/features/system/optimization/components/cleanup-items-dialog";
 import { CleanupRunDialog } from "@/features/system/optimization/components/cleanup-run-dialog";
 import { ConfirmCleanupDialog } from "@/features/system/optimization/components/confirm-cleanup-dialog";
@@ -25,11 +26,18 @@ import {
 import { useAsyncResource } from "@/hooks/use-async-resource";
 import { cn } from "@/lib/cn";
 import { formatBytes, formatClockTime, formatNumber } from "@/lib/format";
-import { scanCleanup } from "@/services/optimization-service";
+import { listCleanupHistory, scanCleanup } from "@/services/optimization-service";
 
 interface AnalyzedScan {
   scan: CleanupScan;
   analyzedAt: number;
+}
+
+/** Limpezas mostradas no histórico da tela. */
+const HISTORY_LIMIT = 20;
+
+function loadHistory() {
+  return listCleanupHistory(HISTORY_LIMIT);
 }
 
 async function analyze(): Promise<AnalyzedScan> {
@@ -39,6 +47,7 @@ async function analyze(): Promise<AnalyzedScan> {
 
 export function OptimizationPage() {
   const resource = useAsyncResource(analyze);
+  const history = useAsyncResource(loadHistory);
   const run = useCleanupRun();
   const busy = resource.status === "loading" || run.state.phase === "running";
 
@@ -74,6 +83,13 @@ export function OptimizationPage() {
         )}
       </ResourceView>
 
+      <div className="@container">
+        <div className="grid gap-6 @4xl:grid-cols-2 @4xl:items-start">
+          <CleanupHistoryCard history={history} />
+          <SafetyRulesCard />
+        </div>
+      </div>
+
       <CleanupRunDialog
         state={run.state}
         onCancel={run.cancel}
@@ -81,6 +97,7 @@ export function OptimizationPage() {
           run.reset();
           // O plano foi consumido (ou falhou): a análise precisa ser refeita.
           resource.reload();
+          history.reload();
         }}
       />
     </>
@@ -165,8 +182,6 @@ function ScanView({ scan, analyzedAt, running, onStart }: ScanViewProps) {
           ))}
         </div>
       </div>
-      <SafetyRulesCard />
-
       <CleanupItemsDialog
         scanId={scan.id}
         summary={viewing}

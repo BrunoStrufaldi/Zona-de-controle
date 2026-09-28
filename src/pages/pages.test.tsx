@@ -5,6 +5,7 @@ import { paths } from "@/app/router/paths";
 import { addDays, toIsoDate, weekdayOf } from "@/lib/dates";
 import { mockDevicesBackend } from "@/test/fake-devices-backend";
 import { mockDiagnosticsBackend } from "@/test/fake-diagnostics-backend";
+import { EMPTY_HISTORY, mockOptimizationBackend } from "@/test/fake-optimization-backend";
 import { mockRoutinesBackend } from "@/test/fake-routines-backend";
 import { mockSystemBackend } from "@/test/fake-system-backend";
 import { mockTasksBackend } from "@/test/fake-tasks-backend";
@@ -114,5 +115,30 @@ describe("páginas integradas ao backend", () => {
       "href",
       paths.system.devices,
     );
+  });
+
+  it("Dashboard resume as limpezas com a última delas", async () => {
+    const { handlers } = mockOptimizationBackend();
+    renderRoute(paths.dashboard);
+
+    const last = await screen.findByLabelText("Última limpeza");
+    expect(handlers.list_cleanup_history).toHaveBeenCalledWith({ limit: 1 });
+    // Não analisa as pastas no dashboard.
+    expect(handlers.scan_cleanup).not.toHaveBeenCalled();
+    expect(within(last).getByText("Não feita")).toBeInTheDocument();
+    const card = last.closest("[data-slot='card']") as HTMLElement;
+    expect(within(card).getByText("1,5 GB")).toBeInTheDocument();
+    expect(within(card).getByText("liberados em 2 limpezas")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: /Otimização/ })).toHaveAttribute(
+      "href",
+      paths.system.optimization,
+    );
+  });
+
+  it("Dashboard indica quando nenhuma limpeza foi feita", async () => {
+    mockOptimizationBackend(undefined, { history: EMPTY_HISTORY });
+    renderRoute(paths.dashboard);
+
+    expect(await screen.findByText(/Nenhuma limpeza feita ainda/)).toBeInTheDocument();
   });
 });

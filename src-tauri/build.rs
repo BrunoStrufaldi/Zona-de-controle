@@ -25,6 +25,7 @@ const APP_COMMANDS: &[&str] = &[
     "run_cleanup",
     "get_cleanup_progress",
     "cancel_cleanup",
+    "list_cleanup_history",
     "list_tasks",
     "list_archived_tasks",
     "list_task_tags",

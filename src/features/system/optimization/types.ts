@@ -104,3 +104,29 @@ export interface CleanupReport {
   /** Até 50 itens que ficaram (os que já não existiam não entram). */
   notRemoved: NotRemovedItem[];
 }
+
+/** Resultado de uma limpeza no histórico. */
+export type CleanupRunOutcome = "completed" | "cancelled" | "failed";
+
+export interface CleanupHistoryEntry {
+  id: number;
+  /** Instante ISO 8601 (UTC) do log de auditoria. */
+  occurredAt: string;
+  outcome: CleanupRunOutcome;
+  /** Locais escolhidos. */
+  sources: CleanupSource[];
+  removedCount: number;
+  removedBytes: number;
+  /** Planejados que ficaram: em uso, alterados, com erro ou não processados. */
+  keptCount: number;
+  /** Motivo, quando a limpeza não foi feita. */
+  error: string | null;
+}
+
+/** Histórico das limpezas (lido do log de auditoria). */
+export interface CleanupHistory {
+  entries: CleanupHistoryEntry[];
+  /** Limpezas feitas (concluídas ou canceladas no meio) em todo o histórico. */
+  totalRuns: number;
+  totalRemovedBytes: number;
+}

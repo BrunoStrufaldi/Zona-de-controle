@@ -300,6 +300,13 @@ Regras:
   `failure` e o relatório nos `details`. Testes de link usam junção (`create_junction`, só em teste): symlink
   exige administrador. Na validação real, nunca limpe temporários/caches do usuário sem ele pedir; use a
   Lixeira com um arquivo de teste.
+- **Histórico das limpezas (4.3):** a fonte é o próprio `audit_log` (`optimization` / `CLEANUP_AUDIT_ACTION`),
+  sem tabela nova: `audit::list_by_action` lista e `repositories/cleanup_history.rs::totals` soma
+  `$.removedBytes` das execuções `success`/`cancelled` (falhas não removeram nada). O domínio interpreta os
+  `details` (`history_entry`): relatório nas execuções, `{ sources, error }` nas falhas; registro ilegível ou
+  origem desconhecida fica de fora. Ao mudar o formato dos `details` da limpeza, mantenha a leitura dos
+  registros antigos (o log é permanente). `list_cleanup_history(limit ≤ 100)`: a tela pede 20 e o card
+  **Limpeza** do dashboard pede 1 (os totais vêm sempre); o dashboard nunca chama `scan_cleanup`.
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

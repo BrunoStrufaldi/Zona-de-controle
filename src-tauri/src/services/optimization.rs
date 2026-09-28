@@ -16,16 +16,16 @@ use serde_json::json;
 use crate::db::Database;
 use crate::domain::audit::{AuditCategory, AuditOutcome, NewAuditEntry};
 use crate::domain::optimization::{
-    containing_folder, sort_items, summarize, CleanupAnalyzer, CleanupExecutor, CleanupItem,
-    CleanupItemPage, CleanupProgress, CleanupReport, CleanupScan, CleanupSource, NotRemovedItem,
-    RemovalOutcome, SourceCleanupResult, SourceStatus, SourceSummary, ITEM_PAGE_MAX,
-    NOT_REMOVED_SAMPLE, TEMP_MIN_AGE,
+    containing_folder, history_entry, sort_items, summarize, CleanupAnalyzer, CleanupExecutor,
+    CleanupHistory, CleanupItem, CleanupItemPage, CleanupProgress, CleanupReport, CleanupScan,
+    CleanupSource, NotRemovedItem, RemovalOutcome, SourceCleanupResult, SourceStatus,
+    SourceSummary, CLEANUP_AUDIT_ACTION, HISTORY_MAX, ITEM_PAGE_MAX, NOT_REMOVED_SAMPLE,
+    TEMP_MIN_AGE,
 };
 use crate::domain::system_monitor::ProcessList;
 use crate::error::{AppError, AppResult};
-use crate::repositories::audit;
+use crate::repositories::{audit, cleanup_history};
 
-const ACTION_CLEANUP: &str = "cleanup.executed";
 const EXPIRED_SCAN: &str = "Esta análise não está mais disponível. Analise de novo.";
 
 /// Última análise feita (só em memória).
@@ -273,6 +273,39 @@ pub fn list_items(
     })
 }
 
+/// Limpezas mais recentes (do `audit_log`) e os totais de todo o histórico.
+pub fn cleanup_history(db: &Database, limit: u32) -> AppResult<CleanupHistory> {
+    if limit == 0 || limit > HISTORY_MAX {
+        return Err(AppError::Validation(format!(
+            "Peça de 1 a {HISTORY_MAX} limpezas por vez."
+        )));
+    }
+    db.with_connection(|connection| {
+        let entries = audit::list_by_action(
+            connection,
+            AuditCategory::Optimization,
+            CLEANUP_AUDIT_ACTION,
+            limit,
+        )?
+        .iter()
+        .filter_map(|entry| {
+            history_entry(
+                entry.id,
+                &entry.occurred_at,
+                &entry.outcome,
+                entry.details.as_ref(),
+            )
+        })
+        .collect();
+        let (total_runs, total_removed_bytes) = cleanup_history::totals(connection)?;
+        Ok(CleanupHistory {
+            entries,
+            total_runs,
+            total_removed_bytes,
+        })
+    })
+}
+
 /// Condições do momento da limpeza.
 pub struct CleanupContext {
     /// Processos abertos agora (minúsculas).
@@ -309,7 +342,7 @@ pub fn run_cleanup(
                     connection,
                     &NewAuditEntry {
                         category: AuditCategory::Optimization,
-                        action: ACTION_CLEANUP,
+                        action: CLEANUP_AUDIT_ACTION,
                         target: Some(&target),
                         outcome,
                         details: Some(details),
@@ -324,7 +357,7 @@ pub fn run_cleanup(
                     connection,
                     &NewAuditEntry {
                         category: AuditCategory::Optimization,
-                        action: ACTION_CLEANUP,
+                        action: CLEANUP_AUDIT_ACTION,
                         target: Some(&target),
                         outcome: AuditOutcome::Failure,
                         details: Some(json!({ "sources": sources, "error": error.to_string() })),
@@ -438,7 +471,7 @@ fn record(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::optimization::ScannedSource;
+    use crate::domain::optimization::{CleanupRunOutcome, ScannedSource};
     use crate::domain::system_monitor::ProcessGroup;
 
     /// Analisador simulado: temporários com três arquivos, cache do Chrome,
@@ -686,7 +719,7 @@ mod tests {
         let log = audit_log(&db);
         assert_eq!(log.len(), 1);
         assert_eq!(log[0].category, "optimization");
-        assert_eq!(log[0].action, ACTION_CLEANUP);
+        assert_eq!(log[0].action, CLEANUP_AUDIT_ACTION);
         assert_eq!(log[0].outcome, "success");
         let details = log[0].details.as_ref().unwrap();
         assert_eq!(details["removedBytes"], 320);
@@ -873,5 +906,53 @@ mod tests {
         // Uma nova limpeza começa sem o cancelamento anterior.
         let _guard = run.begin().unwrap();
         assert!(!run.cancel_requested());
+    }
+
+    #[test]
+    fn history_lists_runs_newest_first_with_totals() {
+        let db = Database::open_in_memory().unwrap();
+        let store = CleanupScanStore::new();
+        let run = CleanupRun::new();
+
+        let scan = run_scan(&FakeAnalyzer, &HashSet::new(), &store).unwrap();
+        run_cleanup(
+            &db,
+            &store,
+            &run,
+            &mut FakeExecutor::default(),
+            scan.id,
+            &[CleanupSource::UserTemp],
+            &context(),
+        )
+        .unwrap();
+        // Recusada: a análise já foi usada.
+        let _ = run_cleanup(
+            &db,
+            &store,
+            &run,
+            &mut FakeExecutor::default(),
+            scan.id,
+            &[CleanupSource::Edge],
+            &context(),
+        );
+
+        let history = cleanup_history(&db, 10).unwrap();
+        assert_eq!(history.total_runs, 1);
+        assert_eq!(history.total_removed_bytes, 330);
+        assert_eq!(history.entries.len(), 2);
+        let [failed, done] = &history.entries[..] else {
+            panic!("esperava duas limpezas");
+        };
+        assert_eq!(failed.outcome, CleanupRunOutcome::Failed);
+        assert_eq!(failed.sources, [CleanupSource::Edge]);
+        assert!(failed.error.is_some());
+        assert_eq!(done.outcome, CleanupRunOutcome::Completed);
+        assert_eq!((done.removed_count, done.removed_bytes), (3, 330));
+
+        assert_eq!(cleanup_history(&db, 1).unwrap().entries.len(), 1);
+        assert!(matches!(
+            cleanup_history(&db, 0),
+            Err(AppError::Validation(_))
+        ));
     }
 }

@@ -1,7 +1,10 @@
 import {
   type CleanupCategoryId,
+  type CleanupHistory,
+  type CleanupHistoryEntry,
   type CleanupProgress,
   type CleanupReport,
+  type CleanupRunOutcome,
   type CleanupScan,
   type CleanupSource,
   type RemovalOutcome,
@@ -305,4 +308,39 @@ export function resultNotes(result: SourceCleanupResult): string[] {
 export function progressPercent(progress: CleanupProgress): number {
   if (progress.totalItems <= 0) return 0;
   return (progress.processedItems / progress.totalItems) * 100;
+}
+
+export const runOutcomeLabels: Record<CleanupRunOutcome, string> = {
+  completed: "Concluída",
+  cancelled: "Cancelada",
+  failed: "Não feita",
+};
+
+/** "Temporários, Edge e Lixeira": nomes dos locais de uma limpeza. */
+export function sourceNamesLabel(sources: CleanupSource[]): string {
+  const names = sources.map((source) => sourceInfo[source].name);
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} e ${names.at(-1) ?? ""}`;
+}
+
+/** "1,2 GB liberados em 3 limpezas" (ou `null` se nenhuma limpeza foi feita). */
+export function historyTotalLabel(history: CleanupHistory): string | null {
+  if (history.totalRuns === 0) return null;
+  const runs =
+    history.totalRuns === 1 ? "1 limpeza" : `${formatNumber(history.totalRuns)} limpezas`;
+  return `${formatBytes(history.totalRemovedBytes)} liberados em ${runs}`;
+}
+
+/** Resumo de uma limpeza: o que saiu e o que ficou, ou o motivo da falha. */
+export function historyEntrySummary(entry: CleanupHistoryEntry): string {
+  if (entry.outcome === "failed") return entry.error ?? "A limpeza não foi feita.";
+  const removed =
+    entry.removedCount === 1
+      ? "1 item removido"
+      : `${formatNumber(entry.removedCount)} itens removidos`;
+  const kept =
+    entry.keptCount === 0
+      ? ""
+      : ` · ${formatNumber(entry.keptCount)} ${entry.keptCount === 1 ? "ficou" : "ficaram"}`;
+  return `${formatBytes(entry.removedBytes)} liberados · ${removed}${kept}`;
 }

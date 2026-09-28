@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { paths } from "@/app/router/paths";
-import { mockOptimizationBackend } from "@/test/fake-optimization-backend";
+import { EMPTY_HISTORY, mockOptimizationBackend } from "@/test/fake-optimization-backend";
 import { renderRoute } from "@/test/render";
 
 describe("página de Otimização", () => {
@@ -117,6 +117,8 @@ describe("página de Otimização", () => {
     await waitFor(() => {
       expect(handlers.scan_cleanup).toHaveBeenCalledTimes(2);
     });
+    // O histórico também é relido, para mostrar a limpeza nova.
+    expect(handlers.list_cleanup_history).toHaveBeenCalledTimes(2);
   });
 
   it("mostra o andamento e cancela entre arquivos", async () => {
@@ -250,5 +252,31 @@ describe("página de Otimização", () => {
       expect(handlers.scan_cleanup).toHaveBeenCalledTimes(2);
     });
     expect(await screen.findByText("2,4 GB podem ser liberados")).toBeInTheDocument();
+  });
+
+  it("mostra o histórico das limpezas, com o motivo das recusas", async () => {
+    const { handlers } = mockOptimizationBackend();
+    renderRoute(paths.system.optimization);
+
+    const list = await screen.findByRole("list", { name: "Limpezas recentes" });
+    expect(handlers.list_cleanup_history).toHaveBeenCalledWith({ limit: 20 });
+    expect(screen.getByText("1,5 GB liberados em 2 limpezas")).toBeInTheDocument();
+    const items = within(list).getAllByRole("listitem");
+    expect(items).toHaveLength(3);
+    expect(items[0]).toHaveTextContent("Não feita");
+    expect(items[0]).toHaveTextContent("Feche o Google Chrome antes de limpar o cache dele.");
+    expect(items[1]).toHaveTextContent("Cancelada");
+    expect(items[1]).toHaveTextContent("512 MB liberados · 100 itens removidos · 150 ficaram");
+    expect(items[2]).toHaveTextContent(
+      "Pasta temporária do usuário, Microsoft Edge e Lixeira do Windows",
+    );
+  });
+
+  it("sem limpezas, o histórico diz que nenhuma foi feita", async () => {
+    mockOptimizationBackend(undefined, { history: EMPTY_HISTORY });
+    renderRoute(paths.system.optimization);
+
+    expect(await screen.findByText("Nenhuma limpeza feita ainda.")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Limpezas recentes" })).not.toBeInTheDocument();
   });
 });

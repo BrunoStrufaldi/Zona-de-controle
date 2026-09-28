@@ -1,4 +1,5 @@
 import {
+  type CleanupHistory,
   type CleanupItemPage,
   type CleanupProgress,
   type CleanupReport,
@@ -39,4 +40,9 @@ export function getCleanupProgress(): Promise<CleanupProgress | null> {
 /** Pede para a limpeza parar antes do próximo arquivo. */
 export function cancelCleanup(): Promise<boolean> {
   return invokeCommand("cancel_cleanup");
+}
+
+/** Limpezas mais recentes (até `limit`) e os totais do histórico. */
+export function listCleanupHistory(limit: number): Promise<CleanupHistory> {
+  return invokeCommand("list_cleanup_history", { limit });
 }
