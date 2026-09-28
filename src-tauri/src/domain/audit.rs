@@ -10,6 +10,7 @@ pub enum AuditCategory {
     Tasks,
     Notes,
     Routines,
+    Calendar,
     Database,
 }
 
@@ -20,6 +21,7 @@ impl AuditCategory {
             Self::Tasks => "tasks",
             Self::Notes => "notes",
             Self::Routines => "routines",
+            Self::Calendar => "calendar",
             Self::Database => "database",
         }
     }

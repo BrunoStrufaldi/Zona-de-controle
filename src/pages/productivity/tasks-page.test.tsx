@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { newTaskHref, paths } from "@/app/router/paths";
+import { newTaskHref, paths, taskHref } from "@/app/router/paths";
 import { toIsoDate } from "@/lib/dates";
 import { mockTasksBackend } from "@/test/fake-tasks-backend";
 import { useUiStore } from "@/stores/ui-store";
@@ -49,6 +49,22 @@ describe("página de Tarefas — lista", () => {
     });
     expect(await screen.findByText("Estudar Rust")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("abre a edição da tarefa pelo link do calendário", async () => {
+    const user = userEvent.setup();
+    mockTasksBackend([
+      { id: 1, title: "Outra" },
+      { id: 2, title: "Pagar conta" },
+    ]);
+    const { router } = renderRoute(taskHref(2));
+
+    const dialog = await screen.findByRole("dialog", { name: "Editar tarefa" });
+    expect(within(dialog).getByLabelText(/Título/)).toHaveValue("Pagar conta");
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => {
+      expect(router.state.location.search).toBe("");
+    });
   });
 
   it("abre o formulário de criação pelo link do menu Criar", async () => {

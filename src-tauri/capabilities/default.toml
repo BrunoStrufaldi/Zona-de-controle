@@ -1,9 +1,10 @@
 # Capability da janela principal.
 #
-# Princípio do menor privilégio: nenhum plugin (shell, fs, sql, http...) e
-# nenhuma permissão `core:*` é concedida — o frontend só pode chamar os
-# commands próprios do app listados abaixo. Toda nova permissão deve vir com
-# um comentário justificando o motivo.
+# Princípio do menor privilégio: nenhum plugin de acesso ao sistema (shell, fs,
+# sql, http...) e nenhuma permissão `core:*` é concedida — o frontend só pode
+# chamar os commands próprios do app listados abaixo e mostrar notificações
+# (lembretes do calendário). Toda nova permissão deve vir com um comentário
+# justificando o motivo.
 
 identifier = "default"
 description = "Permissões mínimas da janela principal do Zona de Controle"
@@ -99,4 +100,31 @@ permissions = [
   # Rotinas — exclusão definitiva (com hábitos e histórico). A interface exige
   # confirmação explícita e cada exclusão (ou falha) é auditada.
   "allow-delete-routine",
+
+  # Calendário — leitura das ocorrências de um intervalo (com as tarefas que
+  # vencem nele, somente leitura).
+  "allow-list-calendar",
+
+  # Calendário — escrita. Entradas validadas no Rust (título, datas, horários,
+  # repetição, lembrete). Mudar o início ou a repetição de uma série descarta as
+  # alterações de ocorrências individuais; o descarte é auditado.
+  "allow-create-calendar-event",
+  "allow-update-calendar-event",
+  "allow-update-event-occurrence",
+
+  # Calendário — exclusão definitiva da série ou de uma ocorrência. A interface
+  # exige confirmação explícita e cada exclusão (ou falha) é auditada.
+  "allow-delete-calendar-event",
+  "allow-delete-event-occurrence",
+
+  # Lembretes — devolve os lembretes vencidos e os marca como avisados (só
+  # grava o registro de envio, para não repetir a notificação).
+  "allow-claim-due-reminders",
+
+  # Plugin de notificação: só o necessário para mostrar os lembretes do
+  # calendário como notificações do Windows (consultar/pedir permissão e
+  # notificar). Sem agendamento, canais, ações ou listeners.
+  "notification:allow-is-permission-granted",
+  "notification:allow-request-permission",
+  "notification:allow-notify",
 ]

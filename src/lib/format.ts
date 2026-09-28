@@ -39,6 +39,23 @@ const longDateFormatter = new Intl.DateTimeFormat(APP_LOCALE, {
 
 const monthShortFormatter = new Intl.DateTimeFormat(APP_LOCALE, { month: "short" });
 
+const monthYearFormatter = new Intl.DateTimeFormat(APP_LOCALE, { month: "long", year: "numeric" });
+
+const dateRangeFormatter = new Intl.DateTimeFormat(APP_LOCALE, {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+const fullDateFormatter = new Intl.DateTimeFormat(APP_LOCALE, {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
+const dayMonthFormatter = new Intl.DateTimeFormat(APP_LOCALE, { day: "2-digit", month: "2-digit" });
+
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export type DateInput = Date | string | number;
@@ -108,6 +125,32 @@ export function formatLongDate(input: DateInput): string {
 export function formatMonthShort(input: DateInput): string {
   const date = toDate(input);
   return isValidDate(date) ? monthShortFormatter.format(date).replace(".", "") : "—";
+}
+
+/** "setembro de 2026" */
+export function formatMonthYear(input: DateInput): string {
+  const date = toDate(input);
+  return isValidDate(date) ? monthYearFormatter.format(date) : "—";
+}
+
+/** "sexta-feira, 25 de setembro de 2026" */
+export function formatFullDate(input: DateInput): string {
+  const date = toDate(input);
+  return isValidDate(date) ? fullDateFormatter.format(date) : "—";
+}
+
+/** "25/09" */
+export function formatDayMonth(input: DateInput): string {
+  const date = toDate(input);
+  return isValidDate(date) ? dayMonthFormatter.format(date) : "—";
+}
+
+/** "20 – 26 de set. de 2026" (junta mês e ano quando iguais). */
+export function formatDateRange(from: DateInput, to: DateInput): string {
+  const start = toDate(from);
+  const end = toDate(to);
+  if (!isValidDate(start) || !isValidDate(end)) return "—";
+  return dateRangeFormatter.formatRange(start, end);
 }
 
 const BYTE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"] as const;

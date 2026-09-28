@@ -7,8 +7,12 @@ import {
   formatBytes,
   formatCurrency,
   formatDate,
+  formatDateRange,
   formatDateTime,
+  formatDayMonth,
   formatDuration,
+  formatFullDate,
+  formatMonthYear,
   formatPercent,
 } from "@/lib/format";
 import { getGreeting } from "@/lib/greeting";
@@ -27,6 +31,17 @@ describe("format", () => {
     expect(formatDate(new Date(2026, 0, 5))).toBe("05/01/2026");
     expect(formatDate("data inválida")).toBe("—");
     expect(formatDateTime(new Date(2026, 8, 25, 14, 30))).toBe("25/09/2026 14:30");
+  });
+
+  it("formata meses, datas por extenso e intervalos", () => {
+    expect(formatMonthYear("2026-09-25")).toBe("setembro de 2026");
+    expect(formatFullDate("2026-09-25")).toBe("sexta-feira, 25 de setembro de 2026");
+    expect(formatDayMonth("2026-09-05")).toBe("05/09");
+    // Intl separa o intervalo com espaços finos (U+2009).
+    expect(formatDateRange("2026-09-27", "2026-10-03")).toMatch(
+      /^27 de set\.\s–\s3 de out\. de 2026$/,
+    );
+    expect(formatDateRange("x", "2026-10-03")).toBe("—");
   });
 
   it("formata percentuais, bytes e durações", () => {

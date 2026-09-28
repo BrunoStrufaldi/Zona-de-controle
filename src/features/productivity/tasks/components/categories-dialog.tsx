@@ -1,6 +1,7 @@
 import { Check, Pencil, Plus, Tags, Trash2, X } from "lucide-react";
 import { type SyntheticEvent, useId, useState } from "react";
 
+import { ColorPicker } from "@/components/shared/color-picker";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,17 +16,11 @@ import { DeleteCategoryDialog } from "@/features/productivity/tasks/components/d
 import { categoryDotClass } from "@/features/productivity/tasks/components/task-styles";
 import {
   CATEGORY_LIMITS,
-  categoryColorLabels,
   normalizeCategoryName,
   suggestCategoryColor,
   validateCategoryInput,
 } from "@/features/productivity/tasks/domain/categories";
-import {
-  CATEGORY_COLORS,
-  type CategoryColor,
-  type TaskCategory,
-  type TaskCategoryInput,
-} from "@/features/productivity/tasks/types";
+import { type TaskCategory, type TaskCategoryInput } from "@/features/productivity/tasks/types";
 import { cn } from "@/lib/cn";
 import { toServiceError } from "@/services/tauri/errors";
 
@@ -254,6 +249,7 @@ function CategoryForm({
         )}
       </div>
       <ColorPicker
+        label="Cor da categoria"
         value={draft.color}
         onChange={(color) => {
           setDraft((current) => ({ ...current, color }));
@@ -265,40 +261,5 @@ function CategoryForm({
         </p>
       )}
     </form>
-  );
-}
-
-function ColorPicker({
-  value,
-  onChange,
-}: {
-  value: CategoryColor;
-  onChange: (color: CategoryColor) => void;
-}) {
-  return (
-    <div role="radiogroup" aria-label="Cor da categoria" className="flex flex-wrap gap-1.5">
-      {CATEGORY_COLORS.map((color) => {
-        const selected = color === value;
-        return (
-          <button
-            key={color}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            aria-label={categoryColorLabels[color]}
-            title={categoryColorLabels[color]}
-            onClick={() => {
-              onChange(color);
-            }}
-            className={cn(
-              "flex size-6 cursor-pointer items-center justify-center rounded-full border-2 transition-[border-color,transform] duration-150 hover:scale-110",
-              selected ? "border-foreground" : "border-transparent",
-            )}
-          >
-            <span className={cn("size-4 rounded-full", categoryDotClass[color])} />
-          </button>
-        );
-      })}
-    </div>
   );
 }

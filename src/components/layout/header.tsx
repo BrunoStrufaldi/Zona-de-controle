@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router";
 
-import { newTaskHref } from "@/app/router/paths";
+import { newEventHref, newTaskHref } from "@/app/router/paths";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,7 +39,7 @@ const quickActions: readonly {
 }[] = [
   { id: "task", label: "Nova tarefa", icon: ListPlus, href: newTaskHref },
   { id: "note", label: "Nova nota", icon: NotebookPen },
-  { id: "event", label: "Novo evento", icon: CalendarPlus },
+  { id: "event", label: "Novo evento", icon: CalendarPlus, href: newEventHref },
   { id: "transaction", label: "Novo lançamento", icon: ArrowLeftRight },
 ];
 

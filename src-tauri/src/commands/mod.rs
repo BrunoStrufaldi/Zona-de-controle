@@ -9,6 +9,7 @@
 pub mod app;
 pub mod audit;
 pub mod backup;
+pub mod calendar;
 pub mod devices;
 pub mod notes;
 pub mod optimization;

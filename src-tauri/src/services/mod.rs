@@ -2,6 +2,7 @@
 //! Os commands (camada IPC) apenas delegam para cá.
 
 pub mod backup;
+pub mod calendar;
 pub mod notes;
 pub mod routines;
 pub mod settings;

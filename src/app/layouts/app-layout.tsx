@@ -4,6 +4,7 @@ import { Outlet, useLocation } from "react-router";
 import { Header } from "@/components/layout/header";
 import { Sidebar } from "@/components/layout/sidebar";
 import { navigation } from "@/config/navigation";
+import { useReminderNotifications } from "@/features/productivity/calendar/hooks/use-reminder-notifications";
 import { COMPACT_LAYOUT_QUERY, useMediaQuery } from "@/hooks/use-media-query";
 import { findNavigationTrail } from "@/lib/navigation";
 import { useUiStore } from "@/stores/ui-store";
@@ -24,6 +25,8 @@ export function AppLayout() {
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const setOverlayOpen = useUiStore((state) => state.setSidebarOverlayOpen);
   const mainRef = useRef<HTMLElement>(null);
+  // Lembretes do calendário: notificações enquanto o app estiver aberto.
+  useReminderNotifications();
 
   const trail = findNavigationTrail(navigation, pathname);
   const showOverlay = isCompact && overlayOpen;

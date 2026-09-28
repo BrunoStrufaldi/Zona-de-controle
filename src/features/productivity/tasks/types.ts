@@ -1,4 +1,6 @@
 import { type IsoDate, type IsoDateTime } from "@/types/common";
+import { type CategoryColor } from "@/types/palette";
+import { type RecurrenceFrequency } from "@/types/recurrence";
 
 /**
  * Contrato de Tarefas. Espelha `src-tauri/src/domain/tasks.rs`,
@@ -12,8 +14,7 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
 export const TASK_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
-export const RECURRENCE_FREQUENCIES = ["daily", "weekly", "monthly", "yearly"] as const;
-export type RecurrenceFrequency = (typeof RECURRENCE_FREQUENCIES)[number];
+export { RECURRENCE_FREQUENCIES, type RecurrenceFrequency } from "@/types/recurrence";
 
 /**
  * Repetição a cada `interval` dias/semanas/meses/anos. Na semanal, `weekdays`
@@ -78,18 +79,7 @@ export interface TaskChange {
 }
 
 /** Paleta de categorias; cada cor é um token do tema (`--zdc-category-*`). */
-export const CATEGORY_COLORS = [
-  "red",
-  "orange",
-  "amber",
-  "green",
-  "teal",
-  "blue",
-  "violet",
-  "pink",
-  "slate",
-] as const;
-export type CategoryColor = (typeof CATEGORY_COLORS)[number];
+export { CATEGORY_COLORS, type CategoryColor } from "@/types/palette";
 
 export interface TaskCategory {
   id: number;

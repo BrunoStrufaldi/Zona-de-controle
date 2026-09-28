@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { type CalendarView } from "@/features/productivity/calendar/types";
+
 /**
  * Estado global de interface (apenas preferências visuais, sem dados de negócio).
  * Persistido no localStorage por ser preferência local da janela; configurações
@@ -20,11 +22,14 @@ interface UiState {
   tasksView: TasksView;
   /** Modo do editor de notas (texto, lado a lado ou pré-visualização). */
   notesEditorMode: NotesEditorMode;
+  /** Visão preferida do Calendário (mês, semana ou dia). */
+  calendarView: CalendarView;
   toggleSidebar: () => void;
   setSidebarOverlayOpen: (open: boolean) => void;
   toggleGroup: (groupId: string) => void;
   setTasksView: (view: TasksView) => void;
   setNotesEditorMode: (mode: NotesEditorMode) => void;
+  setCalendarView: (view: CalendarView) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -35,6 +40,7 @@ export const useUiStore = create<UiState>()(
       collapsedGroups: {},
       tasksView: "list",
       notesEditorMode: "edit",
+      calendarView: "month",
       toggleSidebar: () => {
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }));
       },
@@ -55,6 +61,9 @@ export const useUiStore = create<UiState>()(
       setNotesEditorMode: (mode) => {
         set({ notesEditorMode: mode });
       },
+      setCalendarView: (view) => {
+        set({ calendarView: view });
+      },
     }),
     {
       name: "zdc.ui",
@@ -64,6 +73,7 @@ export const useUiStore = create<UiState>()(
         collapsedGroups: state.collapsedGroups,
         tasksView: state.tasksView,
         notesEditorMode: state.notesEditorMode,
+        calendarView: state.calendarView,
       }),
     },
   ),

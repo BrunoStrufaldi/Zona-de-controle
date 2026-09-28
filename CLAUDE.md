@@ -147,6 +147,9 @@ Regras:
 - **Nunca** executar comandos shell arbitrários; não adicionar `tauri-plugin-shell`.
 - Não adicionar plugins/permissões (`fs`, `shell`, `sql`, `http`, `core:*`) sem necessidade real
   e comentário na capability. O plugin SQL do Tauri **não** deve ser usado: SQL só no Rust.
+  Único plugin em uso: `tauri-plugin-notification` (lembretes), com só `is-permission-granted`,
+  `request-permission` e `notify`. Plugins só são importados em `src/services` (ESLint bloqueia
+  `@tauri-apps/plugin-*` fora dali).
 - Nunca armazenar senhas/segredos em texto puro.
 - `audit_log` é somente inserção (triggers bloqueiam UPDATE/DELETE). Operações sensíveis devem auditar sucesso **e** falha.
 - Padrão de exclusão: `AlertDialog` que nomeia o item e avisa que é permanente e auditado
@@ -190,13 +193,30 @@ Regras:
   têm os mesmos casos de teste: altere os dois juntos.
 - **Tarefas arquivadas** não aparecem em `list_tasks` (nem no dashboard); use `list_archived_tasks`.
   Arquivadas não podem ser editadas ou movidas: restaure antes.
-- **Cores de categoria** são nomes (`red`, `teal`…) mapeados para `--zdc-category-*` em
-  `task-styles.ts`. Nunca grave hexadecimal no banco.
+- **Cores nomeadas** (categorias de tarefas e eventos) são nomes (`red`, `teal`…) de
+  `src/types/palette.ts`, mapeados para `--zdc-category-*` em `src/lib/palette.ts`
+  (`ColorPicker` em `components/shared`). Nunca grave hexadecimal no banco. Frequências e rótulos
+  de repetição comuns: `src/types/recurrence.ts` e `src/lib/recurrence.ts`.
 - **Rotinas:** sequência, recorde e consistência são calculados só no Rust
   (`domain/routines.rs::Schedule::stats`, com testes); o frontend exibe o que vem de `list_routines`.
   Hábitos têm validade (`created_on` inclusive, `removed_on` exclusive): editar a rotina nunca apaga
   hábitos, só encerra a validade, para não reescrever o passado. Marcação: de hoje até
   `BACKFILL_DAYS` (7) dias atrás, só em dias da agenda. Nomes dos dias da semana: `src/lib/weekdays.ts`.
+- **Calendário:** datas/horários locais sem fuso (`aaaa-mm-dd` + `HH:MM`; `TimeOfDay` e
+  `LocalDateTime` em `domain/calendar.rs`, "agora" via `repositories::clock::local_now`). A série guarda
+  só a regra; as ocorrências são calculadas no Rust (`domain/calendar_events.rs`, fonte da verdade)
+  para o intervalo pedido (`list_calendar`, até 100 dias). Uma ocorrência é identificada pela **data
+  original** (`occurrence_date`); exceções (`calendar_event_exceptions`) cancelam ou substituem uma
+  ocorrência (pode mudar de dia). Mudar `start_date` ou a regra da série apaga as exceções (auditado).
+  Semanal com dias escolhidos: ocorrências são os dias marcados a partir do início (o próprio início
+  só conta se for um deles). Mensal no dia 31 usa o último dia do mês, como nas tarefas.
+- **Lembretes:** `useReminderNotifications` (montado no `AppLayout`) chama `claim_due_reminders` a
+  cada 30 s; o Rust devolve lembretes vencidos há até 15 min e grava em `calendar_reminders_sent`
+  (chave inclui o instante, então mudar o horário rearma). Cada lembrete vira notificação do Windows
+  **e** toast no app: o plugin não detecta notificações desativadas no Windows. Só funciona com o
+  app aberto (sem bandeja/segundo plano, por decisão). Dia inteiro: lembrete relativo às 09:00.
+- **Links entre módulos por URL:** `?new=1` abre o formulário de criação (Tarefas e Calendário) e
+  `?task=<id>` abre a edição de uma tarefa (`taskHref`, usado pelo calendário).
 - **Tags compartilhadas:** normalização em `domain/tags.rs` (Rust) e `src/lib/tags.ts` (TS); tarefas e
   notas usam a mesma tabela `tags`. Busca sem acentos: `src/lib/text.ts`.
 - **Notas:** o editor salva sozinho (`use-autosave.ts`: debounce, fila sem saves paralelos e salvamento

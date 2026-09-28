@@ -37,7 +37,7 @@ export default defineConfig([
         {
           patterns: [
             {
-              group: ["@tauri-apps/api", "@tauri-apps/api/*"],
+              group: ["@tauri-apps/api", "@tauri-apps/api/*", "@tauri-apps/plugin-*"],
               message: "Acesse o backend apenas pelos serviços em src/services (ver CLAUDE.md).",
             },
           ],

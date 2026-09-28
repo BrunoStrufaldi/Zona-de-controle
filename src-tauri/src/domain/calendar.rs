@@ -1,5 +1,5 @@
-//! Datas de calendário locais (`aaaa-mm-dd`, sem fuso), com aritmética de
-//! dias, meses e anos. Evita dependências externas: a conversão para dias
+//! Datas e horários locais (`aaaa-mm-dd`, `HH:MM`, sem fuso), com aritmética
+//! de dias, meses e anos. Evita dependências externas: a conversão para dias
 //! corridos usa o algoritmo `days_from_civil` (Howard Hinnant).
 
 use std::fmt;
@@ -34,6 +34,10 @@ impl CalendarDate {
             && (1..=12).contains(&month)
             && (1..=days_in_month(year, month)).contains(&day);
         valid.then_some(Self { year, month, day })
+    }
+
+    pub fn year(self) -> i32 {
+        self.year
     }
 
     pub fn day(self) -> u32 {
@@ -101,6 +105,69 @@ impl CalendarDate {
 impl fmt::Display for CalendarDate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:04}-{:02}-{:02}", self.year, self.month, self.day)
+    }
+}
+
+const MINUTES_PER_DAY: i64 = 24 * 60;
+
+/// Horário local `HH:MM` (minutos desde a meia-noite).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TimeOfDay(u16);
+
+impl TimeOfDay {
+    pub fn parse(value: &str) -> Option<Self> {
+        let bytes = value.as_bytes();
+        if bytes.len() != 5 || bytes[2] != b':' {
+            return None;
+        }
+        let part = |text: &str| -> Option<u16> {
+            text.bytes()
+                .all(|b| b.is_ascii_digit())
+                .then(|| text.parse().ok())
+                .flatten()
+        };
+        let (hour, minute) = (part(&value[0..2])?, part(&value[3..5])?);
+        (hour < 24 && minute < 60).then_some(Self(hour * 60 + minute))
+    }
+}
+
+impl fmt::Display for TimeOfDay {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:02}:{:02}", self.0 / 60, self.0 % 60)
+    }
+}
+
+/// Instante local (data + horário), comparável e com soma de minutos.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct LocalDateTime {
+    pub date: CalendarDate,
+    pub time: TimeOfDay,
+}
+
+impl LocalDateTime {
+    /// Converte `aaaa-mm-ddTHH:MM` (ou com espaço no lugar do `T`).
+    pub fn parse(value: &str) -> Option<Self> {
+        if value.len() != 16 || !matches!(value.as_bytes()[10], b'T' | b' ') {
+            return None;
+        }
+        Some(Self {
+            date: CalendarDate::parse(&value[..10])?,
+            time: TimeOfDay::parse(&value[11..])?,
+        })
+    }
+
+    pub fn add_minutes(self, minutes: i64) -> Self {
+        let total = self.date.to_days() * MINUTES_PER_DAY + i64::from(self.time.0) + minutes;
+        Self {
+            date: CalendarDate::from_days(total.div_euclid(MINUTES_PER_DAY)),
+            time: TimeOfDay(total.rem_euclid(MINUTES_PER_DAY) as u16),
+        }
+    }
+}
+
+impl fmt::Display for LocalDateTime {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}T{}", self.date, self.time)
     }
 }
 
@@ -172,6 +239,30 @@ mod tests {
             date("2026-11-15").add_months(3, 15).to_string(),
             "2027-02-15"
         );
+    }
+
+    #[test]
+    fn parses_times_and_date_times() {
+        assert_eq!(TimeOfDay::parse("00:00"), Some(TimeOfDay(0)));
+        assert_eq!(TimeOfDay::parse("23:59").unwrap().to_string(), "23:59");
+        for invalid in ["24:00", "12:60", "9:30", "12-30", "ab:cd", ""] {
+            assert!(TimeOfDay::parse(invalid).is_none(), "{invalid}");
+        }
+        let instant = LocalDateTime::parse("2026-09-25T14:30").unwrap();
+        assert_eq!(instant.to_string(), "2026-09-25T14:30");
+        assert_eq!(LocalDateTime::parse("2026-09-25 14:30"), Some(instant));
+        assert!(LocalDateTime::parse("2026-09-25").is_none());
+    }
+
+    #[test]
+    fn adds_minutes_across_days() {
+        let instant = LocalDateTime::parse("2026-12-31T23:50").unwrap();
+        assert_eq!(instant.add_minutes(15).to_string(), "2027-01-01T00:05");
+        assert_eq!(
+            instant.add_minutes(-24 * 60).to_string(),
+            "2026-12-30T23:50"
+        );
+        assert!(instant.add_minutes(1) > instant);
     }
 
     #[test]

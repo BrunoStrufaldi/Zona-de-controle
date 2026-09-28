@@ -8,17 +8,7 @@ import {
 /** Limites espelhados de `src-tauri/src/domain/task_categories.rs`. */
 export const CATEGORY_LIMITS = { nameChars: 40, categories: 50 } as const;
 
-export const categoryColorLabels: Record<CategoryColor, string> = {
-  red: "Vermelho",
-  orange: "Laranja",
-  amber: "Âmbar",
-  green: "Verde",
-  teal: "Turquesa",
-  blue: "Azul",
-  violet: "Violeta",
-  pink: "Rosa",
-  slate: "Cinza",
-};
+export { categoryColorLabels } from "@/lib/palette";
 
 export type CategoriesById = ReadonlyMap<number, TaskCategory>;
 

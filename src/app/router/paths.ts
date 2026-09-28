@@ -32,3 +32,17 @@ export const NEW_TASK_PARAM = "new";
 
 /** Link para criar uma tarefa (usado pelo menu "Criar" do header). */
 export const newTaskHref = `${paths.productivity.tasks}?${NEW_TASK_PARAM}=1`;
+
+/** Parâmetro de URL que abre a edição de uma tarefa (ex.: vinda do calendário). */
+export const OPEN_TASK_PARAM = "task";
+
+/** Link para abrir uma tarefa na página de Tarefas. */
+export function taskHref(id: number): string {
+  return `${paths.productivity.tasks}?${OPEN_TASK_PARAM}=${id}`;
+}
+
+/** Parâmetro de URL que abre o formulário de novo evento na página do Calendário. */
+export const NEW_EVENT_PARAM = "new";
+
+/** Link para criar um evento (usado pelo menu "Criar" do header). */
+export const newEventHref = `${paths.productivity.calendar}?${NEW_EVENT_PARAM}=1`;

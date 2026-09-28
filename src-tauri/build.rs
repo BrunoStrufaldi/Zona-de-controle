@@ -44,6 +44,13 @@ const APP_COMMANDS: &[&str] = &[
     "update_routine",
     "set_habit_done",
     "delete_routine",
+    "list_calendar",
+    "create_calendar_event",
+    "update_calendar_event",
+    "update_event_occurrence",
+    "delete_calendar_event",
+    "delete_event_occurrence",
+    "claim_due_reminders",
 ];
 
 fn main() {

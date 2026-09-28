@@ -18,6 +18,8 @@ use crate::state::AppState;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Notificações locais dos lembretes do calendário (permissões mínimas na capability).
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let state = AppState::initialize(app.handle())?;
             app.manage(state);
@@ -65,6 +67,13 @@ pub fn run() {
             commands::routines::update_routine,
             commands::routines::set_habit_done,
             commands::routines::delete_routine,
+            commands::calendar::list_calendar,
+            commands::calendar::create_calendar_event,
+            commands::calendar::update_calendar_event,
+            commands::calendar::update_event_occurrence,
+            commands::calendar::delete_calendar_event,
+            commands::calendar::delete_event_occurrence,
+            commands::calendar::claim_due_reminders,
         ])
         .run(tauri::generate_context!())
         .expect("falha ao iniciar o Zona de Controle");

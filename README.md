@@ -16,7 +16,7 @@ O **Zona de Controle** reúne em um só lugar três áreas do dia a dia:
 
 Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem, sem contas e sem APIs externas.
 
-> **Estado atual: Fase 2 em andamento.** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard) , **Notas e diário** e **Rotinas** já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
+> **Estado atual: Fase 2 concluída.** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas** e **Calendário** já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
 
 ## Stack
 
@@ -53,7 +53,7 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
 - **Tarefas** ✅ (2.1 e 2.2): lista e Kanban, status, prioridades, vencimento com destaque (atrasada, hoje, em breve), tags, busca e filtros, recorrência, checklists, categorias e arquivamento.
 - **Notas e diário** ✅ (2.3): editor Markdown, notas rápidas, diário por data, busca, tags, favoritos, pastas e histórico.
 - **Rotinas** ✅ (2.4): rotinas diárias e semanais, hábitos, histórico de execução e indicadores de consistência.
-- **Calendário**: eventos, lembretes, recorrência, notificações locais e visões mensal, semanal e diária.
+- **Calendário** ✅ (2.5): eventos, lembretes, recorrência, notificações locais e visões mensal, semanal e diária.
 
 ### Monitoramento do sistema (Fases 3 e 4)
 
@@ -100,6 +100,14 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
   - **sequência** de dias completos (todos os hábitos feitos), recorde e consistência dos últimos 30 dias. Dias fora da agenda são ignorados, e hoje ainda em andamento não quebra a sequência;
   - editar uma rotina não reescreve o passado: hábitos removidos deixam de valer a partir de hoje e hábitos novos contam a partir de hoje;
   - widget "Rotinas de hoje" no dashboard com dados reais;
+  - exclusão só após confirmação, registrada na auditoria.
+- **Calendário**:
+  - visões **mensal**, **semanal** e **diária**, com navegação por período e botão "Hoje". Na grade de horários, eventos sobrepostos ficam lado a lado e uma linha marca a hora atual; clicar num horário vazio cria um evento ali;
+  - eventos com horário ou de dia inteiro, de um ou vários dias, com cor, local e descrição;
+  - **repetição** diária, semanal (com dias da semana), mensal ou anual, a cada N períodos, sem fim, até uma data ou por N vezes. É possível editar ou excluir **só uma ocorrência** ou **toda a série**. Mudar o início ou a repetição da série descarta as alterações individuais, com aviso no formulário e registro na auditoria;
+  - **lembretes** (de "no horário" a 1 semana antes; no dia inteiro, contados a partir das 09:00) mostrados como notificação do Windows e como aviso dentro do app, enquanto o app estiver aberto (mesmo minimizado). Cada lembrete é avisado uma única vez; atrasos de até 15 minutos (ex.: PC suspenso) ainda são avisados;
+  - **tarefas com vencimento** aparecem no dia, somente leitura, com link que abre a tarefa na página de Tarefas;
+  - widget "Próximos eventos" (7 dias) no dashboard com dados reais e atalho "Novo evento" no menu Criar;
   - exclusão só após confirmação, registrada na auditoria.
 - Layout completo, navegação entre as 16 páginas e página 404.
 - Persistência SQLite com migrations versionadas executadas na inicialização.
@@ -189,7 +197,7 @@ src-tauri/                    Backend (Rust)
 │   ├── db/                   Conexão SQLite + runner de migrations
 │   ├── error.rs              AppError → { kind, message }
 │   └── state.rs              Estado gerenciado (banco, providers)
-├── migrations/               SQL versionado (0001_initial … 0004_notes, 0005_routines)
+├── migrations/               SQL versionado (0001_initial … 0005_routines, 0006_calendar)
 ├── capabilities/             Permissões mínimas, comentadas
 └── build.rs                  Lista explícita de commands permitidos
 ```
@@ -206,7 +214,7 @@ src-tauri/                    Backend (Rust)
 - `notes`, `note_tags`, `note_folders` e `note_versions`: notas em Markdown (as do diário têm `journal_date`, única por dia), tags na mesma tabela `tags` das tarefas, pastas (`ON DELETE SET NULL`) e histórico de versões, excluído em cascata com a nota.
 - `routines`, `habits` e `habit_completions`: rotinas (dias da semana em máscara de bits e data de início), hábitos com período de validade (`created_on`/`removed_on`, para o histórico não mudar ao editar) e marcações por dia.
 
-**Segurança:** a capability concede apenas os commands do próprio app, sem nenhum plugin e sem permissões `core:*`. A CSP é restritiva e não há execução de shell. As operações destrutivas são a exclusão de tarefas, categorias, notas, pastas de notas e rotinas. Todas exigem confirmação explícita e são auditadas, tanto no sucesso quanto na falha. Arquivar não apaga dados. O backup só cria arquivos novos (também auditado) e não existe command que apague, sobrescreva ou restaure arquivos.
+**Segurança:** a capability concede apenas os commands do próprio app e três permissões do plugin oficial de notificação (consultar/pedir permissão e notificar, para os lembretes), sem plugins de acesso ao sistema e sem permissões `core:*`. A CSP é restritiva e não há execução de shell. As operações destrutivas são a exclusão de tarefas, categorias, notas, pastas de notas, rotinas e eventos (série ou ocorrência). Todas exigem confirmação explícita e são auditadas, tanto no sucesso quanto na falha. Arquivar não apaga dados. O backup só cria arquivos novos (também auditado) e não existe command que apague, sobrescreva ou restaure arquivos.
 
 ## Pré-requisitos (Windows 11)
 
@@ -272,7 +280,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada pu
 ## Roadmap
 
 - **Fase 1 — Foundation** ✅: boilerplate, design system, layout, navegação, Tauri e SQLite preparado.
-- **Fase 2 — Productivity** 🚧: tarefas ✅ (2.1); recorrência, checklists, categorias e arquivamento ✅ (2.2); notas e diário ✅ (2.3); rotinas ✅ (2.4); calendário.
+- **Fase 2 — Productivity** ✅: tarefas ✅ (2.1); recorrência, checklists, categorias e arquivamento ✅ (2.2); notas e diário ✅ (2.3); rotinas ✅ (2.4); calendário ✅ (2.5).
 - **Fase 3 — System Monitor**: CPU, RAM, discos, diagnósticos, dispositivos e bateria (Bluetooth e controles Xbox primeiro; periféricos 2.4 GHz depois, por modelo).
 - **Fase 4 — Safe Optimization**: temporários, caches seguros, lixeira, logs e confirmação.
 - **Fase 5 — Finance Core**: lançamentos, categorias, recorrências e parcelamentos.

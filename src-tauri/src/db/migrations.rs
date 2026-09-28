@@ -42,6 +42,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "routines",
         sql: include_str!("../../migrations/0005_routines.sql"),
     },
+    Migration {
+        version: 6,
+        name: "calendar",
+        sql: include_str!("../../migrations/0006_calendar.sql"),
+    },
 ];
 
 const CREATE_SCHEMA_MIGRATIONS: &str = "
@@ -149,6 +154,9 @@ mod tests {
             "routines",
             "habits",
             "habit_completions",
+            "calendar_events",
+            "calendar_event_exceptions",
+            "calendar_reminders_sent",
         ] {
             assert!(table_exists(&connection, table), "{table}");
         }
@@ -204,6 +212,37 @@ mod tests {
             .unwrap();
         assert_eq!(title, "Antiga");
         assert_eq!((category, recurrence, archived), (None, None, None));
+    }
+
+    #[test]
+    fn upgrades_from_version_5_keeping_routines() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(CREATE_SCHEMA_MIGRATIONS).unwrap();
+        for migration in &MIGRATIONS[..5] {
+            apply(&mut connection, migration).unwrap();
+        }
+        connection
+            .execute(
+                "INSERT INTO routines (name, weekdays, start_date) VALUES ('Manhã', 127, '2026-09-20')",
+                [],
+            )
+            .unwrap();
+
+        run(&mut connection).unwrap();
+
+        let name: String = connection
+            .query_row("SELECT name FROM routines", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(name, "Manhã");
+        assert!(table_exists(&connection, "calendar_events"));
+        // As restrições de horário recusam valores fora de HH:MM.
+        let invalid = connection.execute(
+            "INSERT INTO calendar_events (title, color, all_day, start_date, start_time,
+                                          end_date, end_time)
+             VALUES ('x', 'blue', 0, '2026-09-25', '25:00', '2026-09-25', '26:00')",
+            [],
+        );
+        assert!(invalid.is_err());
     }
 
     #[test]

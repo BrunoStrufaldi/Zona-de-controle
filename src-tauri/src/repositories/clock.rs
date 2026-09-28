@@ -1,8 +1,8 @@
-//! Data local ("hoje") segundo o fuso do sistema operacional, via SQLite.
+//! Data e hora locais segundo o fuso do sistema operacional, via SQLite.
 
 use rusqlite::Connection;
 
-use crate::domain::calendar::CalendarDate;
+use crate::domain::calendar::{CalendarDate, LocalDateTime};
 use crate::error::{AppError, AppResult};
 
 /// Data local de hoje.
@@ -13,6 +13,17 @@ pub fn local_today(connection: &Connection) -> AppResult<CalendarDate> {
         .ok_or_else(|| AppError::Validation(format!("data local inválida: {today}")))
 }
 
+/// Instante local atual, com precisão de minutos.
+pub fn local_now(connection: &Connection) -> AppResult<LocalDateTime> {
+    let now: String = connection.query_row(
+        "SELECT strftime('%Y-%m-%dT%H:%M', 'now', 'localtime')",
+        [],
+        |row| row.get(0),
+    )?;
+    LocalDateTime::parse(&now)
+        .ok_or_else(|| AppError::Validation(format!("horário local inválido: {now}")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -21,7 +32,13 @@ mod tests {
     #[test]
     fn reads_the_local_date() {
         let db = Database::open_in_memory().unwrap();
-        db.with_connection(|connection| local_today(connection))
-            .unwrap();
+        db.with_connection(|connection| {
+            let today = local_today(connection)?;
+            let now = local_now(connection)?;
+            // Tolera a virada do dia entre as duas leituras.
+            assert!(now.date == today || now.date == today.add_days(1));
+            Ok(())
+        })
+        .unwrap();
     }
 }

@@ -3,6 +3,7 @@
 
 pub mod audit;
 pub mod backup;
+pub mod calendar_events;
 pub mod clock;
 pub mod notes;
 pub mod routines;

@@ -1,6 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import {
+  type CalendarAgenda,
+  type CalendarEvent,
+  type DueReminder,
+  type EventInput,
+  type OccurrenceInput,
+} from "@/features/productivity/calendar/types";
+import {
   type Note,
   type NoteFolder,
   type NoteInput,
@@ -78,6 +85,16 @@ export interface CommandMap {
   update_routine: { args: { id: number; input: RoutineInput }; result: Routine };
   set_habit_done: { args: { habitId: number; date: string; done: boolean }; result: Routine };
   delete_routine: { args: { id: number }; result: null };
+  list_calendar: { args: { from: string; to: string }; result: CalendarAgenda };
+  create_calendar_event: { args: { input: EventInput }; result: CalendarEvent };
+  update_calendar_event: { args: { id: number; input: EventInput }; result: CalendarEvent };
+  update_event_occurrence: {
+    args: { eventId: number; occurrenceDate: string; input: OccurrenceInput };
+    result: null;
+  };
+  delete_calendar_event: { args: { id: number }; result: null };
+  delete_event_occurrence: { args: { eventId: number; occurrenceDate: string }; result: null };
+  claim_due_reminders: { args: undefined; result: DueReminder[] };
 }
 
 export type CommandName = keyof CommandMap;

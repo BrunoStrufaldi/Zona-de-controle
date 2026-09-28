@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 
-import { NEW_TASK_PARAM } from "@/app/router/paths";
+import { NEW_TASK_PARAM, OPEN_TASK_PARAM } from "@/app/router/paths";
 import { PageHeader } from "@/components/shared/page-header";
 import { ResourceView } from "@/components/shared/resource-view";
 import { Button } from "@/components/ui/button";
@@ -54,16 +54,29 @@ export function TasksPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const today = toIsoDate(new Date());
-  const createRequested = searchParams.get(NEW_TASK_PARAM) === "1";
-  const activeForm: TaskFormMode | null = formMode ?? (createRequested ? { kind: "create" } : null);
   const loaded = resource.status === "success" ? resource.data : null;
+  const createRequested = searchParams.get(NEW_TASK_PARAM) === "1";
+  // `?task=<id>` (ex.: link do calendário) abre a edição da tarefa.
+  const openTaskParam = searchParams.get(OPEN_TASK_PARAM);
+  const requestedTask =
+    openTaskParam === null
+      ? undefined
+      : loaded?.tasks.find((task) => String(task.id) === openTaskParam);
+  const activeForm: TaskFormMode | null =
+    formMode ??
+    (createRequested
+      ? { kind: "create" }
+      : requestedTask
+        ? { kind: "edit", task: requestedTask }
+        : null);
 
   const closeForm = () => {
     setFormMode(null);
-    if (createRequested) {
+    if (createRequested || openTaskParam !== null) {
       setSearchParams(
         (params) => {
           params.delete(NEW_TASK_PARAM);
+          params.delete(OPEN_TASK_PARAM);
           return params;
         },
         { replace: true },
