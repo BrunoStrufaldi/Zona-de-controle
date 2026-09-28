@@ -27,7 +27,7 @@ pub use types::{
 };
 
 use crate::error::{AppError, AppResult};
-use readers::{ModelReading, ReportReader, ReportedPower, MCHOSE_V9_READER};
+use readers::{ModelReading, ReportReader, ReportedPower, MCHOSE_V9_READER, RAPOO_VT7_READER};
 
 /// Página de uso HID "Generic Desktop" e os usos de mouse e teclado.
 const USAGE_PAGE_GENERIC_DESKTOP: u16 = 0x01;
@@ -55,7 +55,7 @@ pub const KNOWN_WIRELESS_MODELS: [KnownModel; 2] = [
         product_id: 0x1416,
         name: "Rapoo VT7 Max",
         kind: DeviceKind::Mouse,
-        reader: None,
+        reader: Some(RAPOO_VT7_READER),
     },
     // Receptor "MCHOSE V9 PRO" (expõe controles de chamada: é o headset).
     KnownModel {
@@ -454,7 +454,7 @@ pub fn provider_descriptors() -> Vec<ProviderDescriptor> {
         ProviderDescriptor {
             id: BatteryProviderId::HidVendor,
             name: "Receptores 2.4 GHz",
-            description: "Detecta o receptor USB. Bateria só nos modelos com leitor próprio (hoje: headset MCHOSE V9 PRO), escutando o que o receptor informa.",
+            description: "Detecta o receptor USB. Bateria só nos modelos com leitor próprio (hoje: headset MCHOSE V9 PRO e mouse Rapoo VT7 Max), escutando o que o receptor informa.",
             status: ProviderStatus::Partial,
         },
         ProviderDescriptor {
@@ -565,13 +565,32 @@ mod tests {
 
         let battery = usb_battery_devices(&devices, &ModelReadings::new(), |_| None);
         assert_eq!(battery.len(), 2);
-        // Headset com leitor, sem aviso ainda: aguardando (não "Não disponível").
+        // Headset e mouse têm leitor; sem aviso ainda: aguardando (não "Não disponível").
         assert_eq!(battery[0].level, BatteryLevel::Waiting);
         assert_eq!(battery[0].support, SupportLevel::Supported);
-        // Mouse sem leitor: presente, bateria não disponível.
         assert_eq!(battery[1].id, "usb:24ae:1416");
         assert_eq!(battery[1].connection, ConnectionType::Proprietary24Ghz);
-        assert_eq!(battery[1].level, BatteryLevel::Unknown);
+        assert_eq!(battery[1].level, BatteryLevel::Waiting);
+    }
+
+    #[test]
+    fn a_wireless_device_without_a_reader_has_no_battery_reading() {
+        let markings = HashMap::from([(
+            "3151:502d".to_string(),
+            DeviceMarking {
+                wireless: true,
+                kind: DeviceKind::Keyboard,
+            },
+        )]);
+        let devices = list_usb_input_devices(&user_machine(), &markings);
+        let battery = usb_battery_devices(&devices, &ModelReadings::new(), |_| None);
+        let keyboard = battery
+            .iter()
+            .find(|device| device.id == "usb:3151:502d")
+            .unwrap();
+        // Presente, mas sem leitor do modelo: "Não disponível", nunca estimado.
+        assert_eq!(keyboard.support, SupportLevel::Unsupported);
+        assert_eq!(keyboard.level, BatteryLevel::Unknown);
     }
 
     #[test]
@@ -607,7 +626,7 @@ mod tests {
     }
 
     #[test]
-    fn only_the_headset_has_a_reader_today() {
+    fn the_headset_and_the_mouse_have_readers() {
         let keys: Vec<_> = models_with_reader()
             .map(|(model, reader)| {
                 (
@@ -616,7 +635,13 @@ mod tests {
                 )
             })
             .collect();
-        assert_eq!(keys, [("291d:385d".to_string(), 0xFF90)]);
+        assert_eq!(
+            keys,
+            [
+                ("24ae:1416".to_string(), 0xFF00),
+                ("291d:385d".to_string(), 0xFF90)
+            ]
+        );
     }
 
     #[test]

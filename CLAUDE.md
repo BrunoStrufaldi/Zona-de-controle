@@ -265,8 +265,12 @@ Regras:
   `None` (nada exibido), nunca um palpite. Com leitor e sem aviso ainda: `Waiting` ("Aguardando
   leitura"); aviso de desligado: `Off { last_percent }` (o aviso vem com nível 0, então o Rust guarda
   o último nível informado com ele ligado — `ModelReading::next` — e a tela mostra "Desligado · 100%",
-  sem barra). MCHOSE V9 PRO: coleção `0xFF90`, relatório `55 65 <nível>
-<estado>`. `usePollingResource().refresh()` relê sem voltar a "carregando".
+  sem barra). `ReportReader` escolhe a coleção (`usage_page` + `usage` opcional) e, para modelos que
+  repetem o status, `off_after_silence_secs` transforma silêncio em "desligado". Mapeados:
+  MCHOSE V9 PRO (coleção `0xFF90`, relatório `55 65 NÍVEL ESTADO`, avisa só em eventos) e Rapoo VT7
+  Max (coleção `0xFF00`/`0x02`, relatório `0x07` a cada ~3 s: byte 7 = estado, byte 8 = nível;
+  desligado = silêncio > 10 s). O nível do Rapoo só foi visto em 100%: confira quando baixar.
+  `usePollingResource().refresh()` relê sem voltar a "carregando".
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

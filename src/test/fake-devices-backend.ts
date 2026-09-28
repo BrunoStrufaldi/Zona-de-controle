@@ -76,10 +76,12 @@ const PROVIDERS: BatteryProviderDescriptor[] = [
   },
 ];
 
-/** Receptores com leitor de bateria (como no Rust: só o headset MCHOSE). */
-const KEYS_WITH_READER = new Set(["291d:385d"]);
+/** Receptores com leitor de bateria (como no Rust: headset MCHOSE e mouse Rapoo). */
+const HEADSET_KEY = "291d:385d";
+const MOUSE_KEY = "24ae:1416";
+const KEYS_WITH_READER = new Set([HEADSET_KEY, MOUSE_KEY]);
 
-interface HeadsetReading {
+interface ModelReading {
   level: DeviceBatteryInfo["level"];
   charging: DeviceBatteryInfo["charging"];
   lastUpdated: string;
@@ -87,13 +89,18 @@ interface HeadsetReading {
 
 /**
  * Backend de dispositivos para testes de interface. Aplica as marcações como o
- * Rust (a marcação prevalece; sem fio entra na lista de bateria). O headset tem
- * leitor: sem `headset`, fica "aguardando leitura".
+ * Rust (a marcação prevalece; sem fio entra na lista de bateria). O headset e o
+ * mouse têm leitor: sem `headset`/`mouse`, ficam "aguardando leitura".
  */
 export function mockDevicesBackend({
   others = OTHER_BATTERIES,
   headset,
-}: { others?: DeviceBatteryInfo[]; headset?: HeadsetReading } = {}) {
+  mouse,
+}: { others?: DeviceBatteryInfo[]; headset?: ModelReading; mouse?: ModelReading } = {}) {
+  const readings: Record<string, ModelReading | undefined> = {
+    [HEADSET_KEY]: headset,
+    [MOUSE_KEY]: mouse,
+  };
   let usb = USB_DEVICES.map((device) => ({ ...device }));
 
   const batteries = (): DeviceBatteryInfo[] => [
@@ -112,8 +119,9 @@ export function mockDevicesBackend({
           lastUpdated: null,
         };
         if (!KEYS_WITH_READER.has(device.key)) return base;
-        return headset
-          ? { ...base, support: "supported", ...headset }
+        const reading = readings[device.key];
+        return reading
+          ? { ...base, support: "supported", ...reading }
           : { ...base, support: "supported", level: { kind: "waiting" } };
       }),
     ...others,

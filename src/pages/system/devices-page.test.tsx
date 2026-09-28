@@ -19,10 +19,9 @@ describe("página de Dispositivos", () => {
       "Controle Xbox (jogador 1)",
       "Fone Bluetooth",
     ]);
-    // Headset com leitor, antes do primeiro aviso: aguardando, nunca estimado.
+    // Headset e mouse com leitor, antes do primeiro aviso: aguardando, nunca estimado.
     expect(rows[0]).toHaveTextContent("Aguardando leitura");
-    // Receptor sem leitor do modelo: presente, bateria nunca estimada.
-    expect(rows[1]).toHaveTextContent("Não disponível");
+    expect(rows[1]).toHaveTextContent("Aguardando leitura");
     expect(rows[1]).toHaveTextContent("2.4 GHz · receptor USB conectado");
     expect(rows[2]).toHaveTextContent("Média (aprox.)");
     expect(rows[3]).toHaveTextContent("80%");
@@ -69,6 +68,24 @@ describe("página de Dispositivos", () => {
     expect(within(headset).queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
+  it("mostra a bateria que o mouse informou", async () => {
+    const readAt = new Date();
+    readAt.setHours(11, 47, 0, 0);
+    mockDevicesBackend({
+      mouse: {
+        level: { kind: "exact", percent: 100 },
+        charging: "discharging",
+        lastUpdated: readAt.toISOString(),
+      },
+    });
+    renderRoute(paths.system.devices);
+
+    const list = await screen.findByRole("list", { name: "Dispositivos com bateria" });
+    const mouse = within(list).getByText("Rapoo VT7 Max").closest("li") as HTMLElement;
+    expect(mouse).toHaveTextContent("100%");
+    expect(mouse).toHaveTextContent("2.4 GHz · Na bateria · lido às 11:47");
+  });
+
   it("marca um dispositivo USB como sem fio e ele entra na lista de bateria", async () => {
     const user = userEvent.setup();
     const { handlers } = mockDevicesBackend();
@@ -93,6 +110,10 @@ describe("página de Dispositivos", () => {
     expect(await screen.findByText("Marcado como sem fio")).toBeInTheDocument();
     const batteries = screen.getByRole("list", { name: "Dispositivos com bateria" });
     expect(await within(batteries).findByText("Akko Keyboard")).toBeInTheDocument();
+    // Sem leitor do modelo: presente, bateria nunca estimada.
+    const akkoBattery = within(batteries).getByText("Akko Keyboard").closest("li") as HTMLElement;
+    expect(akkoBattery).toHaveTextContent("Não disponível");
+    expect(akkoBattery).toHaveTextContent("2.4 GHz · receptor USB conectado");
     expect(within(akko).getByText("Marcado por você")).toBeInTheDocument();
   });
 

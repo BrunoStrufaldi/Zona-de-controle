@@ -63,7 +63,7 @@ mod windows_impl {
     use std::ptr::{null, null_mut};
     use std::sync::{Arc, Mutex};
     use std::thread;
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
     use hidapi::{BusType, HidApi, HidDevice};
     use windows_sys::core::GUID;
@@ -83,7 +83,7 @@ mod windows_impl {
     };
 
     use super::DeviceReader;
-    use crate::domain::devices::readers::{ModelReading, ReportReader};
+    use crate::domain::devices::readers::{ModelReading, ReportReader, ReportedStatus, OFF_STATUS};
     use crate::domain::devices::{
         device_key, models_with_reader, KnownModel, ModelReadings, PadPower, RawBluetoothBattery,
         RawHidCollection, RawXInputPad,
@@ -145,13 +145,17 @@ mod windows_impl {
     }
 
     /// Abre só para leitura a coleção do fabricante do modelo, se conectada.
-    fn open_collection(hid: &SharedApi, model: &KnownModel, usage_page: u16) -> Option<HidDevice> {
+    fn open_collection(
+        hid: &SharedApi,
+        model: &KnownModel,
+        reader: &ReportReader,
+    ) -> Option<HidDevice> {
         with_refreshed_api(hid, |api| {
             api.device_list()
                 .find(|info| {
                     info.vendor_id() == model.vendor_id
                         && info.product_id() == model.product_id
-                        && info.usage_page() == usage_page
+                        && reader.matches(info.usage_page(), info.usage())
                 })
                 .and_then(|info| info.open_device(api).ok())
         })
@@ -159,8 +163,17 @@ mod windows_impl {
         .flatten()
     }
 
+    /// Guarda um status na leitura do modelo (mantendo o último nível).
+    fn record(readings: &Mutex<ModelReadings>, key: &str, status: ReportedStatus) {
+        if let Ok(mut map) = readings.lock() {
+            let reading = ModelReading::next(map.get(key), status, unix_now());
+            map.insert(key.to_string(), reading);
+        }
+    }
+
     /// Escuta o receptor para sempre: guarda cada status reconhecido e, se o
-    /// receptor sumir, apaga a leitura e volta a procurá-lo.
+    /// receptor sumir, apaga a leitura e volta a procurá-lo. Em modelos que
+    /// repetem o status, silêncio prolongado vira "desligado".
     fn listen(
         hid: SharedApi,
         readings: Arc<Mutex<ModelReadings>>,
@@ -170,19 +183,26 @@ mod windows_impl {
         let key = device_key(model.vendor_id, model.product_id);
         let mut buffer = [0u8; 65];
         loop {
-            let Some(device) = open_collection(&hid, model, reader.usage_page) else {
+            let Some(device) = open_collection(&hid, model, &reader) else {
                 thread::sleep(RECONNECT_INTERVAL);
                 continue;
             };
+            let mut last_report = Instant::now();
+            let mut marked_off = false;
             loop {
                 match device.read_timeout(&mut buffer, READ_TIMEOUT_MS) {
-                    Ok(0) => {}
+                    Ok(0) => {
+                        let silent_secs = last_report.elapsed().as_secs();
+                        if !marked_off && reader.is_off_after(silent_secs) {
+                            record(&readings, &key, OFF_STATUS);
+                            marked_off = true;
+                        }
+                    }
                     Ok(length) => {
+                        last_report = Instant::now();
+                        marked_off = false;
                         if let Some(status) = (reader.parse)(&buffer[..length]) {
-                            if let Ok(mut map) = readings.lock() {
-                                let reading = ModelReading::next(map.get(&key), status, unix_now());
-                                map.insert(key.clone(), reading);
-                            }
+                            record(&readings, &key, status);
                         }
                     }
                     Err(_) => {
