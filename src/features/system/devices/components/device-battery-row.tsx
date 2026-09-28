@@ -60,17 +60,15 @@ export function DeviceBatteryRow({ device }: DeviceBatteryRowProps) {
               <BatteryCharging className="size-3.5 text-success" aria-label="Carregando" />
             )}
             {display.label}
-            {display.unavailable && (
+            {display.explanation !== null && (
               <Tooltip>
                 <TooltipTrigger
                   className="cursor-help"
-                  aria-label="Por que a bateria não está disponível?"
+                  aria-label={`Sobre a bateria de ${device.name}`}
                 >
                   <CircleHelp className="size-3.5" aria-hidden="true" />
                 </TooltipTrigger>
-                <TooltipContent className="max-w-60">
-                  O app ainda não sabe ler a bateria deste dispositivo. O valor nunca é estimado.
-                </TooltipContent>
+                <TooltipContent className="max-w-60">{display.explanation}</TooltipContent>
               </Tooltip>
             )}
           </span>

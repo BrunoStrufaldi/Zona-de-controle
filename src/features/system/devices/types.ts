@@ -31,6 +31,10 @@ export type BatteryLevel =
   | { kind: "approximate"; bucket: BatteryBucket }
   /** Alimentado pelo cabo: não há bateria a mostrar. */
   | { kind: "wired" }
+  /** O leitor do modelo existe, mas o dispositivo ainda não informou. */
+  | { kind: "waiting" }
+  /** O dispositivo informou que está desligado. */
+  | { kind: "off" }
   | { kind: "unknown" };
 
 export interface DeviceBatteryInfo {

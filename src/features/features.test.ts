@@ -36,7 +36,7 @@ describe("bateria", () => {
   it("nunca inventa valor para dispositivos sem suporte", () => {
     expect(
       describeBattery({ support: "unsupported", level: { kind: "exact", percent: 50 } }),
-    ).toEqual({ label: "Não disponível", percent: null, tone: "muted", unavailable: true });
+    ).toMatchObject({ label: "Não disponível", percent: null, tone: "muted" });
     expect(
       describeBattery({ support: "supported", level: { kind: "unknown" } }).percent,
     ).toBeNull();
@@ -45,7 +45,7 @@ describe("bateria", () => {
   it("exibe percentual exato e faixas aproximadas", () => {
     expect(
       describeBattery({ support: "supported", level: { kind: "exact", percent: 15 } }),
-    ).toEqual({ label: "15%", percent: 15, tone: "danger", unavailable: false });
+    ).toEqual({ label: "15%", percent: 15, tone: "danger", explanation: null });
     expect(
       describeBattery({ support: "partial", level: { kind: "approximate", bucket: "medium" } })
         .label,
@@ -57,18 +57,42 @@ describe("bateria", () => {
       label: "Com fio",
       percent: null,
       tone: "muted",
-      unavailable: false,
+      explanation: null,
+    });
+  });
+
+  it("aguardando leitura e desligado nunca viram número", () => {
+    const waiting = describeBattery({ support: "supported", level: { kind: "waiting" } });
+    expect(waiting).toMatchObject({ label: "Aguardando leitura", percent: null });
+    expect(waiting.explanation).toMatch(/carregador/);
+    expect(describeBattery({ support: "supported", level: { kind: "off" } })).toEqual({
+      label: "Desligado",
+      percent: null,
+      tone: "muted",
+      explanation: null,
     });
   });
 
   it("descreve a conexão e o estado de carga quando conhecido", () => {
-    expect(deviceSubtitle({ connection: "proprietary24Ghz", charging: "unknown" })).toBe(
-      "2.4 GHz · receptor USB conectado",
+    expect(
+      deviceSubtitle({ connection: "proprietary24Ghz", charging: "unknown", lastUpdated: null }),
+    ).toBe("2.4 GHz · receptor USB conectado");
+    const readAt = new Date(2026, 8, 28, 14, 5).toISOString();
+    const charging = {
+      connection: "proprietary24Ghz",
+      charging: "charging",
+      lastUpdated: readAt,
+    } as const;
+    expect(deviceSubtitle(charging, new Date(2026, 8, 28, 23, 59))).toBe(
+      "2.4 GHz · Carregando · lido às 14:05",
     );
-    expect(deviceSubtitle({ connection: "bluetooth", charging: "charging" })).toBe(
-      "Bluetooth · Carregando",
+    // Leitura de outro dia (o receptor só avisa em eventos): mostra a data.
+    expect(deviceSubtitle(charging, new Date(2026, 8, 29, 0, 1))).toBe(
+      "2.4 GHz · Carregando · lido em 28/09 às 14:05",
     );
-    expect(deviceSubtitle({ connection: "wireless", charging: "unknown" })).toBe("Sem fio");
+    expect(deviceSubtitle({ connection: "wireless", charging: "unknown", lastUpdated: null })).toBe(
+      "Sem fio",
+    );
   });
 
   it("oferece o tipo sugerido primeiro ao marcar", () => {

@@ -6,6 +6,8 @@ import {
   type DeviceKind,
   type SupportLevel,
 } from "@/features/system/devices/types";
+import { toIsoDate } from "@/lib/dates";
+import { formatDayMonth, formatTime, toDate } from "@/lib/format";
 
 export type BatteryTone = "success" | "warning" | "danger" | "muted";
 
@@ -15,9 +17,14 @@ export interface BatteryDisplay {
   /** Percentual para barra de progresso, ou `null` quando não há leitura. */
   percent: number | null;
   tone: BatteryTone;
-  /** "Não disponível": a tela explica por que não há leitura. */
-  unavailable: boolean;
+  /** Por que não há um nível a mostrar (a tela exibe como dica), ou `null`. */
+  explanation: string | null;
 }
+
+const UNAVAILABLE_EXPLANATION =
+  "O app ainda não sabe ler a bateria deste dispositivo. O valor nunca é estimado.";
+const WAITING_EXPLANATION =
+  "O dispositivo informa a bateria quando é ligado, desligado ou conectado ao carregador. Faça uma dessas ações para atualizar.";
 
 const LOW_BATTERY_THRESHOLD = 20;
 const MEDIUM_BATTERY_THRESHOLD = 50;
@@ -58,10 +65,26 @@ export function describeBattery(
   device: Pick<DeviceBatteryInfo, "support" | "level">,
 ): BatteryDisplay {
   if (device.level.kind === "wired") {
-    return { label: "Com fio", percent: null, tone: "muted", unavailable: false };
+    return { label: "Com fio", percent: null, tone: "muted", explanation: null };
+  }
+  if (device.level.kind === "off") {
+    return { label: "Desligado", percent: null, tone: "muted", explanation: null };
+  }
+  if (device.level.kind === "waiting") {
+    return {
+      label: "Aguardando leitura",
+      percent: null,
+      tone: "muted",
+      explanation: WAITING_EXPLANATION,
+    };
   }
   if (device.support === "unsupported" || device.level.kind === "unknown") {
-    return { label: "Não disponível", percent: null, tone: "muted", unavailable: true };
+    return {
+      label: "Não disponível",
+      percent: null,
+      tone: "muted",
+      explanation: UNAVAILABLE_EXPLANATION,
+    };
   }
   if (device.level.kind === "approximate") {
     const { bucket } = device.level;
@@ -69,11 +92,11 @@ export function describeBattery(
       label: `${bucketLabels[bucket]} (aprox.)`,
       percent: bucketBarPercent[bucket],
       tone: bucketTones[bucket],
-      unavailable: false,
+      explanation: null,
     };
   }
   const percent = Math.round(Math.min(100, Math.max(0, device.level.percent)));
-  return { label: `${percent}%`, percent, tone: toneForPercent(percent), unavailable: false };
+  return { label: `${percent}%`, percent, tone: toneForPercent(percent), explanation: null };
 }
 
 export const supportLevelLabels: Record<SupportLevel, string> = {
@@ -92,20 +115,39 @@ export const connectionLabels: Record<ConnectionType, string> = {
 
 export const chargingLabels: Record<ChargingState, string> = {
   charging: "Carregando",
-  discharging: "Em uso",
+  discharging: "Na bateria",
   full: "Carregada",
   unknown: "Estado desconhecido",
 };
 
 /**
- * Linha secundária de um dispositivo: conexão e, quando conhecido, o estado de
- * carga. Para receptores 2.4 GHz o que se sabe é só que o receptor está ligado.
+ * Linha secundária de um dispositivo: conexão, estado de carga (quando
+ * conhecido) e a hora da última leitura. Sem leitura de um receptor 2.4 GHz, o
+ * que se sabe é só que o receptor está conectado.
  */
-export function deviceSubtitle(device: Pick<DeviceBatteryInfo, "connection" | "charging">): string {
+export function deviceSubtitle(
+  device: Pick<DeviceBatteryInfo, "connection" | "charging" | "lastUpdated">,
+  now: Date = new Date(),
+): string {
   const parts: string[] = [connectionLabels[device.connection]];
-  if (device.connection === "proprietary24Ghz") parts.push("receptor USB conectado");
   if (device.charging !== "unknown") parts.push(chargingLabels[device.charging]);
+  if (device.connection === "proprietary24Ghz" && device.lastUpdated === null) {
+    parts.push("receptor USB conectado");
+  }
+  if (device.lastUpdated !== null) parts.push(lastReadLabel(device.lastUpdated, now));
   return parts.join(" · ");
+}
+
+/**
+ * "lido às 14:05" ou, se a leitura não for de hoje, "lido em 27/09 às 14:05":
+ * receptores só avisam a bateria em eventos, então a leitura pode ser antiga.
+ */
+function lastReadLabel(lastUpdated: string, now: Date): string {
+  const readAt = toDate(lastUpdated);
+  const time = formatTime(readAt);
+  return toIsoDate(readAt) === toIsoDate(now)
+    ? `lido às ${time}`
+    : `lido em ${formatDayMonth(readAt)} às ${time}`;
 }
 
 export const deviceKindLabels: Record<DeviceKind, string> = {

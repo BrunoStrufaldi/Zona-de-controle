@@ -7,7 +7,7 @@ use crate::db::Database;
 use crate::domain::audit::{AuditCategory, AuditOutcome, NewAuditEntry};
 use crate::domain::devices::{
     bluetooth_battery_devices, list_usb_input_devices, normalize_marking, parse_device_key,
-    usb_battery_devices, xinput_battery_devices, DeviceBatteryInfo, DeviceMarking,
+    usb_battery_devices, xinput_battery_devices, DeviceBatteryInfo, DeviceMarking, ModelReadings,
     RawBluetoothBattery, RawHidCollection, RawXInputPad, UsbInputDevice,
 };
 use crate::error::AppResult;
@@ -21,6 +21,8 @@ pub struct DeviceReadings {
     pub hid: Vec<RawHidCollection>,
     pub pads: Vec<RawXInputPad>,
     pub bluetooth: Vec<RawBluetoothBattery>,
+    /// Últimas leituras dos modelos com leitor (escuta em segundo plano).
+    pub models: ModelReadings,
 }
 
 impl DeviceReadings {
@@ -29,6 +31,7 @@ impl DeviceReadings {
             hid: reader.hid_collections()?,
             pads: reader.xinput_pads(),
             bluetooth: reader.bluetooth_batteries(),
+            models: reader.model_readings()?,
         })
     }
 }
@@ -45,8 +48,13 @@ pub fn list_battery_devices(
     readings: &DeviceReadings,
 ) -> AppResult<Vec<DeviceBatteryInfo>> {
     let usb = list_usb_devices(db, &readings.hid)?;
-    let read_at = db.with_connection(|connection| clock::utc_now_iso(connection))?;
-    let mut devices = usb_battery_devices(&usb);
+    let (read_at, mut devices) = db.with_connection(|connection| {
+        let read_at = clock::utc_now_iso(connection)?;
+        let usb_devices = usb_battery_devices(&usb, &readings.models, |unix| {
+            clock::unix_to_iso(connection, unix).ok()
+        });
+        Ok((read_at, usb_devices))
+    })?;
     devices.extend(xinput_battery_devices(&readings.pads, &read_at));
     devices.extend(bluetooth_battery_devices(&readings.bluetooth, &read_at));
     Ok(devices)
@@ -159,6 +167,7 @@ mod tests {
                 name: "Fone".into(),
                 percent: 55,
             }],
+            models: ModelReadings::new(),
         };
 
         let devices = list_battery_devices(&db, &readings).unwrap();
@@ -166,6 +175,42 @@ mod tests {
         assert_eq!(ids, ["usb:24ae:1416", "xinput:0", "bt:fone"]);
         assert_eq!(devices[2].level, BatteryLevel::Exact { percent: 55 });
         assert!(devices[1].last_updated.as_deref().unwrap().ends_with('Z'));
+    }
+
+    #[test]
+    fn model_readings_carry_the_time_of_the_reading() {
+        use crate::domain::devices::readers::{ModelReading, ReportedPower, ReportedStatus};
+
+        let db = Database::open_in_memory().unwrap();
+        let readings = DeviceReadings {
+            hid: vec![RawHidCollection {
+                vendor_id: 0x291D,
+                product_id: 0x385D,
+                product: "MCHOSE V9 PRO".into(),
+                usage_page: 0x0B,
+                usage: 0x05,
+            }],
+            pads: Vec::new(),
+            bluetooth: Vec::new(),
+            models: ModelReadings::from([(
+                "291d:385d".to_string(),
+                ModelReading {
+                    status: ReportedStatus {
+                        percent: 87,
+                        power: ReportedPower::OnBattery,
+                    },
+                    // 2026-09-28T12:00:00Z
+                    read_at_unix: 1_790_596_800,
+                },
+            )]),
+        };
+
+        let devices = list_battery_devices(&db, &readings).unwrap();
+        assert_eq!(devices[0].level, BatteryLevel::Exact { percent: 87 });
+        assert_eq!(
+            devices[0].last_updated.as_deref(),
+            Some("2026-09-28T12:00:00Z")
+        );
     }
 
     #[test]

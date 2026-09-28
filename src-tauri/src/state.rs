@@ -44,11 +44,15 @@ impl AppState {
             })
             .unwrap_or_else(|_| data_dir.join("backups"));
 
+        let device_reader = DeviceReader::new();
+        // Escuta passiva dos receptores com leitor de bateria (ex.: headset MCHOSE).
+        device_reader.start_listeners();
+
         Ok(Self {
             db,
             database_path,
             backup_dir,
-            device_reader: DeviceReader::new(),
+            device_reader,
             system_monitor: SystemMonitor::new(),
         })
     }

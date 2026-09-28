@@ -19,6 +19,8 @@ describe("página de Dispositivos", () => {
       "Controle Xbox (jogador 1)",
       "Fone Bluetooth",
     ]);
+    // Headset com leitor, antes do primeiro aviso: aguardando, nunca estimado.
+    expect(rows[0]).toHaveTextContent("Aguardando leitura");
     // Receptor sem leitor do modelo: presente, bateria nunca estimada.
     expect(rows[1]).toHaveTextContent("Não disponível");
     expect(rows[1]).toHaveTextContent("2.4 GHz · receptor USB conectado");
@@ -26,6 +28,26 @@ describe("página de Dispositivos", () => {
     expect(rows[3]).toHaveTextContent("80%");
     // O teclado com fio não entra na lista de bateria.
     expect(within(list).queryByText("Akko Keyboard")).not.toBeInTheDocument();
+  });
+
+  it("mostra a bateria que o headset informou, com a hora da leitura", async () => {
+    // Hoje, para a linha mostrar só a hora.
+    const readAt = new Date();
+    readAt.setHours(14, 5, 0, 0);
+    mockDevicesBackend({
+      headset: {
+        level: { kind: "exact", percent: 87 },
+        charging: "charging",
+        lastUpdated: readAt.toISOString(),
+      },
+    });
+    renderRoute(paths.system.devices);
+
+    const list = await screen.findByRole("list", { name: "Dispositivos com bateria" });
+    const headset = within(list).getByText("MCHOSE V9 PRO").closest("li") as HTMLElement;
+    expect(headset).toHaveTextContent("87%");
+    expect(headset).toHaveTextContent("2.4 GHz · Carregando · lido às 14:05");
+    expect(within(headset).getByRole("progressbar")).toBeInTheDocument();
   });
 
   it("marca um dispositivo USB como sem fio e ele entra na lista de bateria", async () => {

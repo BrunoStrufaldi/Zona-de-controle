@@ -11,8 +11,9 @@
 //!
 //! Sem leitura, o nível é `Unknown` ("Não disponível") — nunca estimado.
 
-// Os tipos formam o contrato com o frontend; algumas variantes (carregando,
-// cheia, fonte indisponível…) só serão construídas pelos leitores por modelo (3.3b).
+pub mod readers;
+// Os tipos formam o contrato com o frontend; algumas variantes (carga completa,
+// fonte planejada/indisponível…) ficam reservadas para novos leitores.
 #[allow(dead_code)]
 mod types;
 
@@ -26,6 +27,7 @@ pub use types::{
 };
 
 use crate::error::{AppError, AppResult};
+use readers::{ModelReading, ReportReader, ReportedPower, MCHOSE_V9_READER};
 
 /// Página de uso HID "Generic Desktop" e os usos de mouse e teclado.
 const USAGE_PAGE_GENERIC_DESKTOP: u16 = 0x01;
@@ -35,12 +37,14 @@ const USAGE_KEYBOARD: u16 = 0x06;
 const USAGE_PAGE_TELEPHONY: u16 = 0x0B;
 
 /// Modelo sem fio conhecido: reconhecido sem precisar de marcação.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub struct KnownModel {
     pub vendor_id: u16,
     pub product_id: u16,
     pub name: &'static str,
     pub kind: DeviceKind,
+    /// Leitor de bateria do modelo (só escuta o receptor), se houver.
+    pub reader: Option<ReportReader>,
 }
 
 /// Receptores conhecidos (os do usuário, conferidos pelo nome que o receptor informa).
@@ -51,6 +55,7 @@ pub const KNOWN_WIRELESS_MODELS: [KnownModel; 2] = [
         product_id: 0x1416,
         name: "Rapoo VT7 Max",
         kind: DeviceKind::Mouse,
+        reader: None,
     },
     // Receptor "MCHOSE V9 PRO" (expõe controles de chamada: é o headset).
     KnownModel {
@@ -58,6 +63,7 @@ pub const KNOWN_WIRELESS_MODELS: [KnownModel; 2] = [
         product_id: 0x385D,
         name: "MCHOSE V9 PRO",
         kind: DeviceKind::Headset,
+        reader: Some(MCHOSE_V9_READER),
     },
 ];
 
@@ -251,22 +257,86 @@ pub fn normalize_marking(
     (!is_default).then_some(marking)
 }
 
-/// Dispositivos USB sem fio na lista de bateria. Sem leitor do modelo (3.3b),
-/// o receptor aparece como presente e a bateria como "Não disponível".
-pub fn usb_battery_devices(devices: &[UsbInputDevice]) -> Vec<DeviceBatteryInfo> {
+/// Modelos conhecidos com leitor de bateria (a plataforma escuta cada um).
+pub fn models_with_reader() -> impl Iterator<Item = (&'static KnownModel, ReportReader)> {
+    KNOWN_WIRELESS_MODELS
+        .iter()
+        .filter_map(|model| model.reader.map(|reader| (model, reader)))
+}
+
+/// Última leitura de cada modelo escutado, pela chave `vid:pid`.
+pub type ModelReadings = HashMap<String, ModelReading>;
+
+fn has_reader(key: &str) -> bool {
+    parse_device_key(key)
+        .ok()
+        .and_then(|(vendor_id, product_id)| known_model(vendor_id, product_id))
+        .is_some_and(|model| model.reader.is_some())
+}
+
+/// Nível, carregamento e suporte de um receptor, pela última leitura.
+fn usb_battery_state(
+    key: &str,
+    readings: &ModelReadings,
+    read_at: &impl Fn(i64) -> Option<String>,
+) -> (SupportLevel, BatteryLevel, ChargingState, Option<String>) {
+    let Some(reading) = readings.get(key) else {
+        return if has_reader(key) {
+            (
+                SupportLevel::Supported,
+                BatteryLevel::Waiting,
+                ChargingState::Unknown,
+                None,
+            )
+        } else {
+            (
+                SupportLevel::Unsupported,
+                BatteryLevel::Unknown,
+                ChargingState::Unknown,
+                None,
+            )
+        };
+    };
+    let percent = reading.status.percent;
+    let (level, charging) = match reading.status.power {
+        ReportedPower::Off => (BatteryLevel::Off, ChargingState::Unknown),
+        ReportedPower::Charging => (BatteryLevel::Exact { percent }, ChargingState::Charging),
+        ReportedPower::OnBattery => (BatteryLevel::Exact { percent }, ChargingState::Discharging),
+    };
+    (
+        SupportLevel::Supported,
+        level,
+        charging,
+        read_at(reading.read_at_unix),
+    )
+}
+
+/// Dispositivos USB sem fio na lista de bateria. Sem leitor do modelo, o
+/// receptor aparece como presente e a bateria como "Não disponível"; com
+/// leitor, mostra a última leitura ou "aguardando" até o primeiro aviso.
+/// `read_at` converte o instante Unix da leitura em texto ISO 8601.
+pub fn usb_battery_devices(
+    devices: &[UsbInputDevice],
+    readings: &ModelReadings,
+    read_at: impl Fn(i64) -> Option<String>,
+) -> Vec<DeviceBatteryInfo> {
     devices
         .iter()
         .filter(|device| device.wireless)
-        .map(|device| DeviceBatteryInfo {
-            id: format!("usb:{}", device.key),
-            name: device.name.clone(),
-            kind: device.kind,
-            connection: ConnectionType::Proprietary24Ghz,
-            provider: BatteryProviderId::HidVendor,
-            support: SupportLevel::Unsupported,
-            level: BatteryLevel::Unknown,
-            charging: ChargingState::Unknown,
-            last_updated: None,
+        .map(|device| {
+            let (support, level, charging, last_updated) =
+                usb_battery_state(&device.key, readings, &read_at);
+            DeviceBatteryInfo {
+                id: format!("usb:{}", device.key),
+                name: device.name.clone(),
+                kind: device.kind,
+                connection: ConnectionType::Proprietary24Ghz,
+                provider: BatteryProviderId::HidVendor,
+                support,
+                level,
+                charging,
+                last_updated,
+            }
         })
         .collect()
 }
@@ -379,7 +449,7 @@ pub fn provider_descriptors() -> Vec<ProviderDescriptor> {
         ProviderDescriptor {
             id: BatteryProviderId::HidVendor,
             name: "Receptores 2.4 GHz",
-            description: "Detecta o receptor USB. A bateria depende de um leitor próprio para cada modelo (em desenvolvimento).",
+            description: "Detecta o receptor USB. Bateria só nos modelos com leitor próprio (hoje: headset MCHOSE V9 PRO), escutando o que o receptor informa.",
             status: ProviderStatus::Partial,
         },
         ProviderDescriptor {
@@ -488,11 +558,53 @@ mod tests {
         );
         assert_eq!(devices[1].product_name, "Rapoo Gaming Device");
 
-        let battery = usb_battery_devices(&devices);
+        let battery = usb_battery_devices(&devices, &ModelReadings::new(), |_| None);
         assert_eq!(battery.len(), 2);
+        // Headset com leitor, sem aviso ainda: aguardando (não "Não disponível").
+        assert_eq!(battery[0].level, BatteryLevel::Waiting);
+        assert_eq!(battery[0].support, SupportLevel::Supported);
+        // Mouse sem leitor: presente, bateria não disponível.
         assert_eq!(battery[1].id, "usb:24ae:1416");
         assert_eq!(battery[1].connection, ConnectionType::Proprietary24Ghz);
         assert_eq!(battery[1].level, BatteryLevel::Unknown);
+    }
+
+    #[test]
+    fn shows_the_last_reading_of_models_with_a_reader() {
+        use readers::ReportedStatus;
+
+        let devices = list_usb_input_devices(&user_machine(), &HashMap::new());
+        let reading = |percent, power| ModelReading {
+            status: ReportedStatus { percent, power },
+            read_at_unix: 1_790_000_000,
+        };
+        let read_at = |unix: i64| Some(format!("t{unix}"));
+
+        let charging = ModelReadings::from([(
+            "291d:385d".to_string(),
+            reading(64, ReportedPower::Charging),
+        )]);
+        let headset = &usb_battery_devices(&devices, &charging, read_at)[0];
+        assert_eq!(headset.level, BatteryLevel::Exact { percent: 64 });
+        assert_eq!(headset.charging, ChargingState::Charging);
+        assert_eq!(headset.last_updated.as_deref(), Some("t1790000000"));
+
+        let off = ModelReadings::from([("291d:385d".to_string(), reading(0, ReportedPower::Off))]);
+        let headset = &usb_battery_devices(&devices, &off, read_at)[0];
+        assert_eq!(headset.level, BatteryLevel::Off);
+    }
+
+    #[test]
+    fn only_the_headset_has_a_reader_today() {
+        let keys: Vec<_> = models_with_reader()
+            .map(|(model, reader)| {
+                (
+                    device_key(model.vendor_id, model.product_id),
+                    reader.usage_page,
+                )
+            })
+            .collect();
+        assert_eq!(keys, [("291d:385d".to_string(), 0xFF90)]);
     }
 
     #[test]

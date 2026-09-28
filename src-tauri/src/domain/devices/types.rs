@@ -99,6 +99,10 @@ pub enum BatteryLevel {
     },
     /// Alimentado pelo cabo: não há bateria a mostrar.
     Wired,
+    /// O leitor do modelo existe, mas o dispositivo ainda não informou.
+    Waiting,
+    /// O dispositivo informou que está desligado.
+    Off,
     Unknown,
 }
 
@@ -184,6 +188,14 @@ mod tests {
             })
             .unwrap(),
             json!({ "kind": "approximate", "bucket": "medium" })
+        );
+        assert_eq!(
+            serde_json::to_value(BatteryLevel::Waiting).unwrap(),
+            json!({ "kind": "waiting" })
+        );
+        assert_eq!(
+            serde_json::to_value(BatteryLevel::Off).unwrap(),
+            json!({ "kind": "off" })
         );
         assert_eq!(
             serde_json::to_value(BatteryProviderId::Xinput).unwrap(),

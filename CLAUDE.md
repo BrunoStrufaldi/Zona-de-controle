@@ -256,9 +256,15 @@ Regras:
   (`device_markings`, chave `vid:pid` minúsculo; igual ao padrão, a marcação é apagada; auditado como
   `device.marked`). Só entram mouses, teclados e headsets (páginas HID Generic Desktop 0x02/0x06 e
   Telephony). Receptor sem leitor do modelo: presente, bateria "Não disponível". **Leitores por modelo
-  (3.3b)** só podem repetir a consulta de leitura que o software oficial faz — nunca comandos de
-  escrita (mudariam DPI, iluminação…). `usePollingResource().refresh()` relê sem voltar a
-  "carregando".
+  (3.3b)** ficam em `domain/devices/readers.rs` (parser puro, testado com relatórios capturados do
+  receptor real) e se ligam pelo campo `reader` de `KNOWN_WIRELESS_MODELS`. O app só **escuta**: uma
+  thread por modelo (`platform/devices.rs::start_listeners`, iniciada no `AppState`) abre a coleção
+  do fabricante e guarda a última leitura só em memória; receptor removido apaga a leitura e a thread
+  volta a procurá-lo a cada 5 s. Nunca envie relatórios ao receptor (mudariam DPI, iluminação…); se
+  um modelo exigir consulta, só a mesma leitura que o software oficial faz. Estado não mapeado vira
+  `None` (nada exibido), nunca um palpite. Com leitor e sem aviso ainda: `Waiting` ("Aguardando
+  leitura"); aviso de desligado: `Off`. MCHOSE V9 PRO: coleção `0xFF90`, relatório `55 65 <nível>
+<estado>`. `usePollingResource().refresh()` relê sem voltar a "carregando".
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

@@ -22,6 +22,15 @@ pub fn utc_now_iso(connection: &Connection) -> AppResult<String> {
     )
 }
 
+/// Converte um instante Unix (segundos) em ISO 8601 UTC.
+pub fn unix_to_iso(connection: &Connection, unix_seconds: i64) -> AppResult<String> {
+    Ok(connection.query_row(
+        "SELECT strftime('%Y-%m-%dT%H:%M:%SZ', ?1, 'unixepoch')",
+        [unix_seconds],
+        |row| row.get(0),
+    )?)
+}
+
 /// Instante local atual, com precisão de minutos.
 pub fn local_now(connection: &Connection) -> AppResult<LocalDateTime> {
     let now: String = connection.query_row(

@@ -76,29 +76,46 @@ const PROVIDERS: BatteryProviderDescriptor[] = [
   },
 ];
 
+/** Receptores com leitor de bateria (como no Rust: só o headset MCHOSE). */
+const KEYS_WITH_READER = new Set(["291d:385d"]);
+
+interface HeadsetReading {
+  level: DeviceBatteryInfo["level"];
+  charging: DeviceBatteryInfo["charging"];
+  lastUpdated: string;
+}
+
 /**
  * Backend de dispositivos para testes de interface. Aplica as marcações como o
- * Rust (a marcação prevalece; sem fio entra na lista de bateria).
+ * Rust (a marcação prevalece; sem fio entra na lista de bateria). O headset tem
+ * leitor: sem `headset`, fica "aguardando leitura".
  */
 export function mockDevicesBackend({
   others = OTHER_BATTERIES,
-}: { others?: DeviceBatteryInfo[] } = {}) {
+  headset,
+}: { others?: DeviceBatteryInfo[]; headset?: HeadsetReading } = {}) {
   let usb = USB_DEVICES.map((device) => ({ ...device }));
 
   const batteries = (): DeviceBatteryInfo[] => [
     ...usb
       .filter((device) => device.wireless)
-      .map((device): DeviceBatteryInfo => ({
-        id: `usb:${device.key}`,
-        name: device.name,
-        kind: device.kind,
-        connection: "proprietary24Ghz",
-        provider: "hidVendor",
-        support: "unsupported",
-        level: { kind: "unknown" },
-        charging: "unknown",
-        lastUpdated: null,
-      })),
+      .map((device): DeviceBatteryInfo => {
+        const base: DeviceBatteryInfo = {
+          id: `usb:${device.key}`,
+          name: device.name,
+          kind: device.kind,
+          connection: "proprietary24Ghz",
+          provider: "hidVendor",
+          support: "unsupported",
+          level: { kind: "unknown" },
+          charging: "unknown",
+          lastUpdated: null,
+        };
+        if (!KEYS_WITH_READER.has(device.key)) return base;
+        return headset
+          ? { ...base, support: "supported", ...headset }
+          : { ...base, support: "supported", level: { kind: "waiting" } };
+      }),
     ...others,
   ];
 

@@ -15,6 +15,7 @@ import {
   formatFullDate,
   formatMonthYear,
   formatPercent,
+  formatTime,
 } from "@/lib/format";
 import { getGreeting } from "@/lib/greeting";
 import { safeRatio } from "@/lib/math";
@@ -54,6 +55,7 @@ describe("format", () => {
     expect(formatDuration(3 * 86_400 + 4 * 3600 + 59 * 60)).toBe("3d 4h");
     expect(formatDuration(2 * 86_400 + 30)).toBe("2d");
     expect(formatClockTime(new Date(2026, 8, 27, 14, 3, 7))).toBe("14:03:07");
+    expect(formatTime(new Date(2026, 8, 27, 9, 5, 59))).toBe("09:05");
   });
 });
 

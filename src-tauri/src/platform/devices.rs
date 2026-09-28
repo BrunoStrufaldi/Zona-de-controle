@@ -1,32 +1,53 @@
 //! Leitura de dispositivos no Windows — SOMENTE LEITURA.
 //!
 //! - HID (`hidapi`): lista as interfaces USB para achar receptores. Enumerar não
-//!   envia nada ao dispositivo; os relatórios de bateria por modelo (3.3b) vão
-//!   repetir apenas a consulta que o software oficial faz.
+//!   envia nada ao dispositivo.
+//! - Leitores por modelo: uma thread por modelo com leitor (ver
+//!   `domain::devices::readers`) **escuta** a coleção do fabricante e guarda a
+//!   última leitura em memória. Nenhum relatório é enviado ao receptor.
 //! - XInput: estado e bateria dos controles Xbox (slots 0 a 3).
 //! - Bluetooth: a propriedade de bateria que o Windows grava nos nós do
 //!   dispositivo (a mesma que aparece em Configurações > Bluetooth).
 //!
 //! Fora do Windows tudo volta vazio.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-use crate::domain::devices::{RawBluetoothBattery, RawXInputPad};
 #[cfg(not(windows))]
-use crate::{domain::devices::RawHidCollection, error::AppResult};
+use crate::domain::devices::RawHidCollection;
+use crate::domain::devices::{ModelReadings, RawBluetoothBattery, RawXInputPad};
+use crate::error::{AppError, AppResult};
 
 pub struct DeviceReader {
     #[cfg(windows)]
-    hid: Mutex<Option<hidapi::HidApi>>,
-    #[cfg(not(windows))]
-    hid: Mutex<()>,
+    hid: Arc<Mutex<Option<hidapi::HidApi>>>,
+    /// Última leitura de cada modelo escutado (só em memória).
+    readings: Arc<Mutex<ModelReadings>>,
 }
 
 impl DeviceReader {
     pub fn new() -> Self {
         Self {
-            hid: Mutex::new(Default::default()),
+            #[cfg(windows)]
+            hid: Arc::new(Mutex::new(None)),
+            readings: Arc::new(Mutex::new(ModelReadings::new())),
         }
+    }
+
+    /// Cópia das últimas leituras dos modelos com leitor.
+    pub fn model_readings(&self) -> AppResult<ModelReadings> {
+        Ok(self
+            .readings
+            .lock()
+            .map_err(|_| AppError::StatePoisoned)?
+            .clone())
+    }
+
+    /// Começa a escutar os receptores dos modelos com leitor (uma thread por
+    /// modelo, durante toda a execução do app). Chamado uma vez, no `setup`.
+    pub fn start_listeners(&self) {
+        #[cfg(windows)]
+        windows_impl::start_listeners(&self.hid, &self.readings);
     }
 }
 
@@ -40,8 +61,11 @@ impl Default for DeviceReader {
 mod windows_impl {
     use std::mem::zeroed;
     use std::ptr::{null, null_mut};
+    use std::sync::{Arc, Mutex};
+    use std::thread;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-    use hidapi::{BusType, HidApi};
+    use hidapi::{BusType, HidApi, HidDevice};
     use windows_sys::core::GUID;
     use windows_sys::Win32::Devices::DeviceAndDriverInstallation::{
         CM_Get_DevNode_PropertyW, CM_Get_Device_ID_ListW, CM_Get_Device_ID_List_SizeW,
@@ -59,7 +83,11 @@ mod windows_impl {
     };
 
     use super::DeviceReader;
-    use crate::domain::devices::{PadPower, RawBluetoothBattery, RawHidCollection, RawXInputPad};
+    use crate::domain::devices::readers::{ModelReading, ReportReader};
+    use crate::domain::devices::{
+        device_key, models_with_reader, KnownModel, ModelReadings, PadPower, RawBluetoothBattery,
+        RawHidCollection, RawXInputPad,
+    };
     use crate::error::{AppError, AppResult};
 
     /// Nível de bateria (0–100) que o Windows grava nos nós Bluetooth. Não é
@@ -69,31 +97,120 @@ mod windows_impl {
         pid: 2,
     };
 
+    /// Sem o receptor conectado, procura de novo a cada 5 s.
+    const RECONNECT_INTERVAL: Duration = Duration::from_secs(5);
+    /// Espera por relatório; o tempo só limita cada chamada de leitura.
+    const READ_TIMEOUT_MS: i32 = 1_000;
+
+    type SharedApi = Arc<Mutex<Option<HidApi>>>;
+
     fn device_error(error: hidapi::HidError) -> AppError {
         AppError::Device(format!(
             "não foi possível listar os dispositivos USB: {error}"
         ))
     }
 
+    /// Atualiza a lista do `hidapi` (ou cria a instância) e roda `use_api`.
+    fn with_refreshed_api<T>(hid: &SharedApi, use_api: impl FnOnce(&HidApi) -> T) -> AppResult<T> {
+        let mut guard = hid.lock().map_err(|_| AppError::StatePoisoned)?;
+        match guard.as_mut() {
+            Some(api) => api.refresh_devices().map_err(device_error)?,
+            None => *guard = Some(HidApi::new().map_err(device_error)?),
+        }
+        let api = guard.as_ref().ok_or(AppError::StatePoisoned)?;
+        Ok(use_api(api))
+    }
+
     impl DeviceReader {
         pub fn hid_collections(&self) -> AppResult<Vec<RawHidCollection>> {
-            let mut guard = self.hid.lock().map_err(|_| AppError::StatePoisoned)?;
-            match guard.as_mut() {
-                Some(api) => api.refresh_devices().map_err(device_error)?,
-                None => *guard = Some(HidApi::new().map_err(device_error)?),
-            }
-            let api = guard.as_ref().ok_or(AppError::StatePoisoned)?;
-            Ok(api
-                .device_list()
-                .filter(|info| matches!(info.bus_type(), BusType::Usb))
-                .map(|info| RawHidCollection {
-                    vendor_id: info.vendor_id(),
-                    product_id: info.product_id(),
-                    product: info.product_string().unwrap_or_default().to_string(),
-                    usage_page: info.usage_page(),
-                    usage: info.usage(),
+            with_refreshed_api(&self.hid, |api| {
+                api.device_list()
+                    .filter(|info| matches!(info.bus_type(), BusType::Usb))
+                    .map(|info| RawHidCollection {
+                        vendor_id: info.vendor_id(),
+                        product_id: info.product_id(),
+                        product: info.product_string().unwrap_or_default().to_string(),
+                        usage_page: info.usage_page(),
+                        usage: info.usage(),
+                    })
+                    .collect()
+            })
+        }
+    }
+
+    fn unix_now() -> i64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_secs() as i64)
+    }
+
+    /// Abre só para leitura a coleção do fabricante do modelo, se conectada.
+    fn open_collection(hid: &SharedApi, model: &KnownModel, usage_page: u16) -> Option<HidDevice> {
+        with_refreshed_api(hid, |api| {
+            api.device_list()
+                .find(|info| {
+                    info.vendor_id() == model.vendor_id
+                        && info.product_id() == model.product_id
+                        && info.usage_page() == usage_page
                 })
-                .collect())
+                .and_then(|info| info.open_device(api).ok())
+        })
+        .ok()
+        .flatten()
+    }
+
+    /// Escuta o receptor para sempre: guarda cada status reconhecido e, se o
+    /// receptor sumir, apaga a leitura e volta a procurá-lo.
+    fn listen(
+        hid: SharedApi,
+        readings: Arc<Mutex<ModelReadings>>,
+        model: &'static KnownModel,
+        reader: ReportReader,
+    ) {
+        let key = device_key(model.vendor_id, model.product_id);
+        let mut buffer = [0u8; 65];
+        loop {
+            let Some(device) = open_collection(&hid, model, reader.usage_page) else {
+                thread::sleep(RECONNECT_INTERVAL);
+                continue;
+            };
+            loop {
+                match device.read_timeout(&mut buffer, READ_TIMEOUT_MS) {
+                    Ok(0) => {}
+                    Ok(length) => {
+                        if let Some(status) = (reader.parse)(&buffer[..length]) {
+                            if let Ok(mut map) = readings.lock() {
+                                map.insert(
+                                    key.clone(),
+                                    ModelReading {
+                                        status,
+                                        read_at_unix: unix_now(),
+                                    },
+                                );
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        // Receptor removido: a leitura antiga não vale mais.
+                        if let Ok(mut map) = readings.lock() {
+                            map.remove(&key);
+                        }
+                        break;
+                    }
+                }
+            }
+            thread::sleep(RECONNECT_INTERVAL);
+        }
+    }
+
+    pub fn start_listeners(hid: &SharedApi, readings: &Arc<Mutex<ModelReadings>>) {
+        for (model, reader) in models_with_reader() {
+            let hid = Arc::clone(hid);
+            let readings = Arc::clone(readings);
+            // Falhar ao criar a thread só deixa o modelo em "aguardando leitura".
+            let _ = thread::Builder::new()
+                .name(format!("zdc-battery-{}", model.name))
+                .spawn(move || listen(hid, readings, model, reader));
         }
     }
 
@@ -256,5 +373,7 @@ mod tests {
             .bluetooth_batteries()
             .iter()
             .all(|device| !device.name.is_empty()));
+        // Sem escuta iniciada, nenhuma leitura de modelo.
+        assert!(reader.model_readings().unwrap().is_empty());
     }
 }

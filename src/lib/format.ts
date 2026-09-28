@@ -56,6 +56,8 @@ const fullDateFormatter = new Intl.DateTimeFormat(APP_LOCALE, {
 
 const dayMonthFormatter = new Intl.DateTimeFormat(APP_LOCALE, { day: "2-digit", month: "2-digit" });
 
+const timeFormatter = new Intl.DateTimeFormat(APP_LOCALE, { hour: "2-digit", minute: "2-digit" });
+
 const clockTimeFormatter = new Intl.DateTimeFormat(APP_LOCALE, {
   hour: "2-digit",
   minute: "2-digit",
@@ -149,6 +151,12 @@ export function formatFullDate(input: DateInput): string {
 export function formatDayMonth(input: DateInput): string {
   const date = toDate(input);
   return isValidDate(date) ? dayMonthFormatter.format(date) : "—";
+}
+
+/** "14:03" */
+export function formatTime(input: DateInput): string {
+  const date = toDate(input);
+  return isValidDate(date) ? timeFormatter.format(date) : "—";
 }
 
 /** "14:03:27" (com segundos, para leituras ao vivo). */
