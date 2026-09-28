@@ -98,6 +98,16 @@ export function formatCompactCurrency(value: number): string {
   return compactCurrencyFormatter.format(value);
 }
 
+/** Valor em centavos (como persistido nas Finanças): 123456 → "R$ 1.234,56". */
+export function formatCents(cents: number): string {
+  return formatCurrency(cents / 100);
+}
+
+/** Valor em centavos, compacto: 1234500 → "R$ 12,3 mil". */
+export function formatCompactCents(cents: number): string {
+  return formatCompactCurrency(cents / 100);
+}
+
 /** 1.234,5 */
 export function formatNumber(value: number, maximumFractionDigits = 2): string {
   return new Intl.NumberFormat(APP_LOCALE, { maximumFractionDigits }).format(value);

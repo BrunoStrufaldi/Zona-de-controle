@@ -1,79 +1,55 @@
-import { ArrowDownRight, ArrowUpRight, PiggyBank, Scale, Wallet } from "lucide-react";
-import { type LucideIcon } from "lucide-react";
+import { ArrowRight, Plus, Wallet } from "lucide-react";
+import { Link } from "react-router";
 
+import { newTransactionHref, paths } from "@/app/router/paths";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ResourceView } from "@/components/shared/resource-view";
 import { WidgetCard } from "@/components/shared/widget-card";
-import { summarizeCashflow } from "@/features/finance/domain/cashflow";
-import { cn } from "@/lib/cn";
-import { formatCurrency, formatPercent } from "@/lib/format";
+import { Button } from "@/components/ui/button";
+import { FinanceMetrics } from "@/features/finance/components/finance-metrics";
+import { type FinanceOverview } from "@/features/finance/types";
+import { type AsyncResource } from "@/hooks/use-async-resource";
 
 interface FinanceSummaryWidgetProps {
-  income: number;
-  expenses: number;
-  demo?: boolean;
+  overview: AsyncResource<FinanceOverview>;
 }
 
-export function FinanceSummaryWidget({
-  income,
-  expenses,
-  demo = false,
-}: FinanceSummaryWidgetProps) {
-  const summary = summarizeCashflow(income, expenses);
-
+/** Resumo do mês no dashboard, com os lançamentos reais. */
+export function FinanceSummaryWidget({ overview }: FinanceSummaryWidgetProps) {
   return (
-    <WidgetCard title="Resumo financeiro do mês" icon={Wallet} demo={demo}>
-      <dl className="grid grid-cols-2 gap-3">
-        <Metric
-          label="Receita"
-          value={formatCurrency(summary.income)}
-          icon={ArrowUpRight}
-          tone="success"
-        />
-        <Metric
-          label="Despesas"
-          value={formatCurrency(summary.expenses)}
-          icon={ArrowDownRight}
-          tone="danger"
-        />
-        <Metric
-          label="Saldo líquido"
-          value={formatCurrency(summary.net)}
-          icon={Scale}
-          tone={summary.net >= 0 ? "success" : "danger"}
-        />
-        <Metric
-          label="Economia"
-          value={formatPercent(summary.savingsRate)}
-          icon={PiggyBank}
-          tone="primary"
-        />
-      </dl>
+    <WidgetCard
+      title="Resumo financeiro do mês"
+      icon={Wallet}
+      headerExtra={
+        <Button asChild variant="ghost" size="sm" className="h-7 px-2">
+          <Link to={paths.finance.overview}>
+            Finanças
+            <ArrowRight aria-hidden="true" />
+          </Link>
+        </Button>
+      }
+    >
+      <ResourceView resource={overview} className="py-6">
+        {(data) =>
+          data.totals.income === 0 && data.totals.expenses === 0 ? (
+            <EmptyState
+              icon={Wallet}
+              title="Nenhum lançamento neste mês"
+              className="border-0 py-6"
+              action={
+                <Button asChild size="sm" variant="secondary">
+                  <Link to={newTransactionHref}>
+                    <Plus aria-hidden="true" />
+                    Novo lançamento
+                  </Link>
+                </Button>
+              }
+            />
+          ) : (
+            <FinanceMetrics totals={data.totals} />
+          )
+        }
+      </ResourceView>
     </WidgetCard>
-  );
-}
-
-type MetricTone = "success" | "danger" | "primary";
-
-const metricToneClasses: Record<MetricTone, string> = {
-  success: "text-success",
-  danger: "text-danger",
-  primary: "text-primary",
-};
-
-interface MetricProps {
-  label: string;
-  value: string;
-  icon: LucideIcon;
-  tone: MetricTone;
-}
-
-function Metric({ label, value, icon: Icon, tone }: MetricProps) {
-  return (
-    <div className="grid gap-1 rounded-md border border-border bg-background/40 p-3">
-      <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Icon className={cn("size-3.5", metricToneClasses[tone])} aria-hidden="true" />
-        {label}
-      </dt>
-      <dd className="font-mono text-base font-semibold tabular">{value}</dd>
-    </div>
   );
 }

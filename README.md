@@ -16,7 +16,7 @@ O **Zona de Controle** reúne em um só lugar três áreas do dia a dia:
 
 Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem, sem contas e sem APIs externas.
 
-> **Estado atual: Fase 4 concluída; a próxima é a Fase 5 (Finanças).** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** analisa e limpa, com confirmação, cancelamento, auditoria e histórico. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
+> **Estado atual: Fase 5 em andamento (5.1 e 5.2 concluídas: contas, lançamentos, Visão Geral, transferências e importação de extratos).** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** analisa e limpa, com confirmação, cancelamento, auditoria e histórico. Em **Finanças**, contas, lançamentos, transferências, categorias, a Visão Geral do mês e a importação de extratos do banco já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
 
 ## Stack
 
@@ -82,8 +82,16 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
 
 ### Finanças (Fases 5 a 7)
 
-- **Dashboard**: receita total, despesas totais, saldo líquido e percentual de economia.
-- **Lançamentos**: entradas e saídas com categoria, tags e status, com filtros por mês, ano, categoria, tipo, status e faixa de valor.
+- **Visão Geral** ✅ (5.1): receita, despesas (com o que ainda está pendente), saldo líquido e percentual de economia do mês, saldo de cada conta, receita x despesas dos últimos 6 meses e despesas por categoria. O dashboard mostra o mesmo resumo e o gráfico com os dados reais.
+- **Contas** ✅ (5.1): conta corrente, poupança, cartão de crédito, dinheiro ou outra, com saldo inicial (pode ser negativo, ex.: fatura em aberto). O saldo soma só os lançamentos pagos; conta com lançamentos não pode ser excluída.
+- **Lançamentos** ✅ (5.1): entradas e saídas com conta, categoria, tags, observação e status (pago/recebido ou pendente, com destaque para pendentes atrasados), navegação por mês ou ano e filtros por tipo, status, categoria, conta, faixa de valor e busca sem acentos. Valores guardados em centavos. Categorias de receita e de despesa já vêm criadas (Moradia, Alimentação, Salário…) e podem ser editadas. Excluir lançamento, categoria ou conta pede confirmação e fica no log de auditoria.
+- **Transferências** ✅ (5.2): entre as suas contas (pagamento da fatura, aplicação e resgate). Movem o saldo das duas contas e não contam como receita nem despesa. Há também o tipo de conta **Investimentos**.
+- **Importação de extratos** ✅ (5.2): o extrato da conta em **OFX** e a fatura do cartão do **C6 em CSV**, exportados pelo app ou site do banco. O arquivo é lido só no computador (sem conexão com bancos ou agregadores) e nada é gravado antes da revisão:
+  - cada linha aparece com a sugestão de tipo e categoria, que pode ser trocada; escolher a categoria de uma linha vale também para as parecidas;
+  - o pagamento da fatura vira transferência para o cartão e aplicações/resgates viram transferência com os investimentos;
+  - lançamentos já importados são reconhecidos (pelo identificador do banco no OFX) e pulados: importar o mesmo período de novo não duplica nada;
+  - na fatura, as compras entram no mês do **vencimento**, com a data da compra e a parcela (ex.: 3/6) guardadas;
+  - o app aprende: as categorias escolhidas viram sugestão nas próximas importações. Cada importação vai para o log de auditoria.
 - **Recorrentes**: aluguel, internet, energia, assinaturas e serviços.
 - **Parcelamentos**: mês final, parcelas restantes, valor comprometido por mês e projeção de redução.
 - **Investimentos**: Renda Fixa, Ações, FIIs, ETFs, Cripto e Outros, com patrimônio, distribuição, evolução e rentabilidade.
@@ -296,7 +304,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada pu
 - **Fase 2 — Productivity** ✅: tarefas ✅ (2.1); recorrência, checklists, categorias e arquivamento ✅ (2.2); notas e diário ✅ (2.3); rotinas ✅ (2.4); calendário ✅ (2.5).
 - **Fase 3 — System Monitor**: monitoramento de CPU, RAM, discos e processos ✅ (3.1); diagnósticos ✅ (3.2); dispositivos e bateria ✅ (3.3a: receptores 2.4 GHz, controles Xbox e Bluetooth; 3.3b: bateria do headset MCHOSE V9 PRO e do mouse Rapoo VT7 Max pelo receptor).
 - **Fase 4 — Safe Optimization** ✅: análise de temporários, caches seguros e Lixeira (4.1); limpeza com confirmação, auditoria e cancelamento (4.2); histórico das limpezas e card no dashboard (4.3).
-- **Fase 5 — Finance Core**: lançamentos, categorias, recorrências e parcelamentos.
+- **Fase 5 — Finance Core**: contas, lançamentos, categorias e Visão Geral ✅ (5.1); transferências e importação de extratos OFX/CSV ✅ (5.2); recorrentes (5.3); parcelamentos (5.4).
 - **Fase 6 — Investments**: ativos, patrimônio e carteira.
 - **Fase 7 — Analytics**: gráficos, projeções e fluxo de caixa.
 - **Fase 8 — Polish**: performance, acessibilidade, testes, refinamento visual e empacotamento.

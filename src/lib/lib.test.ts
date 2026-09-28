@@ -6,6 +6,7 @@ import { addDays, addMonths, daysBetween, toIsoDate, weekdayOf } from "@/lib/dat
 import {
   formatBytes,
   formatClockTime,
+  formatCents,
   formatCurrency,
   formatDate,
   formatDateRange,
@@ -26,6 +27,9 @@ describe("format", () => {
     // Intl usa espaço não separável entre "R$" e o valor.
     expect(formatCurrency(1234.56)).toMatch(/^R\$\s1\.234,56$/);
     expect(formatCurrency(-89.9)).toMatch(/^-R\$\s89,90$/);
+    // Finanças guardam centavos: a conversão acontece só na exibição.
+    expect(formatCents(123_456)).toMatch(/^R\$\s1\.234,56$/);
+    expect(formatCents(-5)).toMatch(/^-R\$\s0,05$/);
   });
 
   it("formata datas como dd/mm/aaaa sem deslocamento de fuso", () => {

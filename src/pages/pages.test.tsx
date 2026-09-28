@@ -2,9 +2,11 @@ import { screen, within } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { paths } from "@/app/router/paths";
+import { monthOf } from "@/features/finance/domain/period";
 import { addDays, toIsoDate, weekdayOf } from "@/lib/dates";
 import { mockDevicesBackend } from "@/test/fake-devices-backend";
 import { mockDiagnosticsBackend } from "@/test/fake-diagnostics-backend";
+import { mockFinanceBackend } from "@/test/fake-finance-backend";
 import { EMPTY_HISTORY, mockOptimizationBackend } from "@/test/fake-optimization-backend";
 import { mockRoutinesBackend } from "@/test/fake-routines-backend";
 import { mockSystemBackend } from "@/test/fake-system-backend";
@@ -140,5 +142,36 @@ describe("páginas integradas ao backend", () => {
     renderRoute(paths.dashboard);
 
     expect(await screen.findByText(/Nenhuma limpeza feita ainda/)).toBeInTheDocument();
+  });
+
+  it("Dashboard mostra o resumo financeiro real do mês", async () => {
+    const month = monthOf(toIsoDate(new Date()));
+    const { handlers } = mockFinanceBackend({
+      accounts: [{ name: "C6" }],
+      transactions: [
+        { id: 1, kind: "income", amount: 500_000, date: `${month}-05` },
+        { id: 2, amount: 120_000, date: `${month}-06`, status: "pending" },
+      ],
+    });
+    renderRoute(paths.dashboard);
+
+    const metrics = (await screen.findByText("Saldo líquido")).closest("dl") as HTMLElement;
+    expect(handlers.get_finance_overview).toHaveBeenCalledWith({ month });
+    expect(within(metrics).getByText("R$ 5.000,00")).toBeInTheDocument();
+    expect(within(metrics).getByText("R$ 1.200,00 a pagar")).toBeInTheDocument();
+    expect(within(metrics).getByText("R$ 3.800,00")).toBeInTheDocument();
+    const card = metrics.closest("[data-slot='card']") as HTMLElement;
+    expect(within(card).queryByLabelText("Dados de demonstração")).not.toBeInTheDocument();
+  });
+
+  it("Dashboard convida a lançar quando o mês está vazio", async () => {
+    mockFinanceBackend();
+    renderRoute(paths.dashboard);
+
+    expect(await screen.findByText("Nenhum lançamento neste mês")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Novo lançamento/ })).toHaveAttribute(
+      "href",
+      "/finance/transactions?new=1",
+    );
   });
 });

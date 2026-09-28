@@ -13,6 +13,7 @@ pub enum AuditCategory {
     Calendar,
     Devices,
     Optimization,
+    Finance,
     Database,
 }
 
@@ -26,6 +27,7 @@ impl AuditCategory {
             Self::Calendar => "calendar",
             Self::Devices => "devices",
             Self::Optimization => "optimization",
+            Self::Finance => "finance",
             Self::Database => "database",
         }
     }

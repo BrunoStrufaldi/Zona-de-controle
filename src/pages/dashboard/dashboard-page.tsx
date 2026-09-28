@@ -2,6 +2,7 @@ import { useCallback } from "react";
 
 import { CashflowChartWidget } from "@/features/finance/components/cashflow-chart-widget";
 import { FinanceSummaryWidget } from "@/features/finance/components/finance-summary-widget";
+import { monthOf } from "@/features/finance/domain/period";
 import { UpcomingEventsWidget } from "@/features/productivity/calendar/components/upcoming-events-widget";
 import { RoutinesTodayWidget } from "@/features/productivity/routines/components/routines-today-widget";
 import { TasksSummaryWidget } from "@/features/productivity/tasks/components/tasks-summary-widget";
@@ -16,6 +17,7 @@ import { useDisplayName } from "@/hooks/use-display-name";
 import { addDays, toIsoDate } from "@/lib/dates";
 import { dashboardDemoData as demo } from "@/mocks/dashboard";
 import { listCalendar } from "@/services/calendar-service";
+import { getFinanceOverview } from "@/services/finance-service";
 import { listBatteryDevices } from "@/services/devices-service";
 import { runDiagnostics } from "@/services/diagnostics-service";
 import { listCleanupHistory } from "@/services/optimization-service";
@@ -38,7 +40,8 @@ const DEVICES_INTERVAL_MS = 60_000;
 
 /**
  * Dashboard. Widgets de módulos já implementados usam dados reais (Tarefas,
- * Rotinas, Calendário, status do sistema, armazenamento, diagnóstico, bateria e limpeza);
+ * Rotinas, Calendário, status do sistema, armazenamento, diagnóstico, bateria,
+ * limpeza e finanças);
  * os demais ainda recebem dados de `src/mocks` e são marcados como Demo. Ao
  * implementar um módulo, troque a fonte do widget pelo serviço real e remova `demo`.
  */
@@ -53,6 +56,8 @@ export function DashboardPage() {
   const diagnostics = useAsyncResource(runDiagnostics);
   const devices = usePollingResource(listBatteryDevices, { intervalMs: DEVICES_INTERVAL_MS });
   const cleanup = useAsyncResource(loadLastCleanup);
+  const loadFinance = useCallback(() => getFinanceOverview(monthOf(today)), [today]);
+  const finance = useAsyncResource(loadFinance);
 
   return (
     <>
@@ -66,13 +71,9 @@ export function DashboardPage() {
           <UpcomingEventsWidget agenda={upcoming} today={today} />
           <SystemStatusWidget snapshot={system} />
 
-          <FinanceSummaryWidget
-            income={demo.finance.income}
-            expenses={demo.finance.expenses}
-            demo
-          />
+          <FinanceSummaryWidget overview={finance} />
           <CleanupWidget history={cleanup} />
-          <CashflowChartWidget data={demo.cashflow} demo className="@3xl:col-span-2" />
+          <CashflowChartWidget overview={finance} className="@3xl:col-span-2" />
 
           <StorageWidget snapshot={system} />
           <DiagnosticsWidget report={diagnostics} />

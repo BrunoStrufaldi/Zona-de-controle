@@ -57,6 +57,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "device_battery_readings",
         sql: include_str!("../../migrations/0008_device_battery_readings.sql"),
     },
+    Migration {
+        version: 9,
+        name: "finance",
+        sql: include_str!("../../migrations/0009_finance.sql"),
+    },
 ];
 
 const CREATE_SCHEMA_MIGRATIONS: &str = "
@@ -169,6 +174,11 @@ mod tests {
             "calendar_reminders_sent",
             "device_markings",
             "device_battery_readings",
+            "finance_accounts",
+            "finance_categories",
+            "finance_transactions",
+            "finance_transaction_tags",
+            "finance_import_rules",
         ] {
             assert!(table_exists(&connection, table), "{table}");
         }
@@ -324,6 +334,51 @@ mod tests {
         assert!(insert("full", 100, None).is_err());
         assert!(insert("onBattery", 101, None).is_err());
         assert!(insert("onBattery", 50, Some(-1)).is_err());
+    }
+
+    #[test]
+    fn upgrades_from_version_8_with_default_finance_categories() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(CREATE_SCHEMA_MIGRATIONS).unwrap();
+        for migration in &MIGRATIONS[..8] {
+            apply(&mut connection, migration).unwrap();
+        }
+        connection
+            .execute("INSERT INTO tags (name) VALUES ('casa')", [])
+            .unwrap();
+
+        run(&mut connection).unwrap();
+
+        let (expense, income): (i64, i64) = connection
+            .query_row(
+                "SELECT SUM(kind = 'expense'), SUM(kind = 'income') FROM finance_categories",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((expense, income), (10, 4));
+        connection
+            .execute(
+                "INSERT INTO finance_accounts (name, kind, color) VALUES ('C6', 'checking', 'slate')",
+                [],
+            )
+            .unwrap();
+        // Valor precisa ser positivo e a data, válida.
+        let insert = |amount: i64, date: &str| {
+            connection.execute(
+                "INSERT INTO finance_transactions (account_id, kind, description, amount, date, status)
+                 VALUES (1, 'expense', 'Mercado', ?1, ?2, 'paid')",
+                rusqlite::params![amount, date],
+            )
+        };
+        assert!(insert(12_345, "2026-09-28").is_ok());
+        assert!(insert(0, "2026-09-28").is_err());
+        assert!(insert(-100, "2026-09-28").is_err());
+        assert!(insert(100, "2026-02-30").is_err());
+        // Conta com lançamentos não pode ser excluída.
+        assert!(connection
+            .execute("DELETE FROM finance_accounts WHERE id = 1", [])
+            .is_err());
     }
 
     #[test]

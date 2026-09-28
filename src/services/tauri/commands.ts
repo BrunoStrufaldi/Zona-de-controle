@@ -8,6 +8,20 @@ import {
   type OccurrenceInput,
 } from "@/features/productivity/calendar/types";
 import {
+  type AccountInput,
+  type CategoryInput,
+  type CategoryUpdate,
+  type FinanceAccount,
+  type FinanceCategory,
+  type FinanceOverview,
+  type ImportCommitInput,
+  type ImportPreview,
+  type ImportResult,
+  type Transaction,
+  type TransactionInput,
+  type TransactionStatus,
+} from "@/features/finance/types";
+import {
   type Note,
   type NoteFolder,
   type NoteInput,
@@ -132,6 +146,26 @@ export interface CommandMap {
   delete_calendar_event: { args: { id: number }; result: null };
   delete_event_occurrence: { args: { eventId: number; occurrenceDate: string }; result: null };
   claim_due_reminders: { args: undefined; result: DueReminder[] };
+  list_finance_accounts: { args: undefined; result: FinanceAccount[] };
+  create_finance_account: { args: { input: AccountInput }; result: FinanceAccount };
+  update_finance_account: { args: { id: number; input: AccountInput }; result: FinanceAccount };
+  delete_finance_account: { args: { id: number }; result: null };
+  list_finance_categories: { args: undefined; result: FinanceCategory[] };
+  create_finance_category: { args: { input: CategoryInput }; result: FinanceCategory };
+  update_finance_category: {
+    args: { id: number; input: CategoryUpdate };
+    result: FinanceCategory;
+  };
+  delete_finance_category: { args: { id: number }; result: null };
+  list_transactions: { args: { from: string; to: string }; result: Transaction[] };
+  list_transaction_tags: { args: undefined; result: string[] };
+  create_transaction: { args: { input: TransactionInput }; result: Transaction };
+  update_transaction: { args: { id: number; input: TransactionInput }; result: Transaction };
+  set_transaction_status: { args: { id: number; status: TransactionStatus }; result: Transaction };
+  delete_transaction: { args: { id: number }; result: null };
+  get_finance_overview: { args: { month: string }; result: FinanceOverview };
+  preview_finance_import: { args: { fileName: string; content: string }; result: ImportPreview };
+  commit_finance_import: { args: { input: ImportCommitInput }; result: ImportResult };
 }
 
 export type CommandName = keyof CommandMap;

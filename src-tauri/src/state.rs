@@ -11,6 +11,7 @@ use crate::error::AppResult;
 use crate::platform::devices::{DeviceReader, SaveReading};
 use crate::platform::system_monitor::SystemMonitor;
 use crate::services;
+use crate::services::finance_import::ImportPreviewStore;
 use crate::services::optimization::{CleanupRun, CleanupScanStore};
 
 /// Subpasta de Documentos onde ficam os backups do banco.
@@ -33,6 +34,8 @@ pub struct AppState {
     pub cleanup_scans: Arc<CleanupScanStore>,
     /// Limpeza em andamento (progresso e cancelamento).
     pub cleanup_run: Arc<CleanupRun>,
+    /// Última prévia de importação de extrato (só em memória).
+    pub import_previews: ImportPreviewStore,
 }
 
 impl AppState {
@@ -80,6 +83,7 @@ impl AppState {
             local_app_data,
             cleanup_scans: Arc::new(CleanupScanStore::new()),
             cleanup_run: Arc::new(CleanupRun::new()),
+            import_previews: ImportPreviewStore::new(),
         })
     }
 }

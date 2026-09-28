@@ -9,7 +9,7 @@ interface FieldProps {
   children: ReactNode;
 }
 
-/** Rótulo + controle + mensagem de erro, usado nos formulários de tarefas. */
+/** Rótulo + controle + mensagem de erro, usado nos formulários (tarefas, finanças). */
 export function Field({ label, htmlFor, error, children }: FieldProps) {
   return (
     <div className="grid content-start gap-1.5">

@@ -89,6 +89,23 @@ pub fn run() {
             commands::calendar::delete_calendar_event,
             commands::calendar::delete_event_occurrence,
             commands::calendar::claim_due_reminders,
+            commands::finance::list_finance_accounts,
+            commands::finance::create_finance_account,
+            commands::finance::update_finance_account,
+            commands::finance::delete_finance_account,
+            commands::finance::list_finance_categories,
+            commands::finance::create_finance_category,
+            commands::finance::update_finance_category,
+            commands::finance::delete_finance_category,
+            commands::finance::list_transactions,
+            commands::finance::list_transaction_tags,
+            commands::finance::create_transaction,
+            commands::finance::update_transaction,
+            commands::finance::set_transaction_status,
+            commands::finance::delete_transaction,
+            commands::finance::get_finance_overview,
+            commands::finance::preview_finance_import,
+            commands::finance::commit_finance_import,
         ])
         .run(tauri::generate_context!())
         .expect("falha ao iniciar o Zona de Controle");

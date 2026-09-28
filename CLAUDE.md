@@ -50,23 +50,23 @@ page → hook (useAsyncResource) → src/services/*-service.ts → invokeCommand
 
 ### Frontend (`src/`)
 
-| Pasta                | Responsabilidade                                                                                                  |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `app/`               | Composição da aplicação: `router/` (paths, rotas, router), `layouts/`, `providers/`                               |
-| `config/`            | Configuração declarativa (ex.: `navigation.ts` — fonte única da sidebar/breadcrumb)                               |
-| `components/ui/`     | Primitivos visuais no padrão shadcn (Radix + CVA). Sem lógica de negócio                                          |
-| `components/layout/` | Sidebar, header, breadcrumb, logo                                                                                 |
-| `components/shared/` | Componentes compostos reutilizáveis (PageHeader, estados, WidgetCard, DemoBadge, ModulePlaceholder, ResourceView) |
-| `features/<módulo>/` | Tudo de um módulo: `types.ts` (contratos), `domain/` (regras puras), `components/`, `module-info.ts`              |
-| `pages/`             | Páginas das rotas. Compõem features; não contêm regra de negócio                                                  |
-| `hooks/`             | Hooks genéricos (`use-async-resource`, `use-media-query`…)                                                        |
-| `stores/`            | Zustand — **apenas** estado global de UI (ex.: sidebar). Dados de negócio não vão aqui                            |
-| `services/`          | **Único** ponto que fala com o Rust. `tauri/commands.ts` tem o `CommandMap` tipado                                |
-| `lib/`               | Utilitários puros (format, math, navigation, cn, chart-theme)                                                     |
-| `mocks/`             | Dados fictícios de demonstração (ver "Regra de mocks")                                                            |
-| `types/`             | Tipos compartilhados entre módulos (espelham structs Rust quando aplicável)                                       |
-| `styles/`            | `tokens.css` (tema) e `globals.css` (ponte Tailwind, keyframes, base)                                             |
-| `test/`              | Setup do Vitest e helpers (`renderRoute`, `mockDesktopRuntime`)                                                   |
+| Pasta                | Responsabilidade                                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `app/`               | Composição da aplicação: `router/` (paths, rotas, router), `layouts/`, `providers/`                                      |
+| `config/`            | Configuração declarativa (ex.: `navigation.ts` — fonte única da sidebar/breadcrumb)                                      |
+| `components/ui/`     | Primitivos visuais no padrão shadcn (Radix + CVA). Sem lógica de negócio                                                 |
+| `components/layout/` | Sidebar, header, breadcrumb, logo                                                                                        |
+| `components/shared/` | Componentes compostos reutilizáveis (PageHeader, estados, WidgetCard, DemoBadge, ModulePlaceholder, ResourceView, Field) |
+| `features/<módulo>/` | Tudo de um módulo: `types.ts` (contratos), `domain/` (regras puras), `components/`, `module-info.ts`                     |
+| `pages/`             | Páginas das rotas. Compõem features; não contêm regra de negócio                                                         |
+| `hooks/`             | Hooks genéricos (`use-async-resource`, `use-media-query`…)                                                               |
+| `stores/`            | Zustand — **apenas** estado global de UI (ex.: sidebar). Dados de negócio não vão aqui                                   |
+| `services/`          | **Único** ponto que fala com o Rust. `tauri/commands.ts` tem o `CommandMap` tipado                                       |
+| `lib/`               | Utilitários puros (format, math, navigation, cn, chart-theme)                                                            |
+| `mocks/`             | Dados fictícios de demonstração (ver "Regra de mocks")                                                                   |
+| `types/`             | Tipos compartilhados entre módulos (espelham structs Rust quando aplicável)                                              |
+| `styles/`            | `tokens.css` (tema) e `globals.css` (ponte Tailwind, keyframes, base)                                                    |
+| `test/`              | Setup do Vitest e helpers (`renderRoute`, `mockDesktopRuntime`)                                                          |
 
 Regras:
 
@@ -307,6 +307,39 @@ Regras:
   origem desconhecida fica de fora. Ao mudar o formato dos `details` da limpeza, mantenha a leitura dos
   registros antigos (o log é permanente). `list_cleanup_history(limit ≤ 100)`: a tela pede 20 e o card
   **Limpeza** do dashboard pede 1 (os totais vêm sempre); o dashboard nunca chama `scan_cleanup`.
+- **Finanças (5.1):** contas (`finance_accounts`), categorias (`finance_categories`, de receita ou de
+  despesa; nome único dentro do tipo; as padrão vêm da migration 0009) e lançamentos
+  (`finance_transactions`, valor **sempre positivo em centavos**, o tipo define o sinal; tags na tabela
+  `tags` compartilhada). Categoria do lançamento precisa ser do mesmo tipo (checado no repositório) e o
+  tipo da categoria não muda depois. Saldo da conta = saldo inicial + entradas pagas − saídas pagas
+  (pendentes não contam). Totais do mês incluem os pendentes e dizem quanto está pendente
+  (`domain/finance/overview.rs`, fonte da verdade da Visão Geral e do dashboard). `list_transactions`
+  aceita até 366 dias; filtros e busca são no frontend (`features/finance/domain/filters.ts`). Valor
+  digitado → centavos só por `parseAmount` (`domain/money.ts`); exibição por `formatCents`. Exclusões
+  (lançamento, categoria, conta) são auditadas na categoria `finance`; conta com lançamentos não pode
+  ser excluída (RESTRICT + checagem no Rust). `?new=1` em Lançamentos abre o formulário
+  (`newTransactionHref`).
+- **Transferências (5.2):** `kind = 'transfer'` com `transfer_account_id` (sai de `account_id`, entra no
+  destino), sem categoria e fora de receita/despesa/histórico (as somas filtram `kind != 'transfer'`).
+  Contam no saldo e na contagem das duas contas. Conta tipo `investment` recebe aplicações (base da Fase 6).
+- **Importação de extratos (5.2):** **só por arquivo** (OFX do extrato, CSV da fatura do C6), nunca por
+  agregador/Open Finance (decisão do usuário: local-first). A tela lê o arquivo com `File.text()` e manda o
+  conteúdo; o Rust (`domain/finance/import/`: `ofx.rs`, `c6_card.rs`, `suggest.rs`, puros e testados com
+  amostras **fictícias**) lê e guarda a prévia em memória (`ImportPreviewStore`, só a última).
+  `commit_finance_import` recebe só `previewId` + escolhas por linha (tipo, categoria, conta da
+  transferência): valores, datas, descrições e identificadores vêm da leitura guardada. Duplicados pelo
+  `external_id` (UNIQUE): OFX = `ofx:{BANKID}:{FITID}`; fatura = impressão digital da linha (cartão, data
+  da compra, parcela, valor, descrição + contador para linhas idênticas no arquivo). Fatura: data do
+  lançamento = **vencimento** (lido do nome `Fatura_aaaa-mm-dd.csv` ou informado), com `purchase_date` e
+  a parcela `n/N` guardadas (a 5.4 usa); "Inclusao de Pagamento" fica de fora (o pagamento é a
+  transferência da conta corrente). Sugestões: regra aprendida (`finance_import_rules`, chave da
+  descrição sem números/acentos ou `banco:` + categoria do C6; a última escolha vence; descrições
+  genéricas como "TRANSF ENVIADA PIX" não geram regra) → "fatura" vira transferência para o cartão →
+  CDB/Tesouro/aplicação/resgate vira transferência com investimentos → entrada/saída pelo sinal. Na
+  revisão, escolher a categoria de uma linha aplica às parecidas ainda sem categoria (`applyCategory`,
+  pela `descriptionKey` que o Rust manda). Auditoria: `finance_import.completed` (sucesso e falha).
+  Nunca use extratos reais em testes ou commits; para validar com os arquivos do usuário, leia só
+  contadores (sem capturas de tela das linhas).
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

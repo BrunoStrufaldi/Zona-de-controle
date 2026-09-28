@@ -40,6 +40,11 @@ impl CalendarDate {
         self.year
     }
 
+    /// Mês (1–12).
+    pub fn month(self) -> u32 {
+        self.month
+    }
+
     pub fn day(self) -> u32 {
         self.day
     }

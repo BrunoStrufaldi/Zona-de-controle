@@ -1,28 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { summarizeCashflow } from "@/features/finance/domain/cashflow";
 import {
   describeBattery,
   deviceSubtitle,
   markingKindOptions,
 } from "@/features/system/devices/domain/battery";
 import { usageHealth } from "@/features/system/domain/health";
-
-describe("finanças", () => {
-  it("resume receita, despesas, saldo e economia", () => {
-    expect(summarizeCashflow(10_000, 7_500)).toEqual({
-      income: 10_000,
-      expenses: 7_500,
-      net: 2_500,
-      savingsRate: 0.25,
-    });
-  });
-
-  it("economia é negativa com déficit e zero sem receita", () => {
-    expect(summarizeCashflow(1_000, 1_500).savingsRate).toBe(-0.5);
-    expect(summarizeCashflow(0, 300).savingsRate).toBe(0);
-  });
-});
 
 describe("sistema", () => {
   it("classifica o uso de recursos", () => {

@@ -52,3 +52,9 @@ export const SETTINGS_TAB_PARAM = "tab";
 
 /** Link para os limites do diagnóstico em Configurações. */
 export const diagnosticThresholdsHref = `${paths.settings}?${SETTINGS_TAB_PARAM}=diagnostics`;
+
+/** Parâmetro de URL que abre o formulário de novo lançamento na página de Lançamentos. */
+export const NEW_TRANSACTION_PARAM = "new";
+
+/** Link para criar um lançamento (menu "Criar" do header e dashboard). */
+export const newTransactionHref = `${paths.finance.transactions}?${NEW_TRANSACTION_PARAM}=1`;

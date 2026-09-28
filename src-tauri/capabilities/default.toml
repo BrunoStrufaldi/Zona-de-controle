@@ -166,6 +166,40 @@ permissions = [
   # grava o registro de envio, para não repetir a notificação).
   "allow-claim-due-reminders",
 
+  # Finanças — leitura das contas (com saldo), categorias, lançamentos de um
+  # período (até um ano), tags em uso e do resumo do mês.
+  "allow-list-finance-accounts",
+  "allow-list-finance-categories",
+  "allow-list-transactions",
+  "allow-list-transaction-tags",
+  "allow-get-finance-overview",
+
+  # Finanças — escrita. Entradas validadas no Rust (nome, valor em centavos
+  # maior que zero, data, conta existente, categoria do mesmo tipo, tags).
+  "allow-create-finance-account",
+  "allow-update-finance-account",
+  "allow-create-finance-category",
+  "allow-update-finance-category",
+  "allow-create-transaction",
+  "allow-update-transaction",
+  "allow-set-transaction-status",
+
+  # Finanças — exclusão definitiva de lançamento, categoria (os lançamentos
+  # ficam sem categoria) ou conta (só se não tiver lançamentos). A interface
+  # exige confirmação explícita e cada exclusão (ou falha) é auditada.
+  "allow-delete-transaction",
+  "allow-delete-finance-category",
+  "allow-delete-finance-account",
+
+  # Finanças — importação de extratos em duas etapas. A prévia só lê o conteúdo
+  # do arquivo que o usuário escolheu na tela (OFX do extrato ou CSV da fatura),
+  # sem acesso ao sistema de arquivos e sem gravar nada. A importação recebe só
+  # as escolhas por linha: valores, datas e identificadores vêm da leitura
+  # guardada no Rust, linhas já importadas são puladas e cada importação (ou
+  # falha) é auditada.
+  "allow-preview-finance-import",
+  "allow-commit-finance-import",
+
   # Plugin de notificação: só o necessário para mostrar os lembretes do
   # calendário como notificações do Windows (consultar/pedir permissão e
   # notificar). Sem agendamento, canais, ações ou listeners.

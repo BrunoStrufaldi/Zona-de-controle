@@ -5,6 +5,8 @@ pub mod backup;
 pub mod calendar;
 pub mod devices;
 pub mod diagnostics;
+pub mod finance;
+pub mod finance_import;
 pub mod notes;
 pub mod optimization;
 pub mod routines;

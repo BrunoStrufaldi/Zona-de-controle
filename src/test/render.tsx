@@ -19,6 +19,11 @@ export async function preloadMonitor(): Promise<void> {
   await import("@/pages/system/monitor-page");
 }
 
+/** Como `preloadDashboard`, para a Visão Geral das Finanças (também usa o Recharts). */
+export async function preloadFinanceOverview(): Promise<void> {
+  await import("@/pages/finance/finance-overview-page");
+}
+
 /** Renderiza a aplicação completa (layout + rotas) em um caminho específico. */
 export function renderRoute(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });

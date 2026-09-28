@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ChecklistEditor } from "@/features/productivity/tasks/components/checklist-editor";
-import { Field } from "@/features/productivity/tasks/components/form-field";
+import { Field } from "@/components/shared/form-field";
 import {
   RecurrenceDetails,
   RecurrenceSelect,

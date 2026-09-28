@@ -64,6 +64,23 @@ const APP_COMMANDS: &[&str] = &[
     "delete_calendar_event",
     "delete_event_occurrence",
     "claim_due_reminders",
+    "list_finance_accounts",
+    "create_finance_account",
+    "update_finance_account",
+    "delete_finance_account",
+    "list_finance_categories",
+    "create_finance_category",
+    "update_finance_category",
+    "delete_finance_category",
+    "list_transactions",
+    "list_transaction_tags",
+    "create_transaction",
+    "update_transaction",
+    "set_transaction_status",
+    "delete_transaction",
+    "get_finance_overview",
+    "preview_finance_import",
+    "commit_finance_import",
 ];
 
 fn main() {
