@@ -38,6 +38,14 @@ permissions = [
   "allow-get-system-snapshot",
   "allow-list-processes",
 
+  # Diagnóstico — análise da leitura atual (somente leitura) e leitura dos limites.
+  "allow-run-diagnostics",
+  "allow-get-diagnostic-thresholds",
+
+  # Diagnóstico — gravar os limites. Validados no Rust (faixas e atenção <
+  # crítico) e auditados como alteração de configuração.
+  "allow-set-diagnostic-thresholds",
+
   # Leitura dos providers e dispositivos de bateria (sem escrita em dispositivos).
   "allow-list-battery-providers",
   "allow-list-battery-devices",

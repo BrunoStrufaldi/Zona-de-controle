@@ -234,6 +234,18 @@ Regras:
   devolve `null` e a tela mostra "Medindo…", nunca 0%. Processos são agrupados por nome
   (`domain/system_monitor.rs::group_processes`, ignora o PID 0 ocioso) e **não há** command para
   encerrá-los.
+- **Diagnóstico (3.2):** as regras ficam no Rust (`domain/diagnostics.rs::diagnose`, fonte da verdade),
+  sobre a leitura atual do monitor; `run_diagnostics` é somente leitura. O Rust devolve achados
+  estruturados (`kind` + números) e os textos/recomendações ficam em
+  `features/system/diagnostics/domain/findings.ts` (percentuais com 1 casa: 89,6% não pode aparecer
+  como "90%" ao lado de "crítico a partir de 90%"). Unidades removíveis e processos internos do Windows
+  (`System`, `Memory Compression`…) não geram alerta. Os limites ficam na chave reservada
+  `diagnostics.thresholds`: só `set_diagnostic_thresholds` grava (valida e audita via
+  `services::settings::save_setting`); o `set_setting` genérico recusa a chave. Campos `u32` para valor
+  fora da faixa virar mensagem em pt-BR, não erro de desserialização. Valor salvo inválido volta ao
+  padrão. A análise espera 200 ms na primeira vez para medir a CPU por programa
+  (`SystemMonitor::measured_processes`). As cores do Monitoramento continuam com os limites fixos.
+  Configurações abre a aba pela URL (`?tab=diagnostics`, `diagnosticThresholdsHref`).
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

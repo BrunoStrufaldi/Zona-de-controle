@@ -73,12 +73,3 @@ export interface ProcessList {
   totalProcesses: number;
   groups: ProcessGroup[];
 }
-
-export type DiagnosticSeverity = "info" | "warning" | "critical";
-
-export interface DiagnosticFinding {
-  id: string;
-  severity: DiagnosticSeverity;
-  title: string;
-  recommendation: string;
-}

@@ -28,6 +28,7 @@ describe("App", () => {
       /Rotinas de hoje/,
       /Status do sistema/,
       /Armazenamento/,
+      /^Diagnóstico/,
     ]) {
       const card = screen.getByRole("heading", { name: title }).closest("[data-slot='card']");
       expect(card?.querySelector("[aria-label='Dados de demonstração']")).toBeNull();

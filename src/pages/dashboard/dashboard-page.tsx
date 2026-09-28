@@ -6,6 +6,7 @@ import { UpcomingEventsWidget } from "@/features/productivity/calendar/component
 import { RoutinesTodayWidget } from "@/features/productivity/routines/components/routines-today-widget";
 import { TasksSummaryWidget } from "@/features/productivity/tasks/components/tasks-summary-widget";
 import { StorageWidget } from "@/features/system/components/storage-widget";
+import { DiagnosticsWidget } from "@/features/system/diagnostics/components/diagnostics-widget";
 import { SystemStatusWidget } from "@/features/system/components/system-status-widget";
 import { DeviceBatteryWidget } from "@/features/system/devices/components/device-battery-widget";
 import { useAsyncResource } from "@/hooks/use-async-resource";
@@ -14,6 +15,7 @@ import { useDisplayName } from "@/hooks/use-display-name";
 import { addDays, toIsoDate } from "@/lib/dates";
 import { dashboardDemoData as demo } from "@/mocks/dashboard";
 import { listCalendar } from "@/services/calendar-service";
+import { runDiagnostics } from "@/services/diagnostics-service";
 import { listRoutines } from "@/services/routines-service";
 import { getSystemSnapshot } from "@/services/system-service";
 import { listTasks } from "@/services/tasks-service";
@@ -25,7 +27,7 @@ const SYSTEM_INTERVAL_MS = 5_000;
 
 /**
  * Dashboard. Widgets de módulos já implementados usam dados reais (Tarefas,
- * Rotinas, Calendário, status do sistema e armazenamento);
+ * Rotinas, Calendário, status do sistema, armazenamento e diagnóstico);
  * os demais ainda recebem dados de `src/mocks` e são marcados como Demo. Ao
  * implementar um módulo, troque a fonte do widget pelo serviço real e remova `demo`.
  */
@@ -37,6 +39,7 @@ export function DashboardPage() {
   const loadWeek = useCallback(() => listCalendar(today, addDays(today, 6)), [today]);
   const upcoming = useAsyncResource(loadWeek);
   const system = usePollingResource(getSystemSnapshot, { intervalMs: SYSTEM_INTERVAL_MS });
+  const diagnostics = useAsyncResource(runDiagnostics);
 
   return (
     <>
@@ -58,6 +61,7 @@ export function DashboardPage() {
           <CashflowChartWidget data={demo.cashflow} demo className="@3xl:col-span-2" />
 
           <StorageWidget snapshot={system} />
+          <DiagnosticsWidget report={diagnostics} />
           <DeviceBatteryWidget devices={demo.devices} demo />
           <RecentActivityWidget entries={demo.activity} demo />
         </div>

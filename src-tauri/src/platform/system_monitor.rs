@@ -14,8 +14,8 @@ use sysinfo::{
 };
 
 use crate::domain::system_monitor::{
-    build_disk_usages, clamp_percent, group_processes, CpuUsage, DiskKind, DiskUsage, MemoryUsage,
-    ProcessList, RawDisk, RawProcess, SystemInfo, SystemSnapshot,
+    build_disk_usages, clamp_percent, group_processes, normalize_mount_point, CpuUsage, DiskKind,
+    DiskUsage, MemoryUsage, ProcessList, RawDisk, RawProcess, SystemInfo, SystemSnapshot,
 };
 use crate::error::{AppError, AppResult};
 
@@ -146,6 +146,37 @@ impl SystemMonitor {
     }
 }
 
+impl SystemMonitor {
+    /// Como [`Self::processes`], mas garante o uso de CPU medido: sem leitura
+    /// anterior, faz a primeira e espera o intervalo mínimo (sem segurar o lock).
+    pub fn measured_processes(&self) -> AppResult<ProcessList> {
+        let wait = {
+            let mut sampler = self.sampler.lock().map_err(|_| AppError::StatePoisoned)?;
+            if sampler.processes_read_at.is_none() {
+                sampler.refresh_processes();
+            }
+            match sampler.processes_read_at {
+                Some(read_at) if !sampler.processes_measured => {
+                    Some(MINIMUM_CPU_UPDATE_INTERVAL.saturating_sub(read_at.elapsed()))
+                }
+                _ => None,
+            }
+        };
+        if let Some(wait) = wait {
+            std::thread::sleep(wait);
+        }
+        self.processes()
+    }
+}
+
+/// Unidade onde o Windows está instalado (ex.: "C:"), pela variável `SystemDrive`.
+pub fn system_drive() -> Option<String> {
+    std::env::var("SystemDrive")
+        .ok()
+        .map(|drive| normalize_mount_point(drive.trim()))
+        .filter(|drive| !drive.is_empty())
+}
+
 impl Default for SystemMonitor {
     fn default() -> Self {
         Self::new()
@@ -236,5 +267,11 @@ mod tests {
         assert!(processes.total_processes > 0);
         std::thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL);
         assert!(monitor.processes().unwrap().cpu_measured);
+    }
+
+    #[test]
+    fn measured_processes_waits_for_the_second_reading() {
+        let monitor = SystemMonitor::new();
+        assert!(monitor.measured_processes().unwrap().cpu_measured);
     }
 }

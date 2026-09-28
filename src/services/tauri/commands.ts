@@ -26,6 +26,11 @@ import {
   type TaskInput,
   type TaskStatus,
 } from "@/features/productivity/tasks/types";
+import {
+  type DiagnosticReport,
+  type DiagnosticSettings,
+  type DiagnosticThresholds,
+} from "@/features/system/diagnostics/types";
 import { type CleanupCategoryDescriptor } from "@/features/system/optimization/types";
 import { type ProcessList, type SystemInfo, type SystemSnapshot } from "@/features/system/types";
 import { DESKTOP_ONLY_MESSAGE, ServiceError, toServiceError } from "@/services/tauri/errors";
@@ -52,6 +57,12 @@ export interface CommandMap {
   get_system_info: { args: undefined; result: SystemInfo };
   get_system_snapshot: { args: undefined; result: SystemSnapshot };
   list_processes: { args: undefined; result: ProcessList };
+  run_diagnostics: { args: undefined; result: DiagnosticReport };
+  get_diagnostic_thresholds: { args: undefined; result: DiagnosticSettings };
+  set_diagnostic_thresholds: {
+    args: { thresholds: DiagnosticThresholds };
+    result: DiagnosticSettings;
+  };
   list_battery_providers: { args: undefined; result: BatteryProviderDescriptor[] };
   list_battery_devices: { args: undefined; result: DeviceBatteryInfo[] };
   list_cleanup_categories: { args: undefined; result: CleanupCategoryDescriptor[] };

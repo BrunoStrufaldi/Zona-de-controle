@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { paths } from "@/app/router/paths";
 import { addDays, toIsoDate, weekdayOf } from "@/lib/dates";
+import { mockDiagnosticsBackend } from "@/test/fake-diagnostics-backend";
 import { mockRoutinesBackend } from "@/test/fake-routines-backend";
 import { mockSystemBackend } from "@/test/fake-system-backend";
 import { mockTasksBackend } from "@/test/fake-tasks-backend";
@@ -93,5 +94,17 @@ describe("páginas integradas ao backend", () => {
 
     const disks = screen.getByRole("list", { name: "Unidades de armazenamento" });
     expect(within(disks).getByText("92% em uso · 40 GB livres")).toBeInTheDocument();
+  });
+
+  it("Dashboard resume o diagnóstico com os alertas mais graves", async () => {
+    mockDiagnosticsBackend();
+    renderRoute(paths.dashboard);
+
+    const list = await screen.findByRole("list", { name: "Alertas do diagnóstico" });
+    const items = within(list).getAllByRole("listitem");
+    expect(items).toHaveLength(3);
+    expect(items[0]).toHaveTextContent("Pouco espaço livre em C:");
+    // Resumo: sem recomendação (ela fica na tela Diagnósticos).
+    expect(within(list).queryByText(/esvazie a Lixeira/)).not.toBeInTheDocument();
   });
 });

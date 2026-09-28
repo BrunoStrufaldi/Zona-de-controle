@@ -1,5 +1,6 @@
 //! Regras de validação das configurações do app.
 
+use crate::domain::diagnostics::THRESHOLDS_SETTING_KEY;
 use crate::error::{AppError, AppResult};
 
 pub const MAX_KEY_LENGTH: usize = 64;
@@ -18,6 +19,19 @@ pub fn validate_key(key: &str) -> AppResult<()> {
     if key.len() > MAX_KEY_LENGTH || !starts_with_letter || !valid_chars {
         return Err(AppError::Validation(format!(
             "chave de configuração inválida: \"{key}\""
+        )));
+    }
+    Ok(())
+}
+
+/// Chaves gravadas só por commands próprios, que validam o conteúdo do valor.
+const RESERVED_KEYS: [&str; 1] = [THRESHOLDS_SETTING_KEY];
+
+/// Barra chaves reservadas no command genérico `set_setting`.
+pub fn ensure_not_reserved(key: &str) -> AppResult<()> {
+    if RESERVED_KEYS.contains(&key) {
+        return Err(AppError::Validation(format!(
+            "a configuração \"{key}\" só pode ser alterada pela tela própria"
         )));
     }
     Ok(())

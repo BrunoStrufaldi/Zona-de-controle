@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 
 use crate::db::Database;
 use crate::domain::audit::{AuditCategory, AuditOutcome, NewAuditEntry};
-use crate::domain::settings::{validate_key, validate_serialized_value};
+use crate::domain::settings::{ensure_not_reserved, validate_key, validate_serialized_value};
 use crate::error::AppResult;
 use crate::repositories::{audit, settings, settings::SettingEntry};
 
@@ -20,9 +20,16 @@ pub fn get_setting(db: &Database, key: &str) -> AppResult<Option<SettingEntry>> 
     db.with_connection(|connection| settings::find(connection, key))
 }
 
-/// Salva a configuração e registra a alteração no log de auditoria na mesma
-/// transação. Falhas de escrita também são auditadas.
+/// Command genérico: recusa as chaves que têm command próprio (que valida o valor).
 pub fn update_setting(db: &Database, key: &str, value: &Value) -> AppResult<SettingEntry> {
+    ensure_not_reserved(key)?;
+    save_setting(db, key, value)
+}
+
+/// Salva a configuração e registra a alteração no log de auditoria na mesma
+/// transação. Falhas de escrita também são auditadas. Para chaves reservadas,
+/// só deve ser chamada depois da validação específica do valor.
+pub fn save_setting(db: &Database, key: &str, value: &Value) -> AppResult<SettingEntry> {
     validate_key(key)?;
     let serialized = serde_json::to_string(value)?;
     validate_serialized_value(&serialized)?;

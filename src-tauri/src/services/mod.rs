@@ -3,6 +3,7 @@
 
 pub mod backup;
 pub mod calendar;
+pub mod diagnostics;
 pub mod notes;
 pub mod routines;
 pub mod settings;

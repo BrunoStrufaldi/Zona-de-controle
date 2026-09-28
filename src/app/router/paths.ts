@@ -46,3 +46,9 @@ export const NEW_EVENT_PARAM = "new";
 
 /** Link para criar um evento (usado pelo menu "Criar" do header). */
 export const newEventHref = `${paths.productivity.calendar}?${NEW_EVENT_PARAM}=1`;
+
+/** Parâmetro de URL que abre uma aba das Configurações (ex.: `?tab=diagnostics`). */
+export const SETTINGS_TAB_PARAM = "tab";
+
+/** Link para os limites do diagnóstico em Configurações. */
+export const diagnosticThresholdsHref = `${paths.settings}?${SETTINGS_TAB_PARAM}=diagnostics`;

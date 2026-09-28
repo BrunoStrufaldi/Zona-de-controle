@@ -12,11 +12,6 @@ export const systemModules = {
       "Status de carregamento, tipo de conexão e última atualização",
     ],
   },
-  diagnostics: {
-    description: "Alertas e recomendações a partir das métricas coletadas.",
-    phase: 3,
-    plannedFeatures: ["Alertas de armazenamento", "Recomendações e identificação de problemas"],
-  },
   optimization: {
     description:
       "Limpeza segura e transparente: você vê exatamente o que será removido antes de confirmar.",
