@@ -27,6 +27,7 @@ import {
   type TaskStatus,
 } from "@/features/productivity/tasks/types";
 import { type CleanupCategoryDescriptor } from "@/features/system/optimization/types";
+import { type ProcessList, type SystemInfo, type SystemSnapshot } from "@/features/system/types";
 import { DESKTOP_ONLY_MESSAGE, ServiceError, toServiceError } from "@/services/tauri/errors";
 import { isDesktopRuntime } from "@/services/tauri/runtime";
 import { type AppInfo } from "@/types/app";
@@ -48,6 +49,9 @@ export interface CommandMap {
   list_audit_entries: { args: { limit?: number }; result: AuditEntry[] };
   list_database_backups: { args: undefined; result: BackupOverview };
   create_database_backup: { args: undefined; result: BackupFile };
+  get_system_info: { args: undefined; result: SystemInfo };
+  get_system_snapshot: { args: undefined; result: SystemSnapshot };
+  list_processes: { args: undefined; result: ProcessList };
   list_battery_providers: { args: undefined; result: BatteryProviderDescriptor[] };
   list_battery_devices: { args: undefined; result: DeviceBatteryInfo[] };
   list_cleanup_categories: { args: undefined; result: CleanupCategoryDescriptor[] };

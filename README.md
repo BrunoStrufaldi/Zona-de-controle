@@ -16,7 +16,7 @@ O **Zona de Controle** reúne em um só lugar três áreas do dia a dia:
 
 Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem, sem contas e sem APIs externas.
 
-> **Estado atual: Fase 2 concluída.** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas** e **Calendário** já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
+> **Estado atual: Fase 3 em andamento.** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário** e **Monitoramento** (CPU, memória, discos e processos ao vivo) já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
 
 ## Stack
 
@@ -57,8 +57,8 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
 
 ### Monitoramento do sistema (Fases 3 e 4)
 
-- **Hardware**: CPU, RAM, armazenamento, discos, temperatura (quando suportada), processos e informações do sistema.
-- **Diagnóstico**: alertas de armazenamento, recomendações e histórico de métricas.
+- **Monitoramento** ✅ (3.1): CPU (total e por núcleo), memória, arquivo de paginação e discos ao vivo (a cada 2 s, com gráficos dos últimos 2 minutos), processos agrupados por programa com busca e ordenação (somente leitura) e informações do computador. Nada é gravado: as leituras existem só enquanto a tela está aberta. A temperatura aparece como "Não disponível": no Windows os sensores só são liberados para administradores, e o app não pede elevação.
+- **Diagnóstico**: alertas de armazenamento e recomendações a partir da leitura atual.
 - **Dispositivos e bateria**: periféricos com nível de bateria, carregamento, tipo de conexão e última atualização. A leitura vem de providers independentes:
   - `BluetoothBatteryProvider`: Battery Service padrão do Bluetooth;
   - `XInputBatteryProvider`: controles Xbox (nível por faixas);
@@ -194,15 +194,16 @@ src-tauri/                    Backend (Rust)
 │   ├── services/             Casos de uso: validação, transações, auditoria
 │   ├── repositories/         Único lugar com SQL
 │   ├── domain/               Regras e contratos (audit, settings, tasks, notes, routines, tags, calendar…)
+│   ├── platform/             Leitura do sistema operacional (somente leitura, via sysinfo)
 │   ├── db/                   Conexão SQLite + runner de migrations
 │   ├── error.rs              AppError → { kind, message }
-│   └── state.rs              Estado gerenciado (banco, providers)
+│   └── state.rs              Estado gerenciado (banco, providers, monitor do sistema)
 ├── migrations/               SQL versionado (0001_initial … 0005_routines, 0006_calendar)
 ├── capabilities/             Permissões mínimas, comentadas
 └── build.rs                  Lista explícita de commands permitidos
 ```
 
-**Fluxo de dados:** página → hook → `services/*` → `invokeCommand` → _IPC_ → `commands` → `services` → `repositories`/`domain` → SQLite.
+**Fluxo de dados:** página → hook → `services/*` → `invokeCommand` → _IPC_ → `commands` → `services` → `repositories`/`domain` → SQLite. Leituras do sistema operacional: `commands` → `platform` (somente leitura) → `domain`.
 
 **Banco de dados:** `%APPDATA%\com.brunostrufaldi.zonadecontrole\zona-de-controle.db`. As migrations rodam na inicialização. Tabelas:
 
@@ -281,7 +282,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada pu
 
 - **Fase 1 — Foundation** ✅: boilerplate, design system, layout, navegação, Tauri e SQLite preparado.
 - **Fase 2 — Productivity** ✅: tarefas ✅ (2.1); recorrência, checklists, categorias e arquivamento ✅ (2.2); notas e diário ✅ (2.3); rotinas ✅ (2.4); calendário ✅ (2.5).
-- **Fase 3 — System Monitor**: CPU, RAM, discos, diagnósticos, dispositivos e bateria (Bluetooth e controles Xbox primeiro; periféricos 2.4 GHz depois, por modelo).
+- **Fase 3 — System Monitor**: monitoramento de CPU, RAM, discos e processos ✅ (3.1); diagnósticos (3.2); dispositivos e bateria (3.3: Bluetooth e controles Xbox primeiro; periféricos 2.4 GHz depois, por modelo).
 - **Fase 4 — Safe Optimization**: temporários, caches seguros, lixeira, logs e confirmação.
 - **Fase 5 — Finance Core**: lançamentos, categorias, recorrências e parcelamentos.
 - **Fase 6 — Investments**: ativos, patrimônio e carteira.

@@ -56,6 +56,12 @@ const fullDateFormatter = new Intl.DateTimeFormat(APP_LOCALE, {
 
 const dayMonthFormatter = new Intl.DateTimeFormat(APP_LOCALE, { day: "2-digit", month: "2-digit" });
 
+const clockTimeFormatter = new Intl.DateTimeFormat(APP_LOCALE, {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export type DateInput = Date | string | number;
@@ -145,6 +151,12 @@ export function formatDayMonth(input: DateInput): string {
   return isValidDate(date) ? dayMonthFormatter.format(date) : "—";
 }
 
+/** "14:03:27" (com segundos, para leituras ao vivo). */
+export function formatClockTime(input: DateInput): string {
+  const date = toDate(input);
+  return isValidDate(date) ? clockTimeFormatter.format(date) : "—";
+}
+
 /** "20 – 26 de set. de 2026" (junta mês e ano quando iguais). */
 export function formatDateRange(from: DateInput, to: DateInput): string {
   const start = toDate(from);
@@ -163,11 +175,13 @@ export function formatBytes(bytes: number, maximumFractionDigits = 1): string {
   return `${formatNumber(value, maximumFractionDigits)} ${BYTE_UNITS[exponent] ?? "B"}`;
 }
 
-/** 13320 → "3h 42min"; 2700 → "45min". */
+/** 13320 → "3h 42min"; 2700 → "45min"; 273600 → "3d 4h". */
 export function formatDuration(totalSeconds: number): string {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds));
-  const hours = Math.floor(safeSeconds / 3600);
+  const days = Math.floor(safeSeconds / 86_400);
+  const hours = Math.floor((safeSeconds % 86_400) / 3600);
   const minutes = Math.floor((safeSeconds % 3600) / 60);
+  if (days > 0) return hours === 0 ? `${days}d` : `${days}d ${hours}h`;
   if (hours === 0) return `${minutes}min`;
   return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}min`;
 }

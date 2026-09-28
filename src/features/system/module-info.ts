@@ -1,16 +1,6 @@
 import { type ModuleInfo } from "@/types/module";
 
 export const systemModules = {
-  monitor: {
-    description: "Uso de CPU, memória e discos do seu computador em tempo real.",
-    phase: 3,
-    plannedFeatures: [
-      "CPU, RAM e armazenamento em tempo real",
-      "Uso por disco e temperatura, quando suportada",
-      "Processos relevantes",
-      "Informações do sistema",
-    ],
-  },
   devices: {
     description:
       "Periféricos conectados e nível de bateria, com indicação clara do que pode ou não ser lido.",
@@ -25,11 +15,7 @@ export const systemModules = {
   diagnostics: {
     description: "Alertas e recomendações a partir das métricas coletadas.",
     phase: 3,
-    plannedFeatures: [
-      "Alertas de armazenamento",
-      "Recomendações e identificação de problemas",
-      "Histórico de métricas",
-    ],
+    plannedFeatures: ["Alertas de armazenamento", "Recomendações e identificação de problemas"],
   },
   optimization: {
     description:

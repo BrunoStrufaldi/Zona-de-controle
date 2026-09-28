@@ -14,6 +14,11 @@ export async function preloadDashboard(): Promise<void> {
   await import("@/pages/dashboard/dashboard-page");
 }
 
+/** Como `preloadDashboard`, para a página de Monitoramento (também usa o Recharts). */
+export async function preloadMonitor(): Promise<void> {
+  await import("@/pages/system/monitor-page");
+}
+
 /** Renderiza a aplicação completa (layout + rotas) em um caminho específico. */
 export function renderRoute(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });

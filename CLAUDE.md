@@ -77,18 +77,19 @@ Regras:
 
 ### Backend (`src-tauri/`)
 
-| Caminho                     | Responsabilidade                                                                              |
-| --------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/lib.rs`                | Builder do Tauri, `setup` (estado + migrations), registro de commands                         |
-| `src/commands/`             | Camada IPC fina: recebe args, delega para `services`. Leitura e escrita em commands separados |
-| `src/services/`             | Casos de uso: validação, transações, auditoria                                                |
-| `src/repositories/`         | **Único lugar com SQL**                                                                       |
-| `src/domain/`               | Regras e contratos puros (auditoria, settings, devices, optimization)                         |
-| `src/db/`                   | Conexão SQLite (WAL, foreign keys) e runner de migrations                                     |
-| `src/error.rs`              | `AppError` → serializado como `{ kind, message }` para o frontend                             |
-| `migrations/`               | SQL versionado `NNNN_descricao.sql`, embutido via `include_str!`                              |
-| `capabilities/default.toml` | Permissões da janela — mínimo necessário, cada uma comentada                                  |
-| `build.rs`                  | `APP_COMMANDS`: lista explícita de commands permitidos                                        |
+| Caminho                     | Responsabilidade                                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------------------- |
+| `src/lib.rs`                | Builder do Tauri, `setup` (estado + migrations), registro de commands                           |
+| `src/commands/`             | Camada IPC fina: recebe args, delega para `services`. Leitura e escrita em commands separados   |
+| `src/services/`             | Casos de uso: validação, transações, auditoria                                                  |
+| `src/repositories/`         | **Único lugar com SQL**                                                                         |
+| `src/domain/`               | Regras e contratos puros (auditoria, settings, devices, optimization)                           |
+| `src/platform/`             | **Único lugar que lê o SO** (`sysinfo`), somente leitura. Commands chamam direto via `AppState` |
+| `src/db/`                   | Conexão SQLite (WAL, foreign keys) e runner de migrations                                       |
+| `src/error.rs`              | `AppError` → serializado como `{ kind, message }` para o frontend                               |
+| `migrations/`               | SQL versionado `NNNN_descricao.sql`, embutido via `include_str!`                                |
+| `capabilities/default.toml` | Permissões da janela — mínimo necessário, cada uma comentada                                    |
+| `build.rs`                  | `APP_COMMANDS`: lista explícita de commands permitidos                                          |
 
 ## Convenções de nomes
 
@@ -181,7 +182,7 @@ Regras:
   os services lançam `ServiceError` com `kind: "desktop-only"` (útil para `npm run dev:web`).
 - Commands Rust recebem argumentos em camelCase do JS (`beforeId` → `before_id`), padrão do Tauri.
 - Testes que renderizam o dashboard chamam `preloadDashboard` em `beforeAll` (a importação a frio
-  do Recharts passa do timeout na CI).
+  do Recharts passa do timeout na CI); os da tela Monitoramento, `preloadMonitor`.
 - **Kanban (@dnd-kit):** o teclado usa `kanbanKeyboardCoordinates` (←/→ trocam de coluna). Não
   aplique `rotate`/`scale` no `DragOverlay`: distorce o retângulo de colisão. Arrastar não roda no
   jsdom — teste `resolveDrop`/`applyMove` (domínio) e valide o arraste num Chromium real.
@@ -224,6 +225,15 @@ Regras:
   é decidido no Rust (`services/notes.rs::update_note`: intervalo mínimo de 5 min e as 20 mais recentes).
   Na prévia Markdown (`markdown-preview.tsx`), links e imagens não podem navegar nem carregar nada:
   um link abriria a URL dentro da janela do app.
+- **Monitoramento (3.1):** `platform/system_monitor.rs` lê CPU, memória, discos e processos com o
+  `sysinfo` **0.36** (a 0.37+ exige Rust ≥ 1.95; o `rust-version` é 1.80), sem as features `component`
+  (temperatura via WMI exige administrador e chama `CoInitializeSecurity` no processo todo), `network`
+  e `user`. Nada é persistido: a tela relê com `usePollingResource` (`src/hooks`: sem leituras
+  simultâneas, pausa com a janela oculta, para em erro) e o histórico dos gráficos (2 min) vive só no
+  componente. CPU é medida por diferença entre leituras (≥ 200 ms): antes da segunda leitura o Rust
+  devolve `null` e a tela mostra "Medindo…", nunca 0%. Processos são agrupados por nome
+  (`domain/system_monitor.rs::group_processes`, ignora o PID 0 ocioso) e **não há** command para
+  encerrá-los.
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

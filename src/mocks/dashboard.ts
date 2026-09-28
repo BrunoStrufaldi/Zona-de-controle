@@ -8,34 +8,16 @@
  */
 import { type MonthlyCashflow } from "@/features/finance/types";
 import { type DeviceBatteryInfo } from "@/features/system/devices/types";
-import { type StorageVolume, type SystemOverview } from "@/features/system/types";
 import { type ActivityEntry } from "@/types/activity";
 
 export interface DashboardDemoData {
-  system: SystemOverview;
-  storage: readonly StorageVolume[];
   devices: readonly DeviceBatteryInfo[];
   finance: { income: number; expenses: number };
   cashflow: readonly MonthlyCashflow[];
   activity: readonly ActivityEntry[];
 }
 
-const GIB = 1024 ** 3;
-
 export const dashboardDemoData: DashboardDemoData = {
-  system: {
-    status: "healthy",
-    usage: {
-      cpuPercent: 23,
-      memoryUsedBytes: 9.4 * GIB,
-      memoryTotalBytes: 16 * GIB,
-    },
-    uptimeSeconds: 3 * 3600 + 42 * 60,
-  },
-  storage: [
-    { mountPoint: "C:", label: "Sistema", usedBytes: 402 * GIB, totalBytes: 476 * GIB },
-    { mountPoint: "D:", label: "Dados", usedBytes: 610 * GIB, totalBytes: 931 * GIB },
-  ],
   devices: [
     {
       id: "demo-headset",

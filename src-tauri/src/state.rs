@@ -8,6 +8,7 @@ use tauri::{AppHandle, Manager};
 use crate::db::{Database, DATABASE_FILE_NAME};
 use crate::domain::devices::BatteryProviderRegistry;
 use crate::error::AppResult;
+use crate::platform::system_monitor::SystemMonitor;
 
 /// Subpasta de Documentos onde ficam os backups do banco.
 const BACKUP_FOLDER: [&str; 2] = ["Zona de Controle", "Backups"];
@@ -19,6 +20,8 @@ pub struct AppState {
     /// interna do app, fácil de achar e copiar). Sem Documentos, usa a pasta de dados.
     pub backup_dir: PathBuf,
     pub battery_providers: BatteryProviderRegistry,
+    /// Leitura ao vivo de CPU, memória, discos e processos (nada é persistido).
+    pub system_monitor: SystemMonitor,
 }
 
 impl AppState {
@@ -45,6 +48,7 @@ impl AppState {
             database_path,
             backup_dir,
             battery_providers: BatteryProviderRegistry::with_default_providers(),
+            system_monitor: SystemMonitor::new(),
         })
     }
 }

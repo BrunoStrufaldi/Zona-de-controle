@@ -15,4 +15,5 @@ pub mod notes;
 pub mod optimization;
 pub mod routines;
 pub mod settings;
+pub mod system;
 pub mod tasks;

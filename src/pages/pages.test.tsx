@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { paths } from "@/app/router/paths";
 import { addDays, toIsoDate, weekdayOf } from "@/lib/dates";
 import { mockRoutinesBackend } from "@/test/fake-routines-backend";
+import { mockSystemBackend } from "@/test/fake-system-backend";
 import { mockTasksBackend } from "@/test/fake-tasks-backend";
 import { preloadDashboard, renderRoute } from "@/test/render";
 import { mockDesktopRuntime } from "@/test/tauri";
@@ -76,5 +77,21 @@ describe("páginas integradas ao backend", () => {
     expect(within(list).getByText("Manhã")).toBeInTheDocument();
     expect(within(list).getByText("1/2")).toBeInTheDocument();
     expect(within(list).queryByText("Só amanhã")).not.toBeInTheDocument();
+  });
+
+  it("Dashboard mostra o status e o armazenamento reais do sistema", async () => {
+    mockSystemBackend();
+    renderRoute(paths.dashboard);
+
+    const status = (await screen.findByRole("heading", { name: "Status do sistema" })).closest(
+      "[data-slot='card']",
+    ) as HTMLElement;
+    // Memória em 75% (abaixo de 80%: estável); CPU ainda sendo medida na primeira leitura.
+    expect(await within(status).findByText("Medindo…")).toBeInTheDocument();
+    expect(within(status).getByText("Estável")).toBeInTheDocument();
+    expect(within(status).getByText("2d 3h")).toBeInTheDocument();
+
+    const disks = screen.getByRole("list", { name: "Unidades de armazenamento" });
+    expect(within(disks).getByText("92% em uso · 40 GB livres")).toBeInTheDocument();
   });
 });

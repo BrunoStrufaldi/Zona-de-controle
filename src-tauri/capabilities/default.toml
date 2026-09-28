@@ -31,6 +31,13 @@ permissions = [
   "allow-list-database-backups",
   "allow-create-database-backup",
 
+  # Monitor do sistema — leitura ao vivo de SO, CPU, memória, discos e
+  # processos (via sysinfo, sem privilégios de administrador). Nada é gravado e
+  # não existe command para encerrar processos ou alterar o sistema.
+  "allow-get-system-info",
+  "allow-get-system-snapshot",
+  "allow-list-processes",
+
   # Leitura dos providers e dispositivos de bateria (sem escrita em dispositivos).
   "allow-list-battery-providers",
   "allow-list-battery-devices",

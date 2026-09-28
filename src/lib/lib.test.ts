@@ -5,6 +5,7 @@ import { auditTargetLabel } from "@/lib/audit";
 import { addDays, addMonths, daysBetween, toIsoDate, weekdayOf } from "@/lib/dates";
 import {
   formatBytes,
+  formatClockTime,
   formatCurrency,
   formatDate,
   formatDateRange,
@@ -50,6 +51,9 @@ describe("format", () => {
     expect(formatBytes(0)).toBe("0 B");
     expect(formatDuration(3 * 3600 + 42 * 60)).toBe("3h 42min");
     expect(formatDuration(45 * 60)).toBe("45min");
+    expect(formatDuration(3 * 86_400 + 4 * 3600 + 59 * 60)).toBe("3d 4h");
+    expect(formatDuration(2 * 86_400 + 30)).toBe("2d");
+    expect(formatClockTime(new Date(2026, 8, 27, 14, 3, 7))).toBe("14:03:07");
   });
 });
 

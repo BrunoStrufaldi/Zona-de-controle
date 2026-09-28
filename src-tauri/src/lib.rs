@@ -2,11 +2,13 @@
 //!
 //! Camadas (de fora para dentro):
 //! `commands` (IPC) → `services` (casos de uso) → `repositories` (SQL) / `domain`.
+//! Leituras do SO (somente leitura) ficam em `platform`.
 
 mod commands;
 mod db;
 mod domain;
 mod error;
+mod platform;
 mod repositories;
 mod services;
 mod state;
@@ -33,6 +35,9 @@ pub fn run() {
             commands::audit::list_audit_entries,
             commands::backup::list_database_backups,
             commands::backup::create_database_backup,
+            commands::system::get_system_info,
+            commands::system::get_system_snapshot,
+            commands::system::list_processes,
             commands::devices::list_battery_providers,
             commands::devices::list_battery_devices,
             commands::optimization::list_cleanup_categories,
