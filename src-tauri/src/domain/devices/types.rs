@@ -1,7 +1,7 @@
 //! Tipos de dispositivos e bateria. Espelhados em
 //! `src/features/system/devices/types.ts` — mantenha os dois em sincronia.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,10 +29,12 @@ pub enum ConnectionType {
     Bluetooth,
     Usb,
     Proprietary24Ghz,
+    /// Sem fio, mas sem saber qual tecnologia (ex.: controle Xbox via XInput).
+    Wireless,
     Unknown,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum DeviceKind {
     Controller,
@@ -40,6 +42,31 @@ pub enum DeviceKind {
     Keyboard,
     Headset,
     Other,
+}
+
+impl DeviceKind {
+    /// Valor gravado no banco (`device_markings.kind`).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Controller => "controller",
+            Self::Mouse => "mouse",
+            Self::Keyboard => "keyboard",
+            Self::Headset => "headset",
+            Self::Other => "other",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        [
+            Self::Controller,
+            Self::Mouse,
+            Self::Keyboard,
+            Self::Headset,
+            Self::Other,
+        ]
+        .into_iter()
+        .find(|kind| kind.as_str() == value)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -64,8 +91,14 @@ pub enum BatteryBucket {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum BatteryLevel {
-    Exact { percent: u8 },
-    Approximate { bucket: BatteryBucket },
+    Exact {
+        percent: u8,
+    },
+    Approximate {
+        bucket: BatteryBucket,
+    },
+    /// Alimentado pelo cabo: não há bateria a mostrar.
+    Wired,
     Unknown,
 }
 
@@ -87,9 +120,11 @@ pub struct DeviceBatteryInfo {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ProviderStatus {
-    /// Ainda não implementado (Fase 3).
+    /// Ainda não implementado.
     Planned,
     Available,
+    /// Funciona em parte (ex.: detecta o dispositivo, mas não lê a bateria).
+    Partial,
     Unavailable,
 }
 

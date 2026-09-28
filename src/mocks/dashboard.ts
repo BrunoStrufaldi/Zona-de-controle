@@ -7,52 +7,15 @@
  *  - Nunca apresente estes valores como métricas reais.
  */
 import { type MonthlyCashflow } from "@/features/finance/types";
-import { type DeviceBatteryInfo } from "@/features/system/devices/types";
 import { type ActivityEntry } from "@/types/activity";
 
 export interface DashboardDemoData {
-  devices: readonly DeviceBatteryInfo[];
   finance: { income: number; expenses: number };
   cashflow: readonly MonthlyCashflow[];
   activity: readonly ActivityEntry[];
 }
 
 export const dashboardDemoData: DashboardDemoData = {
-  devices: [
-    {
-      id: "demo-headset",
-      name: "Headset sem fio",
-      kind: "headset",
-      connection: "bluetooth",
-      provider: "bluetooth",
-      support: "supported",
-      level: { kind: "exact", percent: 78 },
-      charging: "discharging",
-      lastUpdated: "2026-09-25T09:12:00-03:00",
-    },
-    {
-      id: "demo-controller",
-      name: "Controle Xbox",
-      kind: "controller",
-      connection: "usb",
-      provider: "xinput",
-      support: "partial",
-      level: { kind: "approximate", bucket: "medium" },
-      charging: "charging",
-      lastUpdated: "2026-09-25T09:10:00-03:00",
-    },
-    {
-      id: "demo-mouse",
-      name: "Mouse 2.4 GHz",
-      kind: "mouse",
-      connection: "proprietary24Ghz",
-      provider: "hidVendor",
-      support: "unsupported",
-      level: { kind: "unknown" },
-      charging: "unknown",
-      lastUpdated: null,
-    },
-  ],
   finance: {
     income: 12_450,
     expenses: 8_730.9,

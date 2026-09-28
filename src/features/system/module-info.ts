@@ -1,17 +1,6 @@
 import { type ModuleInfo } from "@/types/module";
 
 export const systemModules = {
-  devices: {
-    description:
-      "Periféricos conectados e nível de bateria, com indicação clara do que pode ou não ser lido.",
-    phase: 3,
-    plannedFeatures: [
-      "Bluetooth com Battery Service padrão",
-      "Controles Xbox (XInput / Windows.Gaming.Input)",
-      "Periféricos 2.4 GHz via plugins por modelo (somente leitura)",
-      "Status de carregamento, tipo de conexão e última atualização",
-    ],
-  },
   optimization: {
     description:
       "Limpeza segura e transparente: você vê exatamente o que será removido antes de confirmar.",

@@ -18,10 +18,15 @@ interface PollingOptions {
  * Um erro interrompe as leituras até `reload()`.
  * `load` deve ser estável (função de módulo ou memoizada com `useCallback`).
  */
+export type PollingResource<T> = AsyncResource<T> & {
+  /** Relê agora mantendo o dado atual na tela (ex.: depois de uma alteração). */
+  refresh: () => void;
+};
+
 export function usePollingResource<T>(
   load: () => Promise<T>,
   { intervalMs, paused = false }: PollingOptions,
-): AsyncResource<T> {
+): PollingResource<T> {
   const [state, setState] = useState<AsyncResourceState<T>>({ status: "loading" });
   const [reloadToken, setReloadToken] = useState(0);
   const visible = useDocumentVisible();
@@ -56,5 +61,9 @@ export function usePollingResource<T>(
     setReloadToken((token) => token + 1);
   }, []);
 
-  return { ...state, reload };
+  const refresh = useCallback(() => {
+    setReloadToken((token) => token + 1);
+  }, []);
+
+  return { ...state, reload, refresh };
 }

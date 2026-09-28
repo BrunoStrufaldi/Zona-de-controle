@@ -13,9 +13,8 @@ import { Progress, type ProgressTone } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   type BatteryTone,
-  chargingLabels,
-  connectionLabels,
   describeBattery,
+  deviceSubtitle,
 } from "@/features/system/devices/domain/battery";
 import { type DeviceBatteryInfo, type DeviceKind } from "@/features/system/devices/types";
 import { cn } from "@/lib/cn";
@@ -61,7 +60,7 @@ export function DeviceBatteryRow({ device }: DeviceBatteryRowProps) {
               <BatteryCharging className="size-3.5 text-success" aria-label="Carregando" />
             )}
             {display.label}
-            {display.percent === null && (
+            {display.unavailable && (
               <Tooltip>
                 <TooltipTrigger
                   className="cursor-help"
@@ -70,8 +69,7 @@ export function DeviceBatteryRow({ device }: DeviceBatteryRowProps) {
                   <CircleHelp className="size-3.5" aria-hidden="true" />
                 </TooltipTrigger>
                 <TooltipContent className="max-w-60">
-                  Este dispositivo não expõe o nível de bateria por uma API suportada. O valor não é
-                  estimado.
+                  O app ainda não sabe ler a bateria deste dispositivo. O valor nunca é estimado.
                 </TooltipContent>
               </Tooltip>
             )}
@@ -89,9 +87,7 @@ export function DeviceBatteryRow({ device }: DeviceBatteryRowProps) {
             className="h-1.5 rounded-full border border-dashed border-border"
           />
         )}
-        <span className="text-xs text-subtle-foreground">
-          {connectionLabels[device.connection]} · {chargingLabels[device.charging]}
-        </span>
+        <span className="text-xs text-subtle-foreground">{deviceSubtitle(device)}</span>
       </div>
     </li>
   );

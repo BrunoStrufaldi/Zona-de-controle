@@ -18,6 +18,8 @@ const APP_COMMANDS: &[&str] = &[
     "set_diagnostic_thresholds",
     "list_battery_providers",
     "list_battery_devices",
+    "list_usb_input_devices",
+    "set_device_marking",
     "list_cleanup_categories",
     "list_tasks",
     "list_archived_tasks",

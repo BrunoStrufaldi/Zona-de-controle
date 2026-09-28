@@ -13,6 +13,15 @@ pub fn local_today(connection: &Connection) -> AppResult<CalendarDate> {
         .ok_or_else(|| AppError::Validation(format!("data local inválida: {today}")))
 }
 
+/// Instante atual em UTC, ISO 8601 com segundos (ex.: `2026-09-28T15:04:05Z`).
+pub fn utc_now_iso(connection: &Connection) -> AppResult<String> {
+    Ok(
+        connection.query_row("SELECT strftime('%Y-%m-%dT%H:%M:%SZ', 'now')", [], |row| {
+            row.get(0)
+        })?,
+    )
+}
+
 /// Instante local atual, com precisão de minutos.
 pub fn local_now(connection: &Connection) -> AppResult<LocalDateTime> {
     let now: String = connection.query_row(

@@ -77,19 +77,19 @@ Regras:
 
 ### Backend (`src-tauri/`)
 
-| Caminho                     | Responsabilidade                                                                                |
-| --------------------------- | ----------------------------------------------------------------------------------------------- |
-| `src/lib.rs`                | Builder do Tauri, `setup` (estado + migrations), registro de commands                           |
-| `src/commands/`             | Camada IPC fina: recebe args, delega para `services`. Leitura e escrita em commands separados   |
-| `src/services/`             | Casos de uso: validação, transações, auditoria                                                  |
-| `src/repositories/`         | **Único lugar com SQL**                                                                         |
-| `src/domain/`               | Regras e contratos puros (auditoria, settings, devices, optimization)                           |
-| `src/platform/`             | **Único lugar que lê o SO** (`sysinfo`), somente leitura. Commands chamam direto via `AppState` |
-| `src/db/`                   | Conexão SQLite (WAL, foreign keys) e runner de migrations                                       |
-| `src/error.rs`              | `AppError` → serializado como `{ kind, message }` para o frontend                               |
-| `migrations/`               | SQL versionado `NNNN_descricao.sql`, embutido via `include_str!`                                |
-| `capabilities/default.toml` | Permissões da janela — mínimo necessário, cada uma comentada                                    |
-| `build.rs`                  | `APP_COMMANDS`: lista explícita de commands permitidos                                          |
+| Caminho                     | Responsabilidade                                                                                                            |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib.rs`                | Builder do Tauri, `setup` (estado + migrations), registro de commands                                                       |
+| `src/commands/`             | Camada IPC fina: recebe args, delega para `services`. Leitura e escrita em commands separados                               |
+| `src/services/`             | Casos de uso: validação, transações, auditoria                                                                              |
+| `src/repositories/`         | **Único lugar com SQL**                                                                                                     |
+| `src/domain/`               | Regras e contratos puros (auditoria, settings, devices, optimization)                                                       |
+| `src/platform/`             | **Único lugar que lê o SO** (`sysinfo`, `hidapi`, XInput, CfgMgr32), somente leitura. Commands chamam direto via `AppState` |
+| `src/db/`                   | Conexão SQLite (WAL, foreign keys) e runner de migrations                                                                   |
+| `src/error.rs`              | `AppError` → serializado como `{ kind, message }` para o frontend                                                           |
+| `migrations/`               | SQL versionado `NNNN_descricao.sql`, embutido via `include_str!`                                                            |
+| `capabilities/default.toml` | Permissões da janela — mínimo necessário, cada uma comentada                                                                |
+| `build.rs`                  | `APP_COMMANDS`: lista explícita de commands permitidos                                                                      |
 
 ## Convenções de nomes
 
@@ -246,6 +246,19 @@ Regras:
   padrão. A análise espera 200 ms na primeira vez para medir a CPU por programa
   (`SystemMonitor::measured_processes`). As cores do Monitoramento continuam com os limites fixos.
   Configurações abre a aba pela URL (`?tab=diagnostics`, `diagnosticThresholdsHref`).
+- **Dispositivos (3.3):** `platform/devices.rs` (só Windows; fora dele volta vazio) lê as interfaces
+  HID USB (`hidapi` com backend `windows-native`, Rust puro), os controles Xbox (XInput, `windows-sys`)
+  e a bateria Bluetooth que o Windows grava no nó do dispositivo (propriedade
+  `{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2`, a mesma de Configurações; não documentada). As regras
+  ficam em `domain/devices` (testes com o PC real do usuário). Pela USB um receptor 2.4 GHz e um
+  aparelho com fio parecem iguais: `KNOWN_WIRELESS_MODELS` reconhece os receptores conhecidos
+  (`24ae:1416` Rapoo VT7 Max, `291d:385d` MCHOSE V9 PRO) e o usuário marca os outros
+  (`device_markings`, chave `vid:pid` minúsculo; igual ao padrão, a marcação é apagada; auditado como
+  `device.marked`). Só entram mouses, teclados e headsets (páginas HID Generic Desktop 0x02/0x06 e
+  Telephony). Receptor sem leitor do modelo: presente, bateria "Não disponível". **Leitores por modelo
+  (3.3b)** só podem repetir a consulta de leitura que o software oficial faz — nunca comandos de
+  escrita (mudariam DPI, iluminação…). `usePollingResource().refresh()` relê sem voltar a
+  "carregando".
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

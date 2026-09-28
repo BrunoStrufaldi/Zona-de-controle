@@ -21,14 +21,15 @@ describe("App", () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: /Tarefas de hoje/ });
-    // 4 widgets ainda usam src/mocks (finanças, dispositivos e atividade); os demais são reais.
-    expect(screen.getAllByLabelText("Dados de demonstração")).toHaveLength(4);
+    // 3 widgets ainda usam src/mocks (finanças e atividade); os demais são reais.
+    expect(screen.getAllByLabelText("Dados de demonstração")).toHaveLength(3);
     for (const title of [
       /Tarefas de hoje/,
       /Rotinas de hoje/,
       /Status do sistema/,
       /Armazenamento/,
       /^Diagnóstico/,
+      /Bateria dos dispositivos/,
     ]) {
       const card = screen.getByRole("heading", { name: title }).closest("[data-slot='card']");
       expect(card?.querySelector("[aria-label='Dados de demonstração']")).toBeNull();

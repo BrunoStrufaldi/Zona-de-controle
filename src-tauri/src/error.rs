@@ -27,6 +27,10 @@ pub enum AppError {
     #[error("{0}")]
     Validation(String),
 
+    /// Falha ao ler dispositivos do sistema (ex.: lista de dispositivos USB).
+    #[error("{0}")]
+    Device(String),
+
     /// Recurso inexistente; a mensagem é exibida ao usuário (ex.: "tarefa não encontrada").
     #[error("{0}")]
     NotFound(&'static str),
@@ -45,6 +49,7 @@ impl AppError {
             Self::Io(_) => "io",
             Self::Tauri(_) => "tauri",
             Self::Validation(_) => "validation",
+            Self::Device(_) => "device",
             Self::NotFound(_) => "not_found",
             Self::StatePoisoned => "internal",
         }

@@ -15,6 +15,7 @@ import { useDisplayName } from "@/hooks/use-display-name";
 import { addDays, toIsoDate } from "@/lib/dates";
 import { dashboardDemoData as demo } from "@/mocks/dashboard";
 import { listCalendar } from "@/services/calendar-service";
+import { listBatteryDevices } from "@/services/devices-service";
 import { runDiagnostics } from "@/services/diagnostics-service";
 import { listRoutines } from "@/services/routines-service";
 import { getSystemSnapshot } from "@/services/system-service";
@@ -25,9 +26,12 @@ import { RecentActivityWidget } from "@/pages/dashboard/components/recent-activi
 /** No dashboard o status do sistema não precisa do ritmo da tela Monitoramento. */
 const SYSTEM_INTERVAL_MS = 5_000;
 
+/** Bateria muda devagar. */
+const DEVICES_INTERVAL_MS = 60_000;
+
 /**
  * Dashboard. Widgets de módulos já implementados usam dados reais (Tarefas,
- * Rotinas, Calendário, status do sistema, armazenamento e diagnóstico);
+ * Rotinas, Calendário, status do sistema, armazenamento, diagnóstico e bateria);
  * os demais ainda recebem dados de `src/mocks` e são marcados como Demo. Ao
  * implementar um módulo, troque a fonte do widget pelo serviço real e remova `demo`.
  */
@@ -40,6 +44,7 @@ export function DashboardPage() {
   const upcoming = useAsyncResource(loadWeek);
   const system = usePollingResource(getSystemSnapshot, { intervalMs: SYSTEM_INTERVAL_MS });
   const diagnostics = useAsyncResource(runDiagnostics);
+  const devices = usePollingResource(listBatteryDevices, { intervalMs: DEVICES_INTERVAL_MS });
 
   return (
     <>
@@ -62,7 +67,7 @@ export function DashboardPage() {
 
           <StorageWidget snapshot={system} />
           <DiagnosticsWidget report={diagnostics} />
-          <DeviceBatteryWidget devices={demo.devices} demo />
+          <DeviceBatteryWidget devices={devices} showLink />
           <RecentActivityWidget entries={demo.activity} demo />
         </div>
       </div>

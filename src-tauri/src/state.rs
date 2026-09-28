@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 use crate::db::{Database, DATABASE_FILE_NAME};
-use crate::domain::devices::BatteryProviderRegistry;
 use crate::error::AppResult;
+use crate::platform::devices::DeviceReader;
 use crate::platform::system_monitor::SystemMonitor;
 
 /// Subpasta de Documentos onde ficam os backups do banco.
@@ -19,7 +19,8 @@ pub struct AppState {
     /// Pasta dos backups: `Documentos/Zona de Controle/Backups` (fora da pasta
     /// interna do app, fácil de achar e copiar). Sem Documentos, usa a pasta de dados.
     pub backup_dir: PathBuf,
-    pub battery_providers: BatteryProviderRegistry,
+    /// Leitura de receptores USB, controles Xbox e bateria Bluetooth.
+    pub device_reader: DeviceReader,
     /// Leitura ao vivo de CPU, memória, discos e processos (nada é persistido).
     pub system_monitor: SystemMonitor,
 }
@@ -47,7 +48,7 @@ impl AppState {
             db,
             database_path,
             backup_dir,
-            battery_providers: BatteryProviderRegistry::with_default_providers(),
+            device_reader: DeviceReader::new(),
             system_monitor: SystemMonitor::new(),
         })
     }

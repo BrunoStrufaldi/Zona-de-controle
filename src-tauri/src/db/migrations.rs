@@ -47,6 +47,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "calendar",
         sql: include_str!("../../migrations/0006_calendar.sql"),
     },
+    Migration {
+        version: 7,
+        name: "device_markings",
+        sql: include_str!("../../migrations/0007_device_markings.sql"),
+    },
 ];
 
 const CREATE_SCHEMA_MIGRATIONS: &str = "
@@ -157,6 +162,7 @@ mod tests {
             "calendar_events",
             "calendar_event_exceptions",
             "calendar_reminders_sent",
+            "device_markings",
         ] {
             assert!(table_exists(&connection, table), "{table}");
         }
@@ -243,6 +249,39 @@ mod tests {
             [],
         );
         assert!(invalid.is_err());
+    }
+
+    #[test]
+    fn upgrades_from_version_6_keeping_events() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(CREATE_SCHEMA_MIGRATIONS).unwrap();
+        for migration in &MIGRATIONS[..6] {
+            apply(&mut connection, migration).unwrap();
+        }
+        connection
+            .execute(
+                "INSERT INTO calendar_events (title, color, all_day, start_date, end_date)
+                 VALUES ('Consulta', 'blue', 1, '2026-09-28', '2026-09-28')",
+                [],
+            )
+            .unwrap();
+
+        run(&mut connection).unwrap();
+
+        let title: String = connection
+            .query_row("SELECT title FROM calendar_events", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(title, "Consulta");
+        // A chave precisa ser `vid:pid` em hexadecimal minúsculo.
+        let insert = |key: &str| {
+            connection.execute(
+                "INSERT INTO device_markings (device_key, wireless, kind) VALUES (?1, 1, 'mouse')",
+                [key],
+            )
+        };
+        assert!(insert("24ae:1416").is_ok());
+        assert!(insert("24AE:1417").is_err());
+        assert!(insert("24ae-1418").is_err());
     }
 
     #[test]

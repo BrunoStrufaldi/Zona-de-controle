@@ -13,12 +13,14 @@ import { type AsyncResource } from "@/hooks/use-async-resource";
 const statusLabels: Record<ProviderStatus, string> = {
   planned: "Planejado",
   available: "Disponível",
+  partial: "Parcial",
   unavailable: "Indisponível",
 };
 
 const statusVariants: Record<ProviderStatus, BadgeVariantProps["variant"]> = {
   planned: "warning",
   available: "success",
+  partial: "info",
   unavailable: "default",
 };
 
@@ -37,7 +39,7 @@ export function BatteryProvidersCard({ providers }: BatteryProvidersCardProps) {
             <CardTitle>Fontes de leitura</CardTitle>
           </div>
           <CardDescription>
-            Providers registrados no backend. Todos somente leitura.
+            De onde vem cada leitura. Todas somente leitura: nada é enviado aos dispositivos.
           </CardDescription>
         </div>
       </CardHeader>

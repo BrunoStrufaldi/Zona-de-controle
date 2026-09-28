@@ -29,6 +29,14 @@ tauri-plugin-notification = "2"
 # Fixado na 0.36: a 0.37+ exige Rust ≥ 1.95 (o `rust-version` do projeto é 1.80).
 sysinfo = { version = "0.36", default-features = false, features = ["system", "disk"] }
 
+# Dispositivos e bateria (somente leitura, só no Windows). `hidapi` com o backend
+# nativo (Rust puro, sem compilar C): lista os receptores USB e, na 3.3b, lê a
+# bateria dos modelos suportados. `windows-sys`: XInput (controles Xbox) e a
+# propriedade de bateria Bluetooth que o próprio Windows mostra em Configurações.
+[target.'cfg(windows)'.dependencies]
+hidapi = { version = "2", default-features = false, features = ["windows-native"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_Input_XboxController", "Win32_Devices_DeviceAndDriverInstallation", "Win32_Devices_Properties"] }
+
 [profile.release]
 codegen-units = 1
 lto = true

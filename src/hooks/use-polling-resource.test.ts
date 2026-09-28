@@ -59,6 +59,20 @@ describe("usePollingResource", () => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 
+  it("refresh relê na hora sem voltar para carregando", async () => {
+    let value = 0;
+    const load = vi.fn(() => Promise.resolve(++value));
+    const { result } = renderHook(() => usePollingResource(load, { intervalMs: 10_000 }));
+    await act(() => vi.advanceTimersByTimeAsync(0));
+
+    act(() => {
+      result.current.refresh();
+    });
+    expect(result.current).toMatchObject({ status: "success", data: 1 });
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(result.current).toMatchObject({ status: "success", data: 2 });
+  });
+
   it("nunca sobrepõe leituras lentas", async () => {
     const load = vi.fn(
       () =>

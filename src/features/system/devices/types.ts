@@ -12,7 +12,8 @@ export type BatteryProviderId = "bluetooth" | "xinput" | "hidVendor";
 /** Quanto o app consegue ler deste dispositivo. */
 export type SupportLevel = "supported" | "partial" | "unsupported";
 
-export type ConnectionType = "bluetooth" | "usb" | "proprietary24Ghz" | "unknown";
+/** `wireless`: sem fio, mas sem saber a tecnologia (ex.: controle Xbox via XInput). */
+export type ConnectionType = "bluetooth" | "usb" | "proprietary24Ghz" | "wireless" | "unknown";
 
 export type DeviceKind = "controller" | "mouse" | "keyboard" | "headset" | "other";
 
@@ -28,6 +29,8 @@ export type BatteryBucket = "empty" | "low" | "medium" | "full";
 export type BatteryLevel =
   | { kind: "exact"; percent: number }
   | { kind: "approximate"; bucket: BatteryBucket }
+  /** Alimentado pelo cabo: não há bateria a mostrar. */
+  | { kind: "wired" }
   | { kind: "unknown" };
 
 export interface DeviceBatteryInfo {
@@ -42,11 +45,40 @@ export interface DeviceBatteryInfo {
   lastUpdated: IsoDateTime | null;
 }
 
-export type ProviderStatus = "planned" | "available" | "unavailable";
+/** `partial`: funciona em parte (ex.: detecta o dispositivo, mas não lê a bateria). */
+export type ProviderStatus = "planned" | "available" | "partial" | "unavailable";
 
 export interface BatteryProviderDescriptor {
   id: BatteryProviderId;
   name: string;
   description: string;
   status: ProviderStatus;
+}
+
+/** Escolha do usuário para um dispositivo USB (gravada e auditada no Rust). */
+export interface DeviceMarking {
+  wireless: boolean;
+  kind: DeviceKind;
+}
+
+/**
+ * Mouse, teclado ou headset USB conectado agora. Pela USB não dá para saber se
+ * é sem fio (receptor 2.4 GHz) ou com fio: o usuário marca uma vez, e modelos
+ * conhecidos já vêm reconhecidos.
+ */
+export interface UsbInputDevice {
+  /** `vid:pid` em hexadecimal minúsculo (ex.: "24ae:1416"). */
+  key: string;
+  name: string;
+  /** Nome informado pelo receptor/dispositivo (ex.: "Rapoo Gaming Device"). */
+  productName: string;
+  kind: DeviceKind;
+  /** Tipo sugerido pelas interfaces e pelo nome (usado ao marcar). */
+  suggestedKind: DeviceKind;
+  /** Tratado como sem fio (entra na lista de bateria). */
+  wireless: boolean;
+  /** Modelo conhecido pelo app. */
+  known: boolean;
+  /** O usuário mudou o padrão para este dispositivo. */
+  marked: boolean;
 }

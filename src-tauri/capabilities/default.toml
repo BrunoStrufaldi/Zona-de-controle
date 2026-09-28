@@ -46,9 +46,16 @@ permissions = [
   # crítico) e auditados como alteração de configuração.
   "allow-set-diagnostic-thresholds",
 
-  # Leitura dos providers e dispositivos de bateria (sem escrita em dispositivos).
+  # Dispositivos — leitura das fontes, dos dispositivos com bateria e dos
+  # mouses/teclados/headsets USB. Só lê (hidapi, XInput e a bateria Bluetooth que
+  # o Windows informa); nada é enviado aos dispositivos.
   "allow-list-battery-providers",
   "allow-list-battery-devices",
+  "allow-list-usb-input-devices",
+
+  # Dispositivos — marcar um dispositivo USB como sem fio e o tipo dele. Só grava
+  # a escolha no banco (tabela device_markings); cada alteração é auditada.
+  "allow-set-device-marking",
 
   # Leitura das categorias de limpeza previstas. NÃO há command de limpeza/exclusão.
   "allow-list-cleanup-categories",

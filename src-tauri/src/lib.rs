@@ -43,6 +43,8 @@ pub fn run() {
             commands::diagnostics::set_diagnostic_thresholds,
             commands::devices::list_battery_providers,
             commands::devices::list_battery_devices,
+            commands::devices::list_usb_input_devices,
+            commands::devices::set_device_marking,
             commands::optimization::list_cleanup_categories,
             commands::tasks::list_tasks,
             commands::tasks::list_archived_tasks,

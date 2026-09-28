@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { paths } from "@/app/router/paths";
 import { addDays, toIsoDate, weekdayOf } from "@/lib/dates";
+import { mockDevicesBackend } from "@/test/fake-devices-backend";
 import { mockDiagnosticsBackend } from "@/test/fake-diagnostics-backend";
 import { mockRoutinesBackend } from "@/test/fake-routines-backend";
 import { mockSystemBackend } from "@/test/fake-system-backend";
@@ -13,21 +14,14 @@ import { mockDesktopRuntime } from "@/test/tauri";
 describe("páginas integradas ao backend", () => {
   beforeAll(preloadDashboard);
 
-  it("Dispositivos lista os providers retornados pelo Rust", async () => {
-    mockDesktopRuntime({
-      list_battery_providers: () => [
-        {
-          id: "bluetooth",
-          name: "Bluetooth",
-          description: "Battery Service padrão.",
-          status: "planned",
-        },
-      ],
-    });
+  it("Dispositivos lista as fontes de leitura retornadas pelo Rust", async () => {
+    mockDevicesBackend();
     renderRoute(paths.system.devices);
 
-    expect(await screen.findByText("Battery Service padrão.")).toBeInTheDocument();
-    expect(screen.getByText("Planejado")).toBeInTheDocument();
+    const provider = (await screen.findByText("Detecta o receptor USB.")).closest(
+      "li",
+    ) as HTMLElement;
+    expect(within(provider).getByText("Parcial")).toBeInTheDocument();
   });
 
   it("Configurações mostra aviso no navegador em vez de erro", async () => {
@@ -106,5 +100,19 @@ describe("páginas integradas ao backend", () => {
     expect(items[0]).toHaveTextContent("Pouco espaço livre em C:");
     // Resumo: sem recomendação (ela fica na tela Diagnósticos).
     expect(within(list).queryByText(/esvazie a Lixeira/)).not.toBeInTheDocument();
+  });
+
+  it("Dashboard mostra a bateria real dos dispositivos sem fio", async () => {
+    mockDevicesBackend();
+    renderRoute(paths.dashboard);
+
+    const list = await screen.findByRole("list", { name: "Dispositivos com bateria" });
+    expect(within(list).getByText("Rapoo VT7 Max")).toBeInTheDocument();
+    expect(within(list).getByText("80%")).toBeInTheDocument();
+    const card = list.closest("[data-slot='card']") as HTMLElement;
+    expect(within(card).getByRole("link", { name: /Dispositivos/ })).toHaveAttribute(
+      "href",
+      paths.system.devices,
+    );
   });
 });

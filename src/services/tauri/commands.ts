@@ -17,6 +17,8 @@ import { type Routine, type RoutineInput } from "@/features/productivity/routine
 import {
   type BatteryProviderDescriptor,
   type DeviceBatteryInfo,
+  type DeviceMarking,
+  type UsbInputDevice,
 } from "@/features/system/devices/types";
 import {
   type Task,
@@ -65,6 +67,11 @@ export interface CommandMap {
   };
   list_battery_providers: { args: undefined; result: BatteryProviderDescriptor[] };
   list_battery_devices: { args: undefined; result: DeviceBatteryInfo[] };
+  list_usb_input_devices: { args: undefined; result: UsbInputDevice[] };
+  set_device_marking: {
+    args: { key: string; marking: DeviceMarking };
+    result: UsbInputDevice[];
+  };
   list_cleanup_categories: { args: undefined; result: CleanupCategoryDescriptor[] };
   list_tasks: { args: undefined; result: Task[] };
   list_archived_tasks: { args: undefined; result: Task[] };
