@@ -11,7 +11,7 @@ use crate::error::AppResult;
 use crate::platform::devices::{DeviceReader, SaveReading};
 use crate::platform::system_monitor::SystemMonitor;
 use crate::services;
-use crate::services::optimization::CleanupScanStore;
+use crate::services::optimization::{CleanupRun, CleanupScanStore};
 
 /// Subpasta de Documentos onde ficam os backups do banco.
 const BACKUP_FOLDER: [&str; 2] = ["Zona de Controle", "Backups"];
@@ -31,6 +31,8 @@ pub struct AppState {
     pub local_app_data: PathBuf,
     /// Última análise da limpeza (só em memória).
     pub cleanup_scans: Arc<CleanupScanStore>,
+    /// Limpeza em andamento (progresso e cancelamento).
+    pub cleanup_run: Arc<CleanupRun>,
 }
 
 impl AppState {
@@ -77,6 +79,7 @@ impl AppState {
             system_monitor: SystemMonitor::new(),
             local_app_data,
             cleanup_scans: Arc::new(CleanupScanStore::new()),
+            cleanup_run: Arc::new(CleanupRun::new()),
         })
     }
 }

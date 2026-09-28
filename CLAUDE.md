@@ -77,19 +77,19 @@ Regras:
 
 ### Backend (`src-tauri/`)
 
-| Caminho                     | Responsabilidade                                                                                                                               |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib.rs`                | Builder do Tauri, `setup` (estado + migrations), registro de commands                                                                          |
-| `src/commands/`             | Camada IPC fina: recebe args, delega para `services`. Leitura e escrita em commands separados                                                  |
-| `src/services/`             | Casos de uso: validação, transações, auditoria                                                                                                 |
-| `src/repositories/`         | **Único lugar com SQL**                                                                                                                        |
-| `src/domain/`               | Regras e contratos puros (auditoria, settings, devices, optimization)                                                                          |
-| `src/platform/`             | **Único lugar que lê o SO** (`sysinfo`, `hidapi`, XInput, CfgMgr32, pastas da limpeza), somente leitura. Commands chamam direto via `AppState` |
-| `src/db/`                   | Conexão SQLite (WAL, foreign keys) e runner de migrations                                                                                      |
-| `src/error.rs`              | `AppError` → serializado como `{ kind, message }` para o frontend                                                                              |
-| `migrations/`               | SQL versionado `NNNN_descricao.sql`, embutido via `include_str!`                                                                               |
-| `capabilities/default.toml` | Permissões da janela — mínimo necessário, cada uma comentada                                                                                   |
-| `build.rs`                  | `APP_COMMANDS`: lista explícita de commands permitidos                                                                                         |
+| Caminho                     | Responsabilidade                                                                                                                                                                        |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib.rs`                | Builder do Tauri, `setup` (estado + migrations), registro de commands                                                                                                                   |
+| `src/commands/`             | Camada IPC fina: recebe args, delega para `services`. Leitura e escrita em commands separados                                                                                           |
+| `src/services/`             | Casos de uso: validação, transações, auditoria                                                                                                                                          |
+| `src/repositories/`         | **Único lugar com SQL**                                                                                                                                                                 |
+| `src/domain/`               | Regras e contratos puros (auditoria, settings, devices, optimization)                                                                                                                   |
+| `src/platform/`             | **Único lugar que lê o SO** (`sysinfo`, `hidapi`, XInput, CfgMgr32, pastas da limpeza), somente leitura; a única exceção é `cleanup_executor.rs`. Commands chamam direto via `AppState` |
+| `src/db/`                   | Conexão SQLite (WAL, foreign keys) e runner de migrations                                                                                                                               |
+| `src/error.rs`              | `AppError` → serializado como `{ kind, message }` para o frontend                                                                                                                       |
+| `migrations/`               | SQL versionado `NNNN_descricao.sql`, embutido via `include_str!`                                                                                                                        |
+| `capabilities/default.toml` | Permissões da janela — mínimo necessário, cada uma comentada                                                                                                                            |
+| `build.rs`                  | `APP_COMMANDS`: lista explícita de commands permitidos                                                                                                                                  |
 
 ## Convenções de nomes
 
@@ -286,8 +286,20 @@ Regras:
   `InUse`. Lixeira: registros `$I` (v1 e v2, `parse_recycle_info`) em `X:\$Recycle.Bin\<SID>` das unidades
   fixas; o SID vem do token do processo. A análise roda em `spawn_blocking` e fica em memória
   (`CleanupScanStore`, só a última); a tela lista os itens por página (`list_cleanup_items`, até 200, maiores
-  primeiro). Textos e rótulos ficam em `features/system/optimization/domain/cleanup.ts`. A limpeza (4.2)
-  será trait/command separado que só age sobre itens da última análise, conferidos de novo.
+  primeiro). Textos e rótulos ficam em `features/system/optimization/domain/cleanup.ts`.
+- **Limpeza (4.2, destrutiva):** trait `CleanupExecutor` (domínio) implementado só em
+  `platform/cleanup_executor.rs`, o **único** módulo de `platform` que remove algo. `run_cleanup` recebe
+  `scanId` + origens (nunca caminhos); `CleanupScanStore::take_plan` valida (análise atual, origem `Ready`,
+  navegador dono fechado **agora**) e **consome** a análise. Recusa rodar elevado (`is_elevated`). Cada item:
+  `containing_folder` (defesa extra, lexical) → sem link/junção em nenhuma pasta entre a origem e o arquivo →
+  mesmo tamanho e `date_ms` → `remove_file`; erro 32/33 = em uso (pulado). Pastas esvaziadas saem com
+  `remove_dir` (nunca a de origem). Lixeira: relê os `$I`, compara com a análise e só então
+  `SHEmptyRecycleBinW` por unidade; registro ilegível = recusa. Progresso/cancelamento em `CleanupRun`
+  (a tela consulta `get_cleanup_progress` a cada 300 ms e chama `cancel_cleanup`; sem eventos, para não
+  precisar de `core:event`). Auditoria: `optimization` / `cleanup.executed`, com `success`, `cancelled` ou
+  `failure` e o relatório nos `details`. Testes de link usam junção (`create_junction`, só em teste): symlink
+  exige administrador. Na validação real, nunca limpe temporários/caches do usuário sem ele pedir; use a
+  Lixeira com um arquivo de teste.
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

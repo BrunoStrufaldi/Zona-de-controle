@@ -1,18 +1,18 @@
 //! Otimização segura (Fase 4): regras puras da limpeza.
 //!
-//! 4.1 — ANÁLISE (somente leitura). Aqui ficam a allowlist de locais, a regra
-//! de idade dos temporários, o leitor dos registros `$I` da Lixeira e o resumo
-//! de cada origem. A leitura do disco fica em `platform::cleanup`; nada aqui
-//! (nem lá) remove arquivos.
-//!
-//! A execução (4.2) será um trait e um command SEPARADOS que:
-//! - recebem o plano aprovado pelo usuário (confirmação explícita);
-//! - só apagam itens da análise, conferidos de novo na hora (ainda na allowlist,
-//!   sem links, mesmo tamanho e data);
-//! - registram cada execução, com sucesso ou falha, no `audit_log`;
-//! - permitem cancelar entre arquivos e nunca pedem administrador nem rodam shell.
+//! - ANÁLISE (4.1, somente leitura): a allowlist de locais, a regra de idade dos
+//!   temporários, o leitor dos registros `$I` da Lixeira e o resumo de cada
+//!   origem. Leitura do disco em `platform::cleanup` (trait `CleanupAnalyzer`).
+//! - EXECUÇÃO (4.2, destrutiva): trait e commands SEPARADOS
+//!   (`CleanupExecutor`, `platform::cleanup_executor`). Só age sobre itens da
+//!   última análise, escolhidos pelo usuário após confirmação explícita, e
+//!   confere cada um de novo na hora (dentro de uma pasta analisada, sem links
+//!   no caminho, mesmo tamanho e data). Cada execução (sucesso, cancelamento
+//!   ou falha) vai para o `audit_log`; dá para cancelar entre arquivos; nunca
+//!   roda como administrador nem executa shell.
 
 use std::collections::HashSet;
+use std::path::{Component, Path};
 use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
@@ -209,6 +209,17 @@ impl CleanupSource {
         }
     }
 
+    /// Nome do programa dono do cache, para as mensagens de erro.
+    pub fn owner_name(self) -> Option<&'static str> {
+        match self {
+            Self::Chrome => Some("Google Chrome"),
+            Self::Edge => Some("Microsoft Edge"),
+            Self::Brave => Some("Brave"),
+            Self::Firefox => Some("Mozilla Firefox"),
+            _ => None,
+        }
+    }
+
     /// Arquivos mais novos que isso ficam de fora (só nos temporários).
     pub fn min_age(self) -> Option<Duration> {
         match self {
@@ -351,6 +362,154 @@ pub struct CleanupItemPage {
 
 /// Maior página aceita na listagem de itens.
 pub const ITEM_PAGE_MAX: usize = 200;
+
+/// Resultado da tentativa de remover um item planejado.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RemovalOutcome {
+    Removed,
+    /// Aberto por outro programa (o Windows recusou a exclusão).
+    InUse,
+    /// Mudou desde a análise (tamanho, data, virou link ou há link no
+    /// caminho): fica como está.
+    Changed,
+    /// Já não existia.
+    Missing,
+    /// Sem permissão (ex.: arquivo somente leitura ou de outro usuário).
+    Denied,
+    /// Fora das pastas analisadas: recusado sem tocar no disco.
+    Refused,
+    Failed,
+}
+
+/// Remove itens planejados — DESTRUTIVO. Separado da análise
+/// (`CleanupAnalyzer`); só é chamado pelo serviço, com um plano confirmado.
+pub trait CleanupExecutor {
+    /// Remove um arquivo de `folder` se ele continuar igual ao analisado.
+    /// Nunca segue links nem remove pastas com conteúdo.
+    fn remove_file(&mut self, folder: &str, item: &CleanupItem) -> RemovalOutcome;
+    /// Remove as pastas que ficaram vazias com as remoções (nunca a pasta de
+    /// origem).
+    fn remove_emptied_folders(&mut self);
+    /// Esvazia a Lixeira do usuário só se ela tiver exatamente os itens
+    /// esperados; senão devolve `Changed` sem mexer em nada.
+    fn empty_recycle_bin(&mut self, expected: &[CleanupItem]) -> RemovalOutcome;
+}
+
+/// Pasta analisada que contém `path`, ou `None`. O resto do caminho só pode
+/// ter nomes comuns (sem `..`, `.` ou raiz). No Windows a comparação ignora
+/// maiúsculas.
+pub fn containing_folder<'a>(folders: &'a [String], path: &str) -> Option<&'a str> {
+    let path = Path::new(path);
+    folders.iter().map(String::as_str).find(|folder| {
+        let mut rest = path.components();
+        for part in Path::new(folder).components() {
+            match rest.next() {
+                Some(component) if same_component(component, part) => {}
+                _ => return false,
+            }
+        }
+        let rest: Vec<Component> = rest.collect();
+        !rest.is_empty()
+            && rest
+                .iter()
+                .all(|component| matches!(component, Component::Normal(_)))
+    })
+}
+
+fn same_component(a: Component, b: Component) -> bool {
+    let a = a.as_os_str().to_string_lossy();
+    let b = b.as_os_str().to_string_lossy();
+    if cfg!(windows) {
+        a.to_lowercase() == b.to_lowercase()
+    } else {
+        a == b
+    }
+}
+
+/// Andamento da limpeza em curso (a tela consulta periodicamente).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupProgress {
+    pub total_items: u64,
+    pub processed_items: u64,
+    pub removed_bytes: u64,
+    pub current_source: Option<CleanupSource>,
+    pub cancel_requested: bool,
+}
+
+/// Contagem por origem ao fim da limpeza.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceCleanupResult {
+    pub source: CleanupSource,
+    pub planned_count: u64,
+    pub removed_count: u64,
+    pub removed_bytes: u64,
+    pub in_use_count: u64,
+    /// Mudaram ou já não existiam.
+    pub changed_count: u64,
+    /// Sem permissão, recusados ou com outro erro.
+    pub failed_count: u64,
+}
+
+impl SourceCleanupResult {
+    pub fn new(source: CleanupSource, planned_count: u64) -> Self {
+        Self {
+            source,
+            planned_count,
+            removed_count: 0,
+            removed_bytes: 0,
+            in_use_count: 0,
+            changed_count: 0,
+            failed_count: 0,
+        }
+    }
+
+    pub fn record(&mut self, outcome: RemovalOutcome, bytes: u64) {
+        match outcome {
+            RemovalOutcome::Removed => {
+                self.removed_count += 1;
+                self.removed_bytes += bytes;
+            }
+            RemovalOutcome::InUse => self.in_use_count += 1,
+            RemovalOutcome::Changed | RemovalOutcome::Missing => self.changed_count += 1,
+            RemovalOutcome::Denied | RemovalOutcome::Refused | RemovalOutcome::Failed => {
+                self.failed_count += 1;
+            }
+        }
+    }
+}
+
+/// Item que ficou (para a tela e a auditoria).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotRemovedItem {
+    pub path: String,
+    pub reason: RemovalOutcome,
+}
+
+/// Quantos itens não removidos o relatório guarda (os demais só são contados).
+pub const NOT_REMOVED_SAMPLE: usize = 50;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupReport {
+    pub cancelled: bool,
+    pub sources: Vec<SourceCleanupResult>,
+    /// Até `NOT_REMOVED_SAMPLE` itens; os que já não existiam não entram.
+    pub not_removed: Vec<NotRemovedItem>,
+}
+
+impl CleanupReport {
+    pub fn removed_count(&self) -> u64 {
+        self.sources.iter().map(|source| source.removed_count).sum()
+    }
+
+    pub fn removed_bytes(&self) -> u64 {
+        self.sources.iter().map(|source| source.removed_bytes).sum()
+    }
+}
 
 /// Resume uma origem. `running` tem os nomes dos processos abertos, em
 /// minúsculas.
@@ -652,5 +811,83 @@ mod tests {
     fn converts_filetime_to_unix_milliseconds() {
         assert_eq!(filetime_to_unix_ms(FILETIME), Some(FILETIME_MS));
         assert_eq!(filetime_to_unix_ms(0), None);
+    }
+
+    fn folders() -> Vec<String> {
+        vec![
+            "C:\\Users\\bruno\\AppData\\Local\\Temp".into(),
+            "C:\\Users\\bruno\\AppData\\Local\\D3DSCache".into(),
+        ]
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn finds_the_analyzed_folder_of_a_path() {
+        let folders = folders();
+        assert_eq!(
+            containing_folder(&folders, "C:\\Users\\bruno\\AppData\\Local\\Temp\\a\\b.tmp"),
+            Some(folders[0].as_str())
+        );
+        // Maiúsculas não importam no Windows.
+        assert_eq!(
+            containing_folder(&folders, "c:\\users\\BRUNO\\appdata\\local\\d3dscache\\x"),
+            Some(folders[1].as_str())
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn refuses_paths_outside_or_escaping_the_folders() {
+        let folders = folders();
+        for path in [
+            // A própria pasta de origem nunca é item.
+            "C:\\Users\\bruno\\AppData\\Local\\Temp",
+            "C:\\Users\\bruno\\AppData\\Local\\Temp\\..\\Microsoft\\credenciais",
+            // Mesmo começo de nome não é a mesma pasta.
+            "C:\\Users\\bruno\\AppData\\Local\\Temporario\\a.tmp",
+            "C:\\Windows\\System32\\kernel32.dll",
+            "D:\\Temp\\a.tmp",
+        ] {
+            assert_eq!(containing_folder(&folders, path), None, "{path}");
+        }
+    }
+
+    #[test]
+    fn results_count_each_outcome() {
+        let mut result = SourceCleanupResult::new(CleanupSource::UserTemp, 7);
+        result.record(RemovalOutcome::Removed, 10);
+        result.record(RemovalOutcome::Removed, 5);
+        result.record(RemovalOutcome::InUse, 99);
+        result.record(RemovalOutcome::Changed, 99);
+        result.record(RemovalOutcome::Missing, 99);
+        result.record(RemovalOutcome::Denied, 99);
+        result.record(RemovalOutcome::Refused, 99);
+        assert_eq!((result.removed_count, result.removed_bytes), (2, 15));
+        assert_eq!(result.in_use_count, 1);
+        assert_eq!(result.changed_count, 2);
+        assert_eq!(result.failed_count, 2);
+
+        let report = CleanupReport {
+            cancelled: false,
+            sources: vec![result, {
+                let mut other = SourceCleanupResult::new(CleanupSource::Chrome, 1);
+                other.record(RemovalOutcome::Removed, 100);
+                other
+            }],
+            not_removed: Vec::new(),
+        };
+        assert_eq!(report.removed_count(), 3);
+        assert_eq!(report.removed_bytes(), 115);
+    }
+
+    #[test]
+    fn only_browsers_have_an_owner() {
+        for source in CleanupSource::ALL {
+            assert_eq!(
+                source.owner_process().is_some(),
+                source.owner_name().is_some(),
+                "{source:?}"
+            );
+        }
     }
 }

@@ -60,10 +60,24 @@ permissions = [
   # Otimização — análise da limpeza (somente leitura). Lê nomes, tamanhos e
   # datas só nas pastas da allowlist (temporários do usuário, caches seguros e a
   # Lixeira do usuário), sem seguir links e sem pedir administrador. Os itens
-  # encontrados ficam em memória para a listagem por página. NÃO há command que
-  # remova arquivos.
+  # encontrados ficam em memória para a listagem por página.
   "allow-scan-cleanup",
   "allow-list-cleanup-items",
+
+  # Otimização — limpeza (DESTRUTIVA). A tela só envia quais origens limpar,
+  # depois de uma confirmação que mostra o que será removido; os caminhos vêm
+  # da última análise guardada no Rust, que é consumida (não roda duas vezes).
+  # Cada arquivo é conferido de novo (dentro da pasta analisada, sem links no
+  # caminho, mesmo tamanho e data); arquivos em uso ou alterados são pulados.
+  # Recusa rodar como administrador ou com o navegador dono do cache aberto.
+  # A Lixeira só é esvaziada se estiver igual à análise. Sucesso,
+  # cancelamento e falha vão para o log de auditoria.
+  "allow-run-cleanup",
+
+  # Otimização — andamento da limpeza em curso e pedido de cancelamento (para
+  # antes do próximo arquivo).
+  "allow-get-cleanup-progress",
+  "allow-cancel-cleanup",
 
   # Tarefas — leitura da lista (ativas e arquivadas), das tags e das categorias.
   "allow-list-tasks",

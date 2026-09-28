@@ -2,15 +2,12 @@
  * Contrato da Otimização segura (Fase 4). Espelha
  * `src-tauri/src/domain/optimization.rs`.
  *
- * 4.1: só ANÁLISE (somente leitura). O Rust percorre as pastas da allowlist e
- * devolve um resumo por origem; os itens ficam guardados lá e são listados por
- * página. Nenhuma operação remove arquivos nesta etapa. Quando a limpeza
- * existir (4.2), ela deverá:
- *  - exigir confirmação explícita, mostrando exatamente o que será removido;
- *  - agir só sobre itens da análise, dentro da allowlist;
- *  - registrar cada execução no log de auditoria;
- *  - permitir cancelamento;
- *  - nunca executar comandos shell nem pedir privilégios de administrador.
+ * - Análise (somente leitura): o Rust percorre as pastas da allowlist e devolve
+ *   um resumo por origem; os itens ficam guardados lá e são listados por página.
+ * - Limpeza (destrutiva): a tela envia só QUAIS origens limpar, depois da
+ *   confirmação explícita; os caminhos vêm da análise guardada no Rust, que
+ *   confere cada item de novo, pula os que estão em uso ou mudaram, permite
+ *   cancelar entre arquivos e registra o resultado no log de auditoria.
  */
 
 export type CleanupCategoryId = "tempFiles" | "safeCaches" | "recycleBin";
@@ -69,4 +66,41 @@ export interface CleanupItem {
 export interface CleanupItemPage {
   items: CleanupItem[];
   total: number;
+}
+
+/** Resultado da tentativa de remover um item (espelha `RemovalOutcome`). */
+export type RemovalOutcome =
+  "removed" | "inUse" | "changed" | "missing" | "denied" | "refused" | "failed";
+
+/** Andamento da limpeza em curso. */
+export interface CleanupProgress {
+  totalItems: number;
+  processedItems: number;
+  removedBytes: number;
+  currentSource: CleanupSource | null;
+  cancelRequested: boolean;
+}
+
+export interface SourceCleanupResult {
+  source: CleanupSource;
+  plannedCount: number;
+  removedCount: number;
+  removedBytes: number;
+  inUseCount: number;
+  /** Mudaram desde a análise ou já não existiam. */
+  changedCount: number;
+  /** Sem permissão, recusados ou com outro erro. */
+  failedCount: number;
+}
+
+export interface NotRemovedItem {
+  path: string;
+  reason: RemovalOutcome;
+}
+
+export interface CleanupReport {
+  cancelled: boolean;
+  sources: SourceCleanupResult[];
+  /** Até 50 itens que ficaram (os que já não existiam não entram). */
+  notRemoved: NotRemovedItem[];
 }

@@ -12,6 +12,7 @@ pub enum AuditCategory {
     Routines,
     Calendar,
     Devices,
+    Optimization,
     Database,
 }
 
@@ -24,6 +25,7 @@ impl AuditCategory {
             Self::Routines => "routines",
             Self::Calendar => "calendar",
             Self::Devices => "devices",
+            Self::Optimization => "optimization",
             Self::Database => "database",
         }
     }
@@ -33,6 +35,8 @@ impl AuditCategory {
 pub enum AuditOutcome {
     Success,
     Failure,
+    /// Interrompida pelo usuário no meio (ex.: limpeza cancelada).
+    Cancelled,
 }
 
 impl AuditOutcome {
@@ -40,6 +44,7 @@ impl AuditOutcome {
         match self {
             Self::Success => "success",
             Self::Failure => "failure",
+            Self::Cancelled => "cancelled",
         }
     }
 }

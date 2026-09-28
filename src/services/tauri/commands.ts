@@ -35,6 +35,8 @@ import {
 } from "@/features/system/diagnostics/types";
 import {
   type CleanupItemPage,
+  type CleanupProgress,
+  type CleanupReport,
   type CleanupScan,
   type CleanupSource,
 } from "@/features/system/optimization/types";
@@ -81,6 +83,9 @@ export interface CommandMap {
     args: { scanId: number; source: CleanupSource; offset: number; limit: number };
     result: CleanupItemPage;
   };
+  run_cleanup: { args: { scanId: number; sources: CleanupSource[] }; result: CleanupReport };
+  get_cleanup_progress: { args: undefined; result: CleanupProgress | null };
+  cancel_cleanup: { args: undefined; result: boolean };
   list_tasks: { args: undefined; result: Task[] };
   list_archived_tasks: { args: undefined; result: Task[] };
   list_task_tags: { args: undefined; result: string[] };

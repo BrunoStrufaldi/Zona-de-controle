@@ -1,7 +1,11 @@
 import {
   type CleanupCategoryId,
+  type CleanupProgress,
+  type CleanupReport,
   type CleanupScan,
   type CleanupSource,
+  type RemovalOutcome,
+  type SourceCleanupResult,
   type SourceSummary,
 } from "@/features/system/optimization/types";
 import { formatBytes, formatNumber } from "@/lib/format";
@@ -169,4 +173,136 @@ export function categoryCriteria(category: CleanupCategoryId, tempMinAgeHours: n
     case "recycleBin":
       return "Itens da sua Lixeira; lixeiras de outros usuários não entram.";
   }
+}
+
+/** Shaders não vêm marcados: apagar faz os jogos recompilarem (engasgos na primeira vez). */
+const SHADER_SOURCES: readonly CleanupSource[] = ["directXShaders", "nvidiaShaders", "amdShaders"];
+
+/** Só origens prontas e com itens podem entrar na limpeza. */
+export function isSelectable(summary: SourceSummary): boolean {
+  return summary.status === "ready" && summary.itemCount > 0;
+}
+
+/** Marcadas ao abrir a análise: tudo que pode ser limpo, menos os shaders. */
+export function defaultSelection(scan: CleanupScan): CleanupSource[] {
+  return scan.sources
+    .filter((summary) => isSelectable(summary) && !SHADER_SOURCES.includes(summary.source))
+    .map((summary) => summary.source);
+}
+
+export interface SelectionTotals {
+  /** Origens escolhidas (só as selecionáveis), na ordem da análise. */
+  sources: SourceSummary[];
+  itemCount: number;
+  totalBytes: number;
+}
+
+export function selectionTotals(
+  scan: CleanupScan,
+  selected: ReadonlySet<CleanupSource>,
+): SelectionTotals {
+  const sources = scan.sources.filter(
+    (summary) => selected.has(summary.source) && isSelectable(summary),
+  );
+  return {
+    sources,
+    itemCount: sum(sources, (summary) => summary.itemCount),
+    totalBytes: sum(sources, (summary) => summary.totalBytes),
+  };
+}
+
+/** Avisos da confirmação, conforme o que foi escolhido. */
+export function confirmationNotes(sources: SourceSummary[]): string[] {
+  const onlyRecycleBin = sources.every((summary) => summary.source === "recycleBin");
+  const notes = [
+    onlyRecycleBin
+      ? "A remoção é permanente e não pode ser desfeita."
+      : "A remoção é permanente: os arquivos não vão para a Lixeira.",
+    "Arquivos em uso ou que mudaram desde a análise são pulados.",
+  ];
+  if (sources.some((summary) => SHADER_SOURCES.includes(summary.source))) {
+    notes.push("Sem o cache de shaders, os jogos recompilam e podem engasgar na primeira vez.");
+  }
+  if (sources.some((summary) => summary.source === "recycleBin")) {
+    notes.push(
+      "A Lixeira é esvaziada de uma vez, no fim, e só se estiver igual à análise. Essa parte não pode ser interrompida.",
+    );
+  }
+  notes.push(
+    onlyRecycleBin
+      ? "Tudo fica registrado no log de auditoria."
+      : "Dá para cancelar entre um arquivo e outro. Tudo fica registrado no log de auditoria.",
+  );
+  return notes;
+}
+
+/** Quantos itens não removidos o relatório traz (igual ao Rust). */
+export const NOT_REMOVED_SAMPLE = 50;
+
+export const removalReasonLabels: Record<RemovalOutcome, string> = {
+  removed: "Removido",
+  inUse: "Em uso",
+  changed: "Mudou desde a análise",
+  missing: "Já não existia",
+  denied: "Sem permissão",
+  refused: "Fora dos locais permitidos",
+  failed: "Erro ao remover",
+};
+
+export interface ReportTotals {
+  removedCount: number;
+  removedBytes: number;
+  inUseCount: number;
+  changedCount: number;
+  failedCount: number;
+  /** Não chegaram a ser processados (limpeza cancelada). */
+  pendingCount: number;
+}
+
+export function reportTotals(report: CleanupReport): ReportTotals {
+  const total = (value: (result: SourceCleanupResult) => number) =>
+    report.sources.reduce((acc, result) => acc + value(result), 0);
+  const processed = (result: SourceCleanupResult) =>
+    result.removedCount + result.inUseCount + result.changedCount + result.failedCount;
+  return {
+    removedCount: total((result) => result.removedCount),
+    removedBytes: total((result) => result.removedBytes),
+    inUseCount: total((result) => result.inUseCount),
+    changedCount: total((result) => result.changedCount),
+    failedCount: total((result) => result.failedCount),
+    pendingCount: total((result) => result.plannedCount - processed(result)),
+  };
+}
+
+/** "248 de 250 arquivos removidos"; "1 de 1 item removido". */
+export function removedOfLabel(result: SourceCleanupResult): string {
+  const planned = itemCountLabel(result.source, result.plannedCount);
+  const verb = result.plannedCount === 1 ? "removido" : "removidos";
+  return `${formatNumber(result.removedCount)} de ${planned} ${verb}`;
+}
+
+/** "3 pulados (em uso)" etc.: o que não foi removido numa origem. */
+export function resultNotes(result: SourceCleanupResult): string[] {
+  const notes: string[] = [];
+  const count = (value: number, one: string, many: string) =>
+    `${formatNumber(value)} ${value === 1 ? one : many}`;
+  if (result.inUseCount > 0) notes.push(count(result.inUseCount, "em uso", "em uso"));
+  if (result.changedCount > 0) {
+    notes.push(count(result.changedCount, "mudou ou sumiu", "mudaram ou sumiram"));
+  }
+  if (result.failedCount > 0) notes.push(count(result.failedCount, "com erro", "com erro"));
+  const pending =
+    result.plannedCount -
+    result.removedCount -
+    result.inUseCount -
+    result.changedCount -
+    result.failedCount;
+  if (pending > 0) notes.push(count(pending, "não processado", "não processados"));
+  return notes;
+}
+
+/** Percentual (0–100) de itens processados. */
+export function progressPercent(progress: CleanupProgress): number {
+  if (progress.totalItems <= 0) return 0;
+  return (progress.processedItems / progress.totalItems) * 100;
 }

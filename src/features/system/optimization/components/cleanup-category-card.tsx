@@ -3,15 +3,21 @@ import { DatabaseZap, FileClock, List, Trash2, type LucideIcon } from "lucide-re
 import { WidgetCard } from "@/components/shared/widget-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   type CategoryResult,
   categoryCriteria,
   categoryLabels,
+  isSelectable,
   itemCountLabel,
   sourceInfo,
   sourceNotes,
 } from "@/features/system/optimization/domain/cleanup";
-import { type CleanupCategoryId, type SourceSummary } from "@/features/system/optimization/types";
+import {
+  type CleanupCategoryId,
+  type CleanupSource,
+  type SourceSummary,
+} from "@/features/system/optimization/types";
 import { cn } from "@/lib/cn";
 import { formatBytes } from "@/lib/format";
 
@@ -21,19 +27,31 @@ const categoryIcons: Record<CleanupCategoryId, LucideIcon> = {
   recycleBin: Trash2,
 };
 
-interface CleanupCategoryCardProps {
+interface SelectionProps {
+  /** Origens marcadas para a limpeza. */
+  selected: ReadonlySet<CleanupSource>;
+  onToggle: (source: CleanupSource, checked: boolean) => void;
+  /** Desativa a seleção (ex.: limpeza em andamento). */
+  disabled?: boolean;
+}
+
+interface CleanupCategoryCardProps extends SelectionProps {
   result: CategoryResult;
   tempMinAgeHours: number;
   onViewItems: (summary: SourceSummary) => void;
   className?: string;
 }
 
-/** Uma categoria da análise: cada origem encontrada, com tamanho e observações. */
+/**
+ * Uma categoria da análise: cada origem encontrada, com tamanho, observações e
+ * a marcação para a limpeza.
+ */
 export function CleanupCategoryCard({
   result,
   tempMinAgeHours,
   onViewItems,
   className,
+  ...selection
 }: CleanupCategoryCardProps) {
   const { category, sources, missing, totalBytes } = result;
   const label = categoryLabels[category];
@@ -58,6 +76,7 @@ export function CleanupCategoryCard({
               summary={summary}
               tempMinAgeHours={tempMinAgeHours}
               onViewItems={onViewItems}
+              {...selection}
             />
           ))}
         </ul>
@@ -75,21 +94,41 @@ export function CleanupCategoryCard({
   );
 }
 
-interface SourceRowProps {
+interface SourceRowProps extends SelectionProps {
   summary: SourceSummary;
   tempMinAgeHours: number;
   onViewItems: (summary: SourceSummary) => void;
 }
 
-function SourceRow({ summary, tempMinAgeHours, onViewItems }: SourceRowProps) {
+function SourceRow({
+  summary,
+  tempMinAgeHours,
+  onViewItems,
+  selected,
+  onToggle,
+  disabled = false,
+}: SourceRowProps) {
   const info = sourceInfo[summary.source];
   const empty = summary.itemCount === 0;
+  const selectable = isSelectable(summary);
+  const checkboxId = `cleanup-${summary.source}`;
 
   return (
     <li className="grid gap-1.5 rounded-md border border-border bg-background/40 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium">{info.name}</span>
+          <Checkbox
+            id={checkboxId}
+            aria-label={`Incluir ${info.name} na limpeza`}
+            checked={selectable && selected.has(summary.source)}
+            disabled={!selectable || disabled}
+            onCheckedChange={(checked) => {
+              onToggle(summary.source, checked === true);
+            }}
+          />
+          <label htmlFor={checkboxId} className="text-sm font-medium">
+            {info.name}
+          </label>
           {summary.status === "inUse" && <Badge variant="warning">Em uso</Badge>}
           {empty && <Badge>Vazio</Badge>}
         </div>

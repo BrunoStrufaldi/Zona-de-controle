@@ -2,6 +2,8 @@ import { vi } from "vitest";
 
 import {
   type CleanupItem,
+  type CleanupProgress,
+  type CleanupReport,
   type CleanupScan,
   type CleanupSource,
   type SourceSummary,
@@ -76,7 +78,49 @@ function itemsOf(source: CleanupSource, count: number): CleanupItem[] {
   }));
 }
 
-export function mockOptimizationBackend(scan: CleanupScan = SAMPLE_SCAN) {
+/**
+ * Relatório de uma limpeza sem cancelamento: tudo removido, menos 2 arquivos
+ * temporários em uso.
+ */
+export function sampleReport(scan: CleanupScan, sources: CleanupSource[]): CleanupReport {
+  const results = scan.sources
+    .filter((summary) => sources.includes(summary.source))
+    .map((summary) => {
+      const inUse = summary.source === "userTemp" ? 2 : 0;
+      return {
+        source: summary.source,
+        plannedCount: summary.itemCount,
+        removedCount: summary.itemCount - inUse,
+        removedBytes: summary.totalBytes - inUse * MIB,
+        inUseCount: inUse,
+        changedCount: 0,
+        failedCount: 0,
+      };
+    });
+  return {
+    cancelled: false,
+    sources: results,
+    notRemoved: sources.includes("userTemp")
+      ? [
+          { path: "C:\\Users\\teste\\AppData\\Local\\Temp\\aberto-1.tmp", reason: "inUse" },
+          { path: "C:\\Users\\teste\\AppData\\Local\\Temp\\aberto-2.tmp", reason: "inUse" },
+        ]
+      : [],
+  };
+}
+
+type RunArgs = { scanId: number; sources: CleanupSource[] };
+
+interface BackendOptions {
+  /** Substitui a limpeza simulada (ex.: para testar cancelamento ou erro). */
+  runCleanup?: (args: RunArgs) => CleanupReport | Promise<CleanupReport>;
+  progress?: CleanupProgress | null;
+}
+
+export function mockOptimizationBackend(
+  scan: CleanupScan = SAMPLE_SCAN,
+  options: BackendOptions = {},
+) {
   const handlers = {
     scan_cleanup: vi.fn(() => scan),
     list_cleanup_items: vi.fn(
@@ -89,6 +133,9 @@ export function mockOptimizationBackend(scan: CleanupScan = SAMPLE_SCAN) {
         };
       },
     ),
+    run_cleanup: vi.fn(options.runCleanup ?? ((args: RunArgs) => sampleReport(scan, args.sources))),
+    get_cleanup_progress: vi.fn(() => options.progress ?? null),
+    cancel_cleanup: vi.fn(() => true),
   };
   mockDesktopRuntime(handlers);
   return { handlers };

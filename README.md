@@ -16,7 +16,7 @@ O **Zona de Controle** reúne em um só lugar três áreas do dia a dia:
 
 Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem, sem contas e sem APIs externas.
 
-> **Estado atual: Fase 4 em andamento.** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** já analisa o que pode ser limpo, mas ainda não remove nada. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
+> **Estado atual: Fase 4 em andamento.** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** já analisa e limpa, com confirmação, cancelamento e auditoria. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
 
 ## Stack
 
@@ -66,12 +66,17 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
 
   Cada dispositivo informa um nível de suporte (`supported`, `partial`, `unsupported`). Quando a bateria não pode ser lida, a interface mostra **"Não disponível"** e nunca estima um valor.
 
-- **Otimização segura** (4.1 ✅ análise; 4.2 limpeza; 4.3 histórico): encontra o que pode ser limpo e mostra a lista exata, arquivo por arquivo, com o tamanho de cada um. Nesta etapa **só analisa**: nada é removido. Só entram pastas de uma allowlist dentro do perfil do usuário, lidas sem seguir links, junções ou arquivos só na nuvem e sem pedir administrador:
+- **Otimização segura** (4.1 ✅ análise; 4.2 ✅ limpeza; 4.3 histórico): encontra o que pode ser limpo, mostra a lista exata, arquivo por arquivo, com o tamanho de cada um, e limpa só o que você marcar e confirmar. Só entram pastas de uma allowlist dentro do perfil do usuário, lidas sem seguir links, junções ou arquivos só na nuvem e sem pedir administrador:
   - **Temporários**: a pasta Temp do usuário, só com arquivos criados **e** modificados há mais de 24 horas (instaladores extraem arquivos com a data antiga do pacote, então a data de criação também conta);
   - **Caches seguros**: shaders do DirectX, NVIDIA e AMD; relatórios de erro do Windows e despejos de travamento; miniaturas do Explorer; cache de páginas, código e GPU do Chrome, Edge, Brave e Firefox (nunca cookies, senhas, histórico ou extensões). Com o navegador aberto, o cache dele aparece como "Em uso";
   - **Lixeira**: os itens da Lixeira do usuário em cada unidade fixa, com o local original e a data da exclusão.
 
-  A limpeza (4.2) vai exigir confirmação da lista exata, apagar só o que foi analisado e conferir cada item de novo na hora, registrar tudo na auditoria e permitir cancelamento.
+  **Limpeza** (4.2): marque os locais (os shaders vêm desmarcados, porque os jogos recompilam; caches de navegador aberto e locais vazios não podem ser marcados) e confirme numa janela que lista cada local, com a quantidade e o tamanho. A remoção é permanente e segura:
+  - só apaga itens da última análise: a tela envia quais locais limpar, nunca caminhos, e a mesma análise não pode ser usada duas vezes;
+  - confere cada arquivo de novo na hora: precisa continuar dentro da pasta analisada, sem link ou junção no caminho, com o mesmo tamanho e a mesma data. Arquivos em uso ou alterados são pulados; pastas que ficam vazias são removidas, mas nunca a pasta de origem;
+  - a Lixeira só é esvaziada, pela API do Windows, se estiver igual à análise;
+  - recusa rodar com o app aberto como administrador ou com o navegador dono do cache aberto;
+  - mostra o andamento e pode ser cancelada entre um arquivo e outro. No fim, mostra quanto foi liberado e o que ficou (e por quê). Sucesso, cancelamento e falha vão para o log de auditoria.
 
 ### Finanças (Fases 5 a 7)
 
@@ -118,7 +123,7 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
 - Persistência SQLite com migrations versionadas executadas na inicialização.
 - **Configurações**: nome de exibição salvo no banco (usado na saudação), log de auditoria, informações do app e vitrine do design system.
 - **Backup** (Configurações › Dados): cópia completa e verificada do banco em `Documentos\Zona de Controle\Backups`, feita com o app aberto (`VACUUM INTO` + `quick_check`). O app nunca apaga nem sobrescreve backups. Para restaurar, feche o app e substitua `zona-de-controle.db` pela cópia, apagando os arquivos `-wal` e `-shm`.
-- **Otimização** (análise, somente leitura): quanto dá para liberar em cada categoria e a lista exata dos itens, maiores primeiro, carregada por página.
+- **Otimização**: quanto dá para liberar em cada categoria, a lista exata dos itens (maiores primeiro, por página) e a limpeza dos locais marcados, com confirmação, andamento, cancelamento e auditoria.
 
 ## Design System
 
@@ -288,7 +293,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada pu
 - **Fase 1 — Foundation** ✅: boilerplate, design system, layout, navegação, Tauri e SQLite preparado.
 - **Fase 2 — Productivity** ✅: tarefas ✅ (2.1); recorrência, checklists, categorias e arquivamento ✅ (2.2); notas e diário ✅ (2.3); rotinas ✅ (2.4); calendário ✅ (2.5).
 - **Fase 3 — System Monitor**: monitoramento de CPU, RAM, discos e processos ✅ (3.1); diagnósticos ✅ (3.2); dispositivos e bateria ✅ (3.3a: receptores 2.4 GHz, controles Xbox e Bluetooth; 3.3b: bateria do headset MCHOSE V9 PRO e do mouse Rapoo VT7 Max pelo receptor).
-- **Fase 4 — Safe Optimization**: análise de temporários, caches seguros e Lixeira ✅ (4.1); limpeza com confirmação, auditoria e cancelamento (4.2); histórico das limpezas (4.3).
+- **Fase 4 — Safe Optimization**: análise de temporários, caches seguros e Lixeira ✅ (4.1); limpeza com confirmação, auditoria e cancelamento ✅ (4.2); histórico das limpezas (4.3).
 - **Fase 5 — Finance Core**: lançamentos, categorias, recorrências e parcelamentos.
 - **Fase 6 — Investments**: ativos, patrimônio e carteira.
 - **Fase 7 — Analytics**: gráficos, projeções e fluxo de caixa.

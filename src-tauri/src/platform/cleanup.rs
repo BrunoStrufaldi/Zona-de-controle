@@ -106,13 +106,15 @@ fn display(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
-fn unix_ms(time: SystemTime) -> Option<i64> {
+/// Milissegundos desde 1970 (a mesma conversão na análise e na limpeza, para
+/// comparar a data de modificação).
+pub(crate) fn unix_ms(time: SystemTime) -> Option<i64> {
     let elapsed = time.duration_since(UNIX_EPOCH).ok()?;
     i64::try_from(elapsed.as_millis()).ok()
 }
 
 /// Link simbólico, junção ou outro ponto de nova análise: nunca é seguido.
-fn is_link(metadata: &Metadata) -> bool {
+pub(crate) fn is_link(metadata: &Metadata) -> bool {
     metadata.file_type().is_symlink() || is_reparse_point(metadata)
 }
 
@@ -218,42 +220,98 @@ fn scan_recycle_bin(drives: &[String], out: &mut ScannedSource) {
         return;
     };
     for drive in drives {
-        let folder = PathBuf::from(format!("{drive}\\$Recycle.Bin\\{sid}"));
-        let Ok(entries) = fs::read_dir(&folder) else {
+        let folder = recycle_bin_folder(drive, &sid);
+        let Some((items, ignored)) = read_recycle_bin(&folder) else {
             continue;
         };
         out.folders.push(display(&folder));
-        for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let Some(suffix) = name.strip_prefix("$I") else {
-                continue;
-            };
-            // O conteúdo fica no `$R` de mesmo sufixo; sem ele, o Windows não
-            // mostra o item na Lixeira.
-            if fs::symlink_metadata(folder.join(format!("$R{suffix}"))).is_err() {
-                continue;
-            }
-            let entry = entry
-                .metadata()
-                .ok()
-                .filter(|metadata| metadata.is_file() && metadata.len() <= RECYCLE_INFO_MAX_BYTES)
-                .and_then(|_| fs::read(entry.path()).ok())
-                .and_then(|data| parse_recycle_info(&data));
-            match entry {
-                Some(entry) => out.items.push(CleanupItem {
-                    path: entry.original_path,
-                    bytes: entry.bytes,
-                    date_ms: entry.deleted_at_ms,
-                }),
-                None => out.ignored_count += 1,
-            }
+        out.items.extend(items);
+        out.ignored_count += ignored;
+    }
+}
+
+/// Pasta da Lixeira do usuário `sid` na unidade `drive` ("C:").
+pub(crate) fn recycle_bin_folder(drive: &str, sid: &str) -> PathBuf {
+    PathBuf::from(format!("{drive}\\$Recycle.Bin\\{sid}"))
+}
+
+/// Itens de uma pasta da Lixeira e quantos registros não puderam ser lidos.
+/// `None` se a pasta não existe ou não abre.
+pub(crate) fn read_recycle_bin(folder: &Path) -> Option<(Vec<CleanupItem>, u64)> {
+    let entries = fs::read_dir(folder).ok()?;
+    let mut items = Vec::new();
+    let mut ignored = 0;
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let Some(suffix) = name.strip_prefix("$I") else {
+            continue;
+        };
+        // O conteúdo fica no `$R` de mesmo sufixo; sem ele, o Windows não
+        // mostra o item na Lixeira.
+        if fs::symlink_metadata(folder.join(format!("$R{suffix}"))).is_err() {
+            continue;
+        }
+        let entry = entry
+            .metadata()
+            .ok()
+            .filter(|metadata| metadata.is_file() && metadata.len() <= RECYCLE_INFO_MAX_BYTES)
+            .and_then(|_| fs::read(entry.path()).ok())
+            .and_then(|data| parse_recycle_info(&data));
+        match entry {
+            Some(entry) => items.push(CleanupItem {
+                path: entry.original_path,
+                bytes: entry.bytes,
+                date_ms: entry.deleted_at_ms,
+            }),
+            None => ignored += 1,
         }
     }
+    Some((items, ignored))
+}
+
+/// `true` se o app está rodando como administrador (elevado). A limpeza se
+/// recusa a rodar assim: ela nunca deve ter mais poder que o usuário comum.
+#[cfg(windows)]
+pub fn is_elevated() -> bool {
+    use std::ptr::null_mut;
+
+    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows_sys::Win32::Security::{
+        GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY,
+    };
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
+    let mut token: HANDLE = null_mut();
+    // SAFETY: o pseudo-handle do processo atual é sempre válido.
+    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
+        // Sem saber, trata como elevado: a limpeza fica bloqueada.
+        return true;
+    }
+    let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
+    let mut size = 0u32;
+    // SAFETY: `elevation` tem exatamente o tamanho informado.
+    let ok = unsafe {
+        GetTokenInformation(
+            token,
+            TokenElevation,
+            (&mut elevation as *mut TOKEN_ELEVATION).cast(),
+            std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+            &mut size,
+        )
+    };
+    // SAFETY: `token` foi aberto acima e não é usado depois.
+    unsafe { CloseHandle(token) };
+    ok == 0 || elevation.TokenIsElevated != 0
+}
+
+#[cfg(not(windows))]
+pub fn is_elevated() -> bool {
+    false
 }
 
 /// SID do usuário do processo (ex.: "S-1-5-21-…"), nome da pasta dele na Lixeira.
 #[cfg(windows)]
-fn current_user_sid() -> Option<String> {
+pub(crate) fn current_user_sid() -> Option<String> {
     use std::ptr::null_mut;
 
     use windows_sys::core::PWSTR;
@@ -306,8 +364,21 @@ fn current_user_sid() -> Option<String> {
 }
 
 #[cfg(not(windows))]
-fn current_user_sid() -> Option<String> {
+pub(crate) fn current_user_sid() -> Option<String> {
     None
+}
+
+/// Só para testes: cria uma junção de pasta (ao contrário dos links
+/// simbólicos, não exige administrador nem o Modo de Desenvolvedor). Usa o
+/// `mklink` do Windows; o app em si nunca executa comandos.
+#[cfg(all(test, windows))]
+pub(crate) fn create_junction(link: &Path, target: &Path) -> bool {
+    std::process::Command::new("cmd")
+        .args(["/C", "mklink", "/J"])
+        .arg(link)
+        .arg(target)
+        .output()
+        .is_ok_and(|output| output.status.success())
 }
 
 #[cfg(test)]
@@ -467,12 +538,12 @@ mod tests {
         let outside = TestDir::new("cleanup-outside");
         outside.file(&["importante.txt"], 50);
         dir.file(&["D3DSCache", "shader.dxcache"], 5);
-        // Link de pasta dentro do cache apontando para fora dele.
+        // Junção dentro do cache apontando para fora dele.
         let link = join(&dir.0, &["D3DSCache", "atalho"]);
-        if std::os::windows::fs::symlink_dir(&outside.0, &link).is_err() {
-            // Criar links exige o Modo de Desenvolvedor; sem ele, não há o que testar.
-            return;
-        }
+        assert!(
+            create_junction(&link, &outside.0),
+            "falha ao criar a junção"
+        );
 
         let scanned = scan(&dir, CleanupSource::DirectXShaders);
         assert_eq!(file_names(&scanned), ["shader.dxcache"]);

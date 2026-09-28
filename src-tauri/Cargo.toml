@@ -34,10 +34,11 @@ sysinfo = { version = "0.36", default-features = false, features = ["system", "d
 # bateria dos modelos suportados. `windows-sys`: XInput (controles Xbox) e a
 # propriedade de bateria Bluetooth que o próprio Windows mostra em Configurações.
 # Na otimização, `Win32_Security*` e `Win32_System_Threading` só leem o SID do
-# usuário atual (nome da pasta dele na Lixeira).
+# usuário atual (nome da pasta dele na Lixeira) e se o app está elevado;
+# `Win32_UI_Shell` esvazia a Lixeira pela API do Windows (SHEmptyRecycleBinW).
 [target.'cfg(windows)'.dependencies]
 hidapi = { version = "2", default-features = false, features = ["windows-native"] }
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_Input_XboxController", "Win32_Devices_DeviceAndDriverInstallation", "Win32_Devices_Properties", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_Input_XboxController", "Win32_Devices_DeviceAndDriverInstallation", "Win32_Devices_Properties", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading", "Win32_UI_Shell"] }
 
 [profile.release]
 codegen-units = 1
