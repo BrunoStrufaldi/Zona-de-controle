@@ -65,12 +65,13 @@ describe("bateria", () => {
     const waiting = describeBattery({ support: "supported", level: { kind: "waiting" } });
     expect(waiting).toMatchObject({ label: "Aguardando leitura", percent: null });
     expect(waiting.explanation).toMatch(/carregador/);
-    expect(describeBattery({ support: "supported", level: { kind: "off" } })).toEqual({
-      label: "Desligado",
-      percent: null,
-      tone: "muted",
-      explanation: null,
-    });
+    expect(
+      describeBattery({ support: "supported", level: { kind: "off", lastPercent: null } }),
+    ).toEqual({ label: "Desligado", percent: null, tone: "muted", explanation: null });
+    // Desligado com nível anterior: mostra o último nível, sem barra (não é o atual).
+    const off = describeBattery({ support: "supported", level: { kind: "off", lastPercent: 100 } });
+    expect(off).toMatchObject({ label: "Desligado · 100%", percent: null, tone: "muted" });
+    expect(off.explanation).toMatch(/antes de desligar/);
   });
 
   it("descreve a conexão e o estado de carga quando conhecido", () => {

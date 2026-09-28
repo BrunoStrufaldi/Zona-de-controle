@@ -33,8 +33,11 @@ export type BatteryLevel =
   | { kind: "wired" }
   /** O leitor do modelo existe, mas o dispositivo ainda não informou. */
   | { kind: "waiting" }
-  /** O dispositivo informou que está desligado. */
-  | { kind: "off" }
+  /**
+   * O dispositivo informou que está desligado. `lastPercent` é o último nível
+   * informado com ele ligado (não é o nível atual).
+   */
+  | { kind: "off"; lastPercent: number | null }
   | { kind: "unknown" };
 
 export interface DeviceBatteryInfo {

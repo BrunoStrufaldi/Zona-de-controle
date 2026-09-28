@@ -50,6 +50,25 @@ describe("página de Dispositivos", () => {
     expect(within(headset).getByRole("progressbar")).toBeInTheDocument();
   });
 
+  it("desligado, mostra o último nível informado sem barra de bateria", async () => {
+    const readAt = new Date();
+    readAt.setHours(11, 29, 0, 0);
+    mockDevicesBackend({
+      headset: {
+        level: { kind: "off", lastPercent: 100 },
+        charging: "unknown",
+        lastUpdated: readAt.toISOString(),
+      },
+    });
+    renderRoute(paths.system.devices);
+
+    const list = await screen.findByRole("list", { name: "Dispositivos com bateria" });
+    const headset = within(list).getByText("MCHOSE V9 PRO").closest("li") as HTMLElement;
+    expect(headset).toHaveTextContent("Desligado · 100%");
+    expect(headset).toHaveTextContent("2.4 GHz · lido às 11:29");
+    expect(within(headset).queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
   it("marca um dispositivo USB como sem fio e ele entra na lista de bateria", async () => {
     const user = userEvent.setup();
     const { handlers } = mockDevicesBackend();

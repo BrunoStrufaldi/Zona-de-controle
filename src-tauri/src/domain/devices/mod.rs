@@ -299,7 +299,12 @@ fn usb_battery_state(
     };
     let percent = reading.status.percent;
     let (level, charging) = match reading.status.power {
-        ReportedPower::Off => (BatteryLevel::Off, ChargingState::Unknown),
+        ReportedPower::Off => (
+            BatteryLevel::Off {
+                last_percent: reading.last_percent,
+            },
+            ChargingState::Unknown,
+        ),
         ReportedPower::Charging => (BatteryLevel::Exact { percent }, ChargingState::Charging),
         ReportedPower::OnBattery => (BatteryLevel::Exact { percent }, ChargingState::Discharging),
     };
@@ -577,6 +582,7 @@ mod tests {
         let reading = |percent, power| ModelReading {
             status: ReportedStatus { percent, power },
             read_at_unix: 1_790_000_000,
+            last_percent: Some(90),
         };
         let read_at = |unix: i64| Some(format!("t{unix}"));
 
@@ -591,7 +597,13 @@ mod tests {
 
         let off = ModelReadings::from([("291d:385d".to_string(), reading(0, ReportedPower::Off))]);
         let headset = &usb_battery_devices(&devices, &off, read_at)[0];
-        assert_eq!(headset.level, BatteryLevel::Off);
+        // Desligado: mostra o último nível informado com ele ligado.
+        assert_eq!(
+            headset.level,
+            BatteryLevel::Off {
+                last_percent: Some(90)
+            }
+        );
     }
 
     #[test]

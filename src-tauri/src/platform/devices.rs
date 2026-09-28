@@ -180,13 +180,8 @@ mod windows_impl {
                     Ok(length) => {
                         if let Some(status) = (reader.parse)(&buffer[..length]) {
                             if let Ok(mut map) = readings.lock() {
-                                map.insert(
-                                    key.clone(),
-                                    ModelReading {
-                                        status,
-                                        read_at_unix: unix_now(),
-                                    },
-                                );
+                                let reading = ModelReading::next(map.get(&key), status, unix_now());
+                                map.insert(key.clone(), reading);
                             }
                         }
                     }

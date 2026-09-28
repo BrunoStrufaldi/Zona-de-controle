@@ -34,6 +34,25 @@ pub struct ModelReading {
     pub status: ReportedStatus,
     /// Instante da leitura em segundos desde a época Unix.
     pub read_at_unix: i64,
+    /// Último nível informado com o dispositivo ligado. Desligado, o aviso vem
+    /// com nível 0, então é daqui que sai o "último nível" exibido.
+    pub last_percent: Option<u8>,
+}
+
+impl ModelReading {
+    /// Leitura nova a partir da anterior (se houver): ao desligar, mantém o
+    /// último nível informado com o dispositivo ligado.
+    pub fn next(previous: Option<&Self>, status: ReportedStatus, read_at_unix: i64) -> Self {
+        let last_percent = match status.power {
+            ReportedPower::Off => previous.and_then(|reading| reading.last_percent),
+            ReportedPower::OnBattery | ReportedPower::Charging => Some(status.percent),
+        };
+        Self {
+            status,
+            read_at_unix,
+            last_percent,
+        }
+    }
 }
 
 /// Como escutar um modelo: qual coleção HID e como interpretar o relatório.
@@ -107,6 +126,30 @@ mod tests {
                 power: ReportedPower::Off
             })
         );
+    }
+
+    #[test]
+    fn turning_off_keeps_the_last_level_reported_while_on() {
+        let status = |percent, power| ReportedStatus { percent, power };
+        let first = ModelReading::next(None, status(100, ReportedPower::OnBattery), 10);
+        assert_eq!(first.last_percent, Some(100));
+
+        let off = ModelReading::next(Some(&first), status(0, ReportedPower::Off), 20);
+        assert_eq!(off.status.power, ReportedPower::Off);
+        assert_eq!(off.read_at_unix, 20);
+        assert_eq!(off.last_percent, Some(100));
+
+        // Desligado de novo (aviso repetido): continua com o mesmo nível.
+        let again = ModelReading::next(Some(&off), status(0, ReportedPower::Off), 30);
+        assert_eq!(again.last_percent, Some(100));
+
+        // Religou: passa a valer o nível novo.
+        let on = ModelReading::next(Some(&again), status(64, ReportedPower::Charging), 40);
+        assert_eq!(on.last_percent, Some(64));
+
+        // Primeiro aviso já é "desligado": não há nível a mostrar.
+        let off_first = ModelReading::next(None, status(0, ReportedPower::Off), 50);
+        assert_eq!(off_first.last_percent, None);
     }
 
     #[test]

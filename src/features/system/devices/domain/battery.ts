@@ -23,6 +23,8 @@ export interface BatteryDisplay {
 
 const UNAVAILABLE_EXPLANATION =
   "O app ainda não sabe ler a bateria deste dispositivo. O valor nunca é estimado.";
+const OFF_EXPLANATION =
+  "Último nível informado antes de desligar. Desligado, o dispositivo não informa a bateria.";
 const WAITING_EXPLANATION =
   "O dispositivo informa a bateria quando é ligado, desligado ou conectado ao carregador. Faça uma dessas ações para atualizar.";
 
@@ -61,6 +63,10 @@ function toneForPercent(percent: number): BatteryTone {
  * Converte a leitura de bateria em dados de exibição. Dispositivos sem suporte
  * ou sem leitura retornam "Não disponível" — nunca um valor inventado.
  */
+function clampPercent(value: number): number {
+  return Math.round(Math.min(100, Math.max(0, value)));
+}
+
 export function describeBattery(
   device: Pick<DeviceBatteryInfo, "support" | "level">,
 ): BatteryDisplay {
@@ -68,7 +74,16 @@ export function describeBattery(
     return { label: "Com fio", percent: null, tone: "muted", explanation: null };
   }
   if (device.level.kind === "off") {
-    return { label: "Desligado", percent: null, tone: "muted", explanation: null };
+    const { lastPercent } = device.level;
+    // Sem barra: o último nível não é o atual.
+    return lastPercent === null
+      ? { label: "Desligado", percent: null, tone: "muted", explanation: null }
+      : {
+          label: `Desligado · ${clampPercent(lastPercent)}%`,
+          percent: null,
+          tone: "muted",
+          explanation: OFF_EXPLANATION,
+        };
   }
   if (device.level.kind === "waiting") {
     return {
@@ -95,7 +110,7 @@ export function describeBattery(
       explanation: null,
     };
   }
-  const percent = Math.round(Math.min(100, Math.max(0, device.level.percent)));
+  const percent = clampPercent(device.level.percent);
   return { label: `${percent}%`, percent, tone: toneForPercent(percent), explanation: null };
 }
 

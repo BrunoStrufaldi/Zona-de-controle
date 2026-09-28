@@ -263,7 +263,9 @@ Regras:
   volta a procurá-lo a cada 5 s. Nunca envie relatórios ao receptor (mudariam DPI, iluminação…); se
   um modelo exigir consulta, só a mesma leitura que o software oficial faz. Estado não mapeado vira
   `None` (nada exibido), nunca um palpite. Com leitor e sem aviso ainda: `Waiting` ("Aguardando
-  leitura"); aviso de desligado: `Off`. MCHOSE V9 PRO: coleção `0xFF90`, relatório `55 65 <nível>
+  leitura"); aviso de desligado: `Off { last_percent }` (o aviso vem com nível 0, então o Rust guarda
+  o último nível informado com ele ligado — `ModelReading::next` — e a tela mostra "Desligado · 100%",
+  sem barra). MCHOSE V9 PRO: coleção `0xFF90`, relatório `55 65 <nível>
 <estado>`. `usePollingResource().refresh()` relê sem voltar a "carregando".
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo

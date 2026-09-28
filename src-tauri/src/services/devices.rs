@@ -201,6 +201,7 @@ mod tests {
                     },
                     // 2026-09-28T12:00:00Z
                     read_at_unix: 1_790_596_800,
+                    last_percent: Some(87),
                 },
             )]),
         };
