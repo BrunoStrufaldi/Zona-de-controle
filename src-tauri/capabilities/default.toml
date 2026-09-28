@@ -57,8 +57,13 @@ permissions = [
   # a escolha no banco (tabela device_markings); cada alteração é auditada.
   "allow-set-device-marking",
 
-  # Leitura das categorias de limpeza previstas. NÃO há command de limpeza/exclusão.
-  "allow-list-cleanup-categories",
+  # Otimização — análise da limpeza (somente leitura). Lê nomes, tamanhos e
+  # datas só nas pastas da allowlist (temporários do usuário, caches seguros e a
+  # Lixeira do usuário), sem seguir links e sem pedir administrador. Os itens
+  # encontrados ficam em memória para a listagem por página. NÃO há command que
+  # remova arquivos.
+  "allow-scan-cleanup",
+  "allow-list-cleanup-items",
 
   # Tarefas — leitura da lista (ativas e arquivadas), das tags e das categorias.
   "allow-list-tasks",

@@ -33,7 +33,11 @@ import {
   type DiagnosticSettings,
   type DiagnosticThresholds,
 } from "@/features/system/diagnostics/types";
-import { type CleanupCategoryDescriptor } from "@/features/system/optimization/types";
+import {
+  type CleanupItemPage,
+  type CleanupScan,
+  type CleanupSource,
+} from "@/features/system/optimization/types";
 import { type ProcessList, type SystemInfo, type SystemSnapshot } from "@/features/system/types";
 import { DESKTOP_ONLY_MESSAGE, ServiceError, toServiceError } from "@/services/tauri/errors";
 import { isDesktopRuntime } from "@/services/tauri/runtime";
@@ -72,7 +76,11 @@ export interface CommandMap {
     args: { key: string; marking: DeviceMarking };
     result: UsbInputDevice[];
   };
-  list_cleanup_categories: { args: undefined; result: CleanupCategoryDescriptor[] };
+  scan_cleanup: { args: undefined; result: CleanupScan };
+  list_cleanup_items: {
+    args: { scanId: number; source: CleanupSource; offset: number; limit: number };
+    result: CleanupItemPage;
+  };
   list_tasks: { args: undefined; result: Task[] };
   list_archived_tasks: { args: undefined; result: Task[] };
   list_task_tags: { args: undefined; result: string[] };

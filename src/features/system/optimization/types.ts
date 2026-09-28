@@ -1,42 +1,72 @@
 /**
- * Contrato do módulo de Otimização Segura (Fase 4). Espelha
- * `src-tauri/src/domain/optimization`.
+ * Contrato da Otimização segura (Fase 4). Espelha
+ * `src-tauri/src/domain/optimization.rs`.
  *
- * Nesta fase existem APENAS descritores somente leitura. Nenhuma operação de
- * limpeza ou exclusão está implementada. Quando forem implementadas, as
- * operações destrutivas deverão:
+ * 4.1: só ANÁLISE (somente leitura). O Rust percorre as pastas da allowlist e
+ * devolve um resumo por origem; os itens ficam guardados lá e são listados por
+ * página. Nenhuma operação remove arquivos nesta etapa. Quando a limpeza
+ * existir (4.2), ela deverá:
  *  - exigir confirmação explícita, mostrando exatamente o que será removido;
- *  - evitar arquivos críticos do sistema e seguir uma allowlist de locais;
+ *  - agir só sobre itens da análise, dentro da allowlist;
  *  - registrar cada execução no log de auditoria;
- *  - permitir cancelamento quando possível;
- *  - nunca executar comandos shell arbitrários;
- *  - rodar com o menor privilégio necessário (sem elevação de administrador).
+ *  - permitir cancelamento;
+ *  - nunca executar comandos shell nem pedir privilégios de administrador.
  */
 
 export type CleanupCategoryId = "tempFiles" | "safeCaches" | "recycleBin";
 
-/** Risco de remover os itens da categoria. */
-export type CleanupRisk = "low" | "medium";
-
-export type CleanupCategoryStatus = "planned" | "available";
-
-export interface CleanupCategoryDescriptor {
-  id: CleanupCategoryId;
-  name: string;
-  description: string;
-  risk: CleanupRisk;
-  /** Toda categoria destrutiva exige confirmação explícita. */
-  requiresConfirmation: boolean;
-  status: CleanupCategoryStatus;
-}
+/** Local (ou família de locais) da allowlist. */
+export type CleanupSource =
+  | "userTemp"
+  | "directXShaders"
+  | "nvidiaShaders"
+  | "amdShaders"
+  | "errorReports"
+  | "crashDumps"
+  | "thumbnails"
+  | "chrome"
+  | "edge"
+  | "brave"
+  | "firefox"
+  | "recycleBin";
 
 /**
- * Resultado de uma análise (somente leitura) — será produzido na Fase 4.
- * A análise nunca remove nada; ela apenas lista candidatos.
+ * `ready`: pode ser limpa (mesmo vazia). `notFound`: não existe neste
+ * computador. `inUse`: o programa dono do cache (navegador) está aberto.
  */
-export interface CleanupScanResult {
-  categoryId: CleanupCategoryId;
+export type SourceStatus = "ready" | "notFound" | "inUse";
+
+export interface SourceSummary {
+  source: CleanupSource;
+  category: CleanupCategoryId;
+  status: SourceStatus;
+  /** Pastas encontradas e lidas. */
+  folders: string[];
   itemCount: number;
   totalBytes: number;
-  sampleItems: readonly string[];
+  /** Arquivos que ficaram de fora por serem recentes (só temporários). */
+  recentCount: number;
+  recentBytes: number;
+  /** Links, junções, arquivos só na nuvem ou sem acesso. */
+  ignoredCount: number;
+}
+
+export interface CleanupScan {
+  /** Identifica a análise guardada no Rust (usada para listar os itens). */
+  id: number;
+  tempMinAgeHours: number;
+  sources: SourceSummary[];
+}
+
+export interface CleanupItem {
+  /** Caminho completo. Na Lixeira, o local original do item. */
+  path: string;
+  bytes: number;
+  /** Data de modificação (na Lixeira, da exclusão), em ms desde 1970. */
+  dateMs: number | null;
+}
+
+export interface CleanupItemPage {
+  items: CleanupItem[];
+  total: number;
 }

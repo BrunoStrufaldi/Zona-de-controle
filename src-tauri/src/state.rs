@@ -11,6 +11,7 @@ use crate::error::AppResult;
 use crate::platform::devices::{DeviceReader, SaveReading};
 use crate::platform::system_monitor::SystemMonitor;
 use crate::services;
+use crate::services::optimization::CleanupScanStore;
 
 /// Subpasta de Documentos onde ficam os backups do banco.
 const BACKUP_FOLDER: [&str; 2] = ["Zona de Controle", "Backups"];
@@ -26,6 +27,10 @@ pub struct AppState {
     pub device_reader: DeviceReader,
     /// Leitura ao vivo de CPU, memória, discos e processos (nada é persistido).
     pub system_monitor: SystemMonitor,
+    /// AppData\Local do usuário: base da allowlist da limpeza.
+    pub local_app_data: PathBuf,
+    /// Última análise da limpeza (só em memória).
+    pub cleanup_scans: Arc<CleanupScanStore>,
 }
 
 impl AppState {
@@ -46,6 +51,8 @@ impl AppState {
                     .fold(documents, |path, part| path.join(part))
             })
             .unwrap_or_else(|_| data_dir.join("backups"));
+
+        let local_app_data = app.path().local_data_dir()?;
 
         let device_reader = DeviceReader::new();
         // Última leitura de cada modelo: aparece como "último registro" até o
@@ -68,6 +75,8 @@ impl AppState {
             backup_dir,
             device_reader,
             system_monitor: SystemMonitor::new(),
+            local_app_data,
+            cleanup_scans: Arc::new(CleanupScanStore::new()),
         })
     }
 }
