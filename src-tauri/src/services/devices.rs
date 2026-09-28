@@ -5,6 +5,7 @@ use serde_json::json;
 
 use crate::db::Database;
 use crate::domain::audit::{AuditCategory, AuditOutcome, NewAuditEntry};
+use crate::domain::devices::readers::ModelReading;
 use crate::domain::devices::{
     bluetooth_battery_devices, list_usb_input_devices, normalize_marking, parse_device_key,
     usb_battery_devices, xinput_battery_devices, DeviceBatteryInfo, DeviceMarking, ModelReadings,
@@ -12,7 +13,7 @@ use crate::domain::devices::{
 };
 use crate::error::AppResult;
 use crate::platform::devices::DeviceReader;
-use crate::repositories::{audit, clock, device_markings};
+use crate::repositories::{audit, clock, device_battery_readings, device_markings};
 
 const ACTION_MARKED: &str = "device.marked";
 
@@ -34,6 +35,17 @@ impl DeviceReadings {
             models: reader.model_readings()?,
         })
     }
+}
+
+/// Últimas leituras gravadas dos modelos com leitor (registro antigo).
+pub fn saved_model_readings(db: &Database) -> AppResult<ModelReadings> {
+    db.with_connection(|connection| device_battery_readings::list(connection))
+}
+
+/// Grava a última leitura de um modelo (chamado pela escuta em segundo plano
+/// quando `ModelReading::should_persist` indica). Não é auditado: é leitura.
+pub fn save_model_reading(db: &Database, key: &str, reading: &ModelReading) -> AppResult<()> {
+    db.with_connection(|connection| device_battery_readings::upsert(connection, key, reading))
 }
 
 /// Mouses, teclados e headsets USB conectados, com a classificação aplicada.
@@ -202,6 +214,7 @@ mod tests {
                     // 2026-09-28T12:00:00Z
                     read_at_unix: 1_790_596_800,
                     last_percent: Some(87),
+                    from_saved: false,
                 },
             )]),
         };

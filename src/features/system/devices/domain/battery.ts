@@ -25,6 +25,8 @@ const UNAVAILABLE_EXPLANATION =
   "O app ainda não sabe ler a bateria deste dispositivo. O valor nunca é estimado.";
 const OFF_EXPLANATION =
   "Último nível informado antes de desligar. Desligado, o dispositivo não informa a bateria.";
+const LAST_KNOWN_EXPLANATION =
+  "Nível da última vez que o app recebeu informação deste dispositivo (a data está ao lado). Atualiza quando ele mandar um aviso novo.";
 const WAITING_EXPLANATION =
   "O dispositivo informa a bateria quando é ligado, desligado ou conectado ao carregador. Faça uma dessas ações para atualizar.";
 
@@ -84,6 +86,15 @@ export function describeBattery(
           tone: "muted",
           explanation: OFF_EXPLANATION,
         };
+  }
+  if (device.level.kind === "lastKnown") {
+    // Sem barra: é um registro antigo, não o nível atual.
+    return {
+      label: `Último registro: ${clampPercent(device.level.percent)}%`,
+      percent: null,
+      tone: "muted",
+      explanation: LAST_KNOWN_EXPLANATION,
+    };
   }
   if (device.level.kind === "waiting") {
     return {

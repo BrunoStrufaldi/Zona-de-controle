@@ -52,6 +52,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "device_markings",
         sql: include_str!("../../migrations/0007_device_markings.sql"),
     },
+    Migration {
+        version: 8,
+        name: "device_battery_readings",
+        sql: include_str!("../../migrations/0008_device_battery_readings.sql"),
+    },
 ];
 
 const CREATE_SCHEMA_MIGRATIONS: &str = "
@@ -163,6 +168,7 @@ mod tests {
             "calendar_event_exceptions",
             "calendar_reminders_sent",
             "device_markings",
+            "device_battery_readings",
         ] {
             assert!(table_exists(&connection, table), "{table}");
         }
@@ -282,6 +288,42 @@ mod tests {
         assert!(insert("24ae:1416").is_ok());
         assert!(insert("24AE:1417").is_err());
         assert!(insert("24ae-1418").is_err());
+    }
+
+    #[test]
+    fn upgrades_from_version_7_keeping_markings() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(CREATE_SCHEMA_MIGRATIONS).unwrap();
+        for migration in &MIGRATIONS[..7] {
+            apply(&mut connection, migration).unwrap();
+        }
+        connection
+            .execute(
+                "INSERT INTO device_markings (device_key, wireless, kind) VALUES ('3151:502d', 1, 'keyboard')",
+                [],
+            )
+            .unwrap();
+
+        run(&mut connection).unwrap();
+
+        let kind: String = connection
+            .query_row("SELECT kind FROM device_markings", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(kind, "keyboard");
+        // Estado e níveis fora da faixa são recusados.
+        let insert = |power: &str, percent: i64, last: Option<i64>| {
+            connection.execute(
+                "INSERT OR REPLACE INTO device_battery_readings
+                     (device_key, power, percent, last_percent, read_at_unix)
+                 VALUES ('291d:385d', ?1, ?2, ?3, 1790596800)",
+                rusqlite::params![power, percent, last],
+            )
+        };
+        assert!(insert("off", 0, Some(100)).is_ok());
+        assert!(insert("charging", 64, None).is_ok());
+        assert!(insert("full", 100, None).is_err());
+        assert!(insert("onBattery", 101, None).is_err());
+        assert!(insert("onBattery", 50, Some(-1)).is_err());
     }
 
     #[test]

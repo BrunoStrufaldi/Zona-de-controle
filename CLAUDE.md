@@ -259,8 +259,14 @@ Regras:
   (3.3b)** ficam em `domain/devices/readers.rs` (parser puro, testado com relatórios capturados do
   receptor real) e se ligam pelo campo `reader` de `KNOWN_WIRELESS_MODELS`. O app só **escuta**: uma
   thread por modelo (`platform/devices.rs::start_listeners`, iniciada no `AppState`) abre a coleção
-  do fabricante e guarda a última leitura só em memória; receptor removido apaga a leitura e a thread
-  volta a procurá-lo a cada 5 s. Nunca envie relatórios ao receptor (mudariam DPI, iluminação…); se
+  do fabricante e guarda a última leitura em memória e em `device_battery_readings` (migration 0008).
+  A gravação vem por callback (`SaveReading`, montado no `AppState`, que tem `db: Arc<Database>`),
+  então `platform/` continua sem SQL; `ModelReading::should_persist` grava na hora mudanças de nível
+  ou estado e regrava o mesmo status no máximo a cada 5 min (o mouse repete a cada 3 s). Ao abrir o
+  app, as leituras salvas entram como `from_saved` e aparecem como `LastKnown` ("Último registro:
+  80%", com data, sem barra) até o primeiro aviso novo — nunca como nível atual. Receptor removido:
+  a leitura vira registro antigo e a thread volta a procurá-lo a cada 5 s; sem o receptor, o
+  aparelho não aparece na lista. Nunca envie relatórios ao receptor (mudariam DPI, iluminação…); se
   um modelo exigir consulta, só a mesma leitura que o software oficial faz. Estado não mapeado vira
   `None` (nada exibido), nunca um palpite. Com leitor e sem aviso ainda: `Waiting` ("Aguardando
   leitura"); aviso de desligado: `Off { last_percent }` (o aviso vem com nível 0, então o Rust guarda

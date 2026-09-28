@@ -29,6 +29,23 @@ pub enum ReportedPower {
     Off,
 }
 
+impl ReportedPower {
+    /// Valor gravado em `device_battery_readings.power`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::OnBattery => "onBattery",
+            Self::Charging => "charging",
+            Self::Off => "off",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        [Self::OnBattery, Self::Charging, Self::Off]
+            .into_iter()
+            .find(|power| power.as_str() == value)
+    }
+}
+
 /// Status lido de um relatório do receptor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReportedStatus {
@@ -46,7 +63,14 @@ pub struct ModelReading {
     /// Último nível informado com o dispositivo ligado. Desligado, o aviso vem
     /// com nível 0, então é daqui que sai o "último nível" exibido.
     pub last_percent: Option<u8>,
+    /// Veio do banco (sessão anterior do app ou receptor reconectado) e o
+    /// dispositivo ainda não mandou aviso novo: é um registro antigo.
+    pub from_saved: bool,
 }
+
+/// Uma leitura que não mudou é regravada no máximo a cada 5 min (só para
+/// atualizar o horário); mudanças de nível ou estado são gravadas na hora.
+pub const PERSIST_REFRESH_SECS: i64 = 300;
 
 impl ModelReading {
     /// Leitura nova a partir da anterior (se houver): ao desligar, mantém o
@@ -60,6 +84,30 @@ impl ModelReading {
             status,
             read_at_unix,
             last_percent,
+            from_saved: false,
+        }
+    }
+
+    /// A mesma leitura, agora como registro antigo (receptor removido).
+    pub fn as_saved(self) -> Self {
+        Self {
+            from_saved: true,
+            ..self
+        }
+    }
+
+    /// Esta leitura precisa ser gravada, dado o que foi gravado por último?
+    pub fn should_persist(&self, last_saved: Option<&Self>) -> bool {
+        if self.from_saved {
+            return false;
+        }
+        match last_saved {
+            None => true,
+            Some(saved) => {
+                saved.status != self.status
+                    || saved.last_percent != self.last_percent
+                    || self.read_at_unix - saved.read_at_unix >= PERSIST_REFRESH_SECS
+            }
         }
     }
 }
@@ -279,6 +327,47 @@ mod tests {
         assert!(RAPOO_VT7_READER.is_off_after(11));
         // O headset não repete o status na bateria: silêncio não diz nada.
         assert!(!MCHOSE_V9_READER.is_off_after(3_600));
+    }
+
+    #[test]
+    fn saves_changes_right_away_and_repeats_only_every_few_minutes() {
+        let on = |percent| ReportedStatus {
+            percent,
+            power: ReportedPower::OnBattery,
+        };
+        let saved = ModelReading::next(None, on(80), 1_000);
+        assert!(saved.should_persist(None));
+
+        // Mesmo status 3 s depois (o mouse repete): não regrava.
+        let same = ModelReading::next(Some(&saved), on(80), 1_003);
+        assert!(!same.should_persist(Some(&saved)));
+        // Mesmo status depois de 5 min: regrava para atualizar o horário.
+        let later = ModelReading::next(Some(&saved), on(80), 1_000 + PERSIST_REFRESH_SECS);
+        assert!(later.should_persist(Some(&saved)));
+        // Nível ou estado mudou: grava na hora.
+        let lower = ModelReading::next(Some(&saved), on(79), 1_010);
+        assert!(lower.should_persist(Some(&saved)));
+        let off = ModelReading::next(Some(&saved), OFF_STATUS, 1_010);
+        assert!(off.should_persist(Some(&saved)));
+
+        // Registro vindo do banco nunca é regravado.
+        assert!(!saved.as_saved().should_persist(None));
+        assert!(saved.as_saved().from_saved);
+        // Aviso novo sobre um registro antigo volta a ser leitura atual.
+        let fresh = ModelReading::next(Some(&saved.as_saved()), on(80), 2_000);
+        assert!(!fresh.from_saved);
+    }
+
+    #[test]
+    fn stores_the_power_state_as_text() {
+        for power in [
+            ReportedPower::OnBattery,
+            ReportedPower::Charging,
+            ReportedPower::Off,
+        ] {
+            assert_eq!(ReportedPower::parse(power.as_str()), Some(power));
+        }
+        assert_eq!(ReportedPower::parse("full"), None);
     }
 
     #[test]

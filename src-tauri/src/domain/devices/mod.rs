@@ -280,7 +280,8 @@ fn usb_battery_state(
     readings: &ModelReadings,
     read_at: &impl Fn(i64) -> Option<String>,
 ) -> (SupportLevel, BatteryLevel, ChargingState, Option<String>) {
-    let Some(reading) = readings.get(key) else {
+    // Leituras só valem para modelos com leitor (o banco pode ter sobras).
+    let Some(reading) = readings.get(key).filter(|_| has_reader(key)) else {
         return if has_reader(key) {
             (
                 SupportLevel::Supported,
@@ -297,6 +298,24 @@ fn usb_battery_state(
             )
         };
     };
+    if reading.from_saved {
+        // Registro de antes (app fechado ou receptor reconectado): nunca
+        // exibido como nível atual. Sem nível conhecido, segue aguardando.
+        return match reading.last_percent {
+            Some(percent) => (
+                SupportLevel::Supported,
+                BatteryLevel::LastKnown { percent },
+                ChargingState::Unknown,
+                read_at(reading.read_at_unix),
+            ),
+            None => (
+                SupportLevel::Supported,
+                BatteryLevel::Waiting,
+                ChargingState::Unknown,
+                None,
+            ),
+        };
+    }
     let percent = reading.status.percent;
     let (level, charging) = match reading.status.power {
         ReportedPower::Off => (
@@ -602,6 +621,7 @@ mod tests {
             status: ReportedStatus { percent, power },
             read_at_unix: 1_790_000_000,
             last_percent: Some(90),
+            from_saved: false,
         };
         let read_at = |unix: i64| Some(format!("t{unix}"));
 
@@ -623,6 +643,26 @@ mod tests {
                 last_percent: Some(90)
             }
         );
+
+        // Registro salvo de antes: "último registro", sem estado de carga.
+        let saved = ModelReadings::from([(
+            "291d:385d".to_string(),
+            reading(64, ReportedPower::Charging).as_saved(),
+        )]);
+        let headset = &usb_battery_devices(&devices, &saved, read_at)[0];
+        assert_eq!(headset.level, BatteryLevel::LastKnown { percent: 90 });
+        assert_eq!(headset.charging, ChargingState::Unknown);
+        assert_eq!(headset.last_updated.as_deref(), Some("t1790000000"));
+
+        // Registro salvo sem nível conhecido: continua aguardando.
+        let unknown = ModelReading {
+            last_percent: None,
+            ..reading(0, ReportedPower::Off).as_saved()
+        };
+        let saved = ModelReadings::from([("291d:385d".to_string(), unknown)]);
+        let headset = &usb_battery_devices(&devices, &saved, read_at)[0];
+        assert_eq!(headset.level, BatteryLevel::Waiting);
+        assert_eq!(headset.last_updated, None);
     }
 
     #[test]

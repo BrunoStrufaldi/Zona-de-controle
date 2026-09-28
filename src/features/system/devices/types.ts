@@ -34,6 +34,11 @@ export type BatteryLevel =
   /** O leitor do modelo existe, mas o dispositivo ainda não informou. */
   | { kind: "waiting" }
   /**
+   * Último nível registrado antes (app fechado ou receptor reconectado), ainda
+   * sem aviso novo. Nunca é o nível atual.
+   */
+  | { kind: "lastKnown"; percent: number }
+  /**
    * O dispositivo informou que está desligado. `lastPercent` é o último nível
    * informado com ele ligado (não é o nível atual).
    */

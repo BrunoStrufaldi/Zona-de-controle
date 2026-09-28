@@ -101,6 +101,11 @@ pub enum BatteryLevel {
     Wired,
     /// O leitor do modelo existe, mas o dispositivo ainda não informou.
     Waiting,
+    /// Último nível registrado antes (app fechado ou receptor reconectado),
+    /// ainda sem aviso novo. Nunca é o nível atual.
+    LastKnown {
+        percent: u8,
+    },
     /// O dispositivo informou que está desligado. `last_percent` é o último
     /// nível informado com ele ligado (não é o nível atual).
     #[serde(rename_all = "camelCase")]
@@ -196,6 +201,10 @@ mod tests {
         assert_eq!(
             serde_json::to_value(BatteryLevel::Waiting).unwrap(),
             json!({ "kind": "waiting" })
+        );
+        assert_eq!(
+            serde_json::to_value(BatteryLevel::LastKnown { percent: 80 }).unwrap(),
+            json!({ "kind": "lastKnown", "percent": 80 })
         );
         assert_eq!(
             serde_json::to_value(BatteryLevel::Off {

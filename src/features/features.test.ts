@@ -72,6 +72,17 @@ describe("bateria", () => {
     const off = describeBattery({ support: "supported", level: { kind: "off", lastPercent: 100 } });
     expect(off).toMatchObject({ label: "Desligado · 100%", percent: null, tone: "muted" });
     expect(off.explanation).toMatch(/antes de desligar/);
+    // Registro de antes (app fechado): nunca vira nível atual nem barra.
+    const lastKnown = describeBattery({
+      support: "supported",
+      level: { kind: "lastKnown", percent: 80 },
+    });
+    expect(lastKnown).toMatchObject({
+      label: "Último registro: 80%",
+      percent: null,
+      tone: "muted",
+    });
+    expect(lastKnown.explanation).toMatch(/última vez/);
   });
 
   it("descreve a conexão e o estado de carga quando conhecido", () => {

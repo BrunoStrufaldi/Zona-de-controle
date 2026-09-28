@@ -2,19 +2,22 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use tauri::{AppHandle, Manager};
 
 use crate::db::{Database, DATABASE_FILE_NAME};
 use crate::error::AppResult;
-use crate::platform::devices::DeviceReader;
+use crate::platform::devices::{DeviceReader, SaveReading};
 use crate::platform::system_monitor::SystemMonitor;
+use crate::services;
 
 /// Subpasta de Documentos onde ficam os backups do banco.
 const BACKUP_FOLDER: [&str; 2] = ["Zona de Controle", "Backups"];
 
 pub struct AppState {
-    pub db: Database,
+    /// Compartilhado com a escuta dos receptores, que grava a última leitura.
+    pub db: Arc<Database>,
     pub database_path: PathBuf,
     /// Pasta dos backups: `Documentos/Zona de Controle/Backups` (fora da pasta
     /// interna do app, fácil de achar e copiar). Sem Documentos, usa a pasta de dados.
@@ -33,7 +36,7 @@ impl AppState {
         fs::create_dir_all(&data_dir)?;
 
         let database_path = data_dir.join(DATABASE_FILE_NAME);
-        let db = Database::open(&database_path)?;
+        let db = Arc::new(Database::open(&database_path)?);
         let backup_dir = app
             .path()
             .document_dir()
@@ -45,8 +48,19 @@ impl AppState {
             .unwrap_or_else(|_| data_dir.join("backups"));
 
         let device_reader = DeviceReader::new();
-        // Escuta passiva dos receptores com leitor de bateria (ex.: headset MCHOSE).
-        device_reader.start_listeners();
+        // Última leitura de cada modelo: aparece como "último registro" até o
+        // primeiro aviso novo. Sem ela (erro ao ler), só fica "aguardando".
+        if let Ok(saved) = services::devices::saved_model_readings(&db) {
+            let _ = device_reader.seed_readings(saved);
+        }
+        // Escuta passiva dos receptores com leitor de bateria (headset MCHOSE,
+        // mouse Rapoo), gravando a leitura quando muda.
+        let save_db = Arc::clone(&db);
+        let save: SaveReading = Arc::new(move |key, reading| {
+            // Falhar ao gravar só perde o registro para a próxima abertura.
+            let _ = services::devices::save_model_reading(&save_db, key, reading);
+        });
+        device_reader.start_listeners(save);
 
         Ok(Self {
             db,

@@ -68,6 +68,23 @@ describe("página de Dispositivos", () => {
     expect(within(headset).queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
+  it("ao abrir, mostra o último registro salvo com a data da leitura", async () => {
+    mockDevicesBackend({
+      headset: {
+        level: { kind: "lastKnown", percent: 80 },
+        charging: "unknown",
+        lastUpdated: new Date(2026, 8, 27, 22, 10).toISOString(),
+      },
+    });
+    renderRoute(paths.system.devices);
+
+    const list = await screen.findByRole("list", { name: "Dispositivos com bateria" });
+    const headset = within(list).getByText("MCHOSE V9 PRO").closest("li") as HTMLElement;
+    expect(headset).toHaveTextContent("Último registro: 80%");
+    expect(headset).toHaveTextContent("2.4 GHz · lido em 27/09 às 22:10");
+    expect(within(headset).queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
   it("mostra a bateria que o mouse informou", async () => {
     const readAt = new Date();
     readAt.setHours(11, 47, 0, 0);

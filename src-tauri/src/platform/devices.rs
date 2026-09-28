@@ -4,7 +4,8 @@
 //!   envia nada ao dispositivo.
 //! - Leitores por modelo: uma thread por modelo com leitor (ver
 //!   `domain::devices::readers`) **escuta** a coleção do fabricante e guarda a
-//!   última leitura em memória. Nenhum relatório é enviado ao receptor.
+//!   última leitura em memória; quem chama decide como gravá-la (`SaveReading`,
+//!   sem SQL aqui). Nenhum relatório é enviado ao receptor.
 //! - XInput: estado e bateria dos controles Xbox (slots 0 a 3).
 //! - Bluetooth: a propriedade de bateria que o Windows grava nos nós do
 //!   dispositivo (a mesma que aparece em Configurações > Bluetooth).
@@ -13,10 +14,15 @@
 
 use std::sync::{Arc, Mutex};
 
+use crate::domain::devices::readers::ModelReading;
 #[cfg(not(windows))]
 use crate::domain::devices::RawHidCollection;
 use crate::domain::devices::{ModelReadings, RawBluetoothBattery, RawXInputPad};
 use crate::error::{AppError, AppResult};
+
+/// Grava a leitura de um modelo (chave `vid:pid`). Chamada pela thread de
+/// escuta só quando `ModelReading::should_persist` indica.
+pub type SaveReading = Arc<dyn Fn(&str, &ModelReading) + Send + Sync>;
 
 pub struct DeviceReader {
     #[cfg(windows)]
@@ -43,11 +49,21 @@ impl DeviceReader {
             .clone())
     }
 
+    /// Parte das leituras gravadas (registro antigo) até chegar aviso novo.
+    pub fn seed_readings(&self, saved: ModelReadings) -> AppResult<()> {
+        let mut readings = self.readings.lock().map_err(|_| AppError::StatePoisoned)?;
+        for (key, reading) in saved {
+            readings.insert(key, reading.as_saved());
+        }
+        Ok(())
+    }
+
     /// Começa a escutar os receptores dos modelos com leitor (uma thread por
     /// modelo, durante toda a execução do app). Chamado uma vez, no `setup`.
-    pub fn start_listeners(&self) {
+    #[cfg_attr(not(windows), allow(unused_variables))]
+    pub fn start_listeners(&self, save: SaveReading) {
         #[cfg(windows)]
-        windows_impl::start_listeners(&self.hid, &self.readings);
+        windows_impl::start_listeners(&self.hid, &self.readings, &save);
     }
 }
 
@@ -82,7 +98,7 @@ mod windows_impl {
         XINPUT_BATTERY_INFORMATION, XINPUT_STATE, XUSER_MAX_COUNT,
     };
 
-    use super::DeviceReader;
+    use super::{DeviceReader, SaveReading};
     use crate::domain::devices::readers::{ModelReading, ReportReader, ReportedStatus, OFF_STATUS};
     use crate::domain::devices::{
         device_key, models_with_reader, KnownModel, ModelReadings, PadPower, RawBluetoothBattery,
@@ -163,25 +179,42 @@ mod windows_impl {
         .flatten()
     }
 
-    /// Guarda um status na leitura do modelo (mantendo o último nível).
-    fn record(readings: &Mutex<ModelReadings>, key: &str, status: ReportedStatus) {
-        if let Ok(mut map) = readings.lock() {
-            let reading = ModelReading::next(map.get(key), status, unix_now());
-            map.insert(key.to_string(), reading);
-        }
+    /// Guarda um status na leitura do modelo (mantendo o último nível) e a
+    /// devolve para ser gravada.
+    fn record(
+        readings: &Mutex<ModelReadings>,
+        key: &str,
+        status: ReportedStatus,
+    ) -> Option<ModelReading> {
+        let mut map = readings.lock().ok()?;
+        let reading = ModelReading::next(map.get(key), status, unix_now());
+        map.insert(key.to_string(), reading);
+        Some(reading)
     }
 
-    /// Escuta o receptor para sempre: guarda cada status reconhecido e, se o
-    /// receptor sumir, apaga a leitura e volta a procurá-lo. Em modelos que
-    /// repetem o status, silêncio prolongado vira "desligado".
+    /// Escuta o receptor para sempre: guarda cada status reconhecido (e grava
+    /// quando muda) e, se o receptor sumir, a leitura vira registro antigo e a
+    /// thread volta a procurá-lo. Em modelos que repetem o status, silêncio
+    /// prolongado vira "desligado".
     fn listen(
         hid: SharedApi,
         readings: Arc<Mutex<ModelReadings>>,
+        save: SaveReading,
         model: &'static KnownModel,
         reader: ReportReader,
     ) {
         let key = device_key(model.vendor_id, model.product_id);
         let mut buffer = [0u8; 65];
+        // O que foi gravado por último (de início, o registro do banco).
+        let mut last_saved = readings.lock().ok().and_then(|map| map.get(&key).copied());
+        let mut store = |status: ReportedStatus| {
+            if let Some(reading) = record(&readings, &key, status) {
+                if reading.should_persist(last_saved.as_ref()) {
+                    save(&key, &reading);
+                    last_saved = Some(reading);
+                }
+            }
+        };
         loop {
             let Some(device) = open_collection(&hid, model, &reader) else {
                 thread::sleep(RECONNECT_INTERVAL);
@@ -194,7 +227,7 @@ mod windows_impl {
                     Ok(0) => {
                         let silent_secs = last_report.elapsed().as_secs();
                         if !marked_off && reader.is_off_after(silent_secs) {
-                            record(&readings, &key, OFF_STATUS);
+                            store(OFF_STATUS);
                             marked_off = true;
                         }
                     }
@@ -202,13 +235,16 @@ mod windows_impl {
                         last_report = Instant::now();
                         marked_off = false;
                         if let Some(status) = (reader.parse)(&buffer[..length]) {
-                            record(&readings, &key, status);
+                            store(status);
                         }
                     }
                     Err(_) => {
-                        // Receptor removido: a leitura antiga não vale mais.
+                        // Receptor removido: a leitura vira registro antigo
+                        // (aparece assim quando ele voltar, até o aviso novo).
                         if let Ok(mut map) = readings.lock() {
-                            map.remove(&key);
+                            if let Some(reading) = map.get_mut(&key) {
+                                *reading = reading.as_saved();
+                            }
                         }
                         break;
                     }
@@ -218,14 +254,19 @@ mod windows_impl {
         }
     }
 
-    pub fn start_listeners(hid: &SharedApi, readings: &Arc<Mutex<ModelReadings>>) {
+    pub fn start_listeners(
+        hid: &SharedApi,
+        readings: &Arc<Mutex<ModelReadings>>,
+        save: &SaveReading,
+    ) {
         for (model, reader) in models_with_reader() {
             let hid = Arc::clone(hid);
             let readings = Arc::clone(readings);
+            let save = Arc::clone(save);
             // Falhar ao criar a thread só deixa o modelo em "aguardando leitura".
             let _ = thread::Builder::new()
                 .name(format!("zdc-battery-{}", model.name))
-                .spawn(move || listen(hid, readings, model, reader));
+                .spawn(move || listen(hid, readings, save, model, reader));
         }
     }
 
