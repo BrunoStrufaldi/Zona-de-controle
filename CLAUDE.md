@@ -203,6 +203,13 @@ Regras:
   Hábitos têm validade (`created_on` inclusive, `removed_on` exclusive): editar a rotina nunca apaga
   hábitos, só encerra a validade, para não reescrever o passado. Marcação: de hoje até
   `BACKFILL_DAYS` (7) dias atrás, só em dias da agenda. Nomes dos dias da semana: `src/lib/weekdays.ts`.
+- **Sidebar recolhida:** o `SidebarLink` fica dentro de `TooltipTrigger asChild`, que junta `className` como texto.
+  Passe classes em texto (o ativo vem de `useMatch`), nunca a função `className` do `NavLink`: ela viraria o
+  código-fonte da função e o layout quebraria (teste em `components/layout/sidebar.test.tsx`). Recolhida, a lista
+  rola sem barra (`scrollbar-none`).
+- **Dashboard:** cards agrupados em seções com título (`DashboardSection`: Seu dia, Finanças, Sistema), cada uma
+  com o próprio `@container` (2 colunas a partir de `@3xl`, 3 a partir de `@6xl`). Ao incluir um card, ajuste os
+  `col-span` para as linhas fecharem nas duas larguras.
 - **Planejamento semanal (2.6):** aba `?tab=plan` de Rotinas (`weeklyPlanHref`), módulo próprio em
   `features/productivity/weekly-plan` (a página compõe os dois). `weekly_plan_blocks` (migration 0013): `weekdays` na
   máscara das rotinas (`Weekdays`), `start_time`/`end_time` `HH:MM` ou os dois nulos (dia inteiro), cor nomeada e

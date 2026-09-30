@@ -1,5 +1,3 @@
-import { Info } from "lucide-react";
-
 import { formatLongDate } from "@/lib/format";
 import { getGreeting } from "@/lib/greeting";
 
@@ -27,11 +25,6 @@ export function GreetingBanner({ displayName, now = new Date() }: GreetingBanner
       <h1 id="dashboard-greeting" className="mt-2 text-3xl font-semibold tracking-tight">
         {title}
       </h1>
-      <p className="mt-2 flex max-w-2xl items-start gap-2 text-sm text-muted-foreground">
-        <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-        Este é o seu painel. Os módulos ainda estão em construção — cards marcados com “Demo” usam
-        dados fictícios apenas para ilustrar o layout.
-      </p>
     </section>
   );
 }

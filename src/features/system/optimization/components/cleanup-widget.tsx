@@ -17,17 +17,19 @@ import { formatBytes, formatDateTime, formatNumber } from "@/lib/format";
 
 interface CleanupWidgetProps {
   history: AsyncResource<CleanupHistory>;
+  className?: string;
 }
 
 /**
  * Resumo das limpezas no dashboard: total liberado e a última limpeza. Só lê
  * o histórico; a análise (que percorre as pastas) fica na tela Otimização.
  */
-export function CleanupWidget({ history }: CleanupWidgetProps) {
+export function CleanupWidget({ history, className }: CleanupWidgetProps) {
   return (
     <WidgetCard
       title="Limpeza"
       icon={Sparkles}
+      className={className}
       headerExtra={
         <Button asChild variant="ghost" size="sm" className="h-7 px-2">
           <Link to={paths.system.optimization}>

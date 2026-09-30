@@ -36,7 +36,13 @@ export function Sidebar({ collapsed, onNavigate, className }: SidebarProps) {
         <AppLogo compact={collapsed} />
       </div>
 
-      <nav className="flex-1 overflow-x-hidden overflow-y-auto p-3">
+      {/* Recolhida, a barra de rolagem comeria a largura dos ícones: rola sem mostrá-la. */}
+      <nav
+        className={cn(
+          "flex-1 overflow-x-hidden overflow-y-auto p-3",
+          collapsed && "scrollbar-none",
+        )}
+      >
         <div className="grid gap-1">
           {navigation.main.map((entry) =>
             entry.kind === "link" ? (

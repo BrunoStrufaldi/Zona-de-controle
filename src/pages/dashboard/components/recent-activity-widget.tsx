@@ -16,12 +16,13 @@ const moduleIcons: Record<ActivityModule, LucideIcon> = {
 
 interface RecentActivityWidgetProps {
   activity: AsyncResource<ActivityEntry[]>;
+  className?: string;
 }
 
 /** O que aconteceu por último nos módulos (tarefas, hábitos, lançamentos, limpezas, importações). */
-export function RecentActivityWidget({ activity }: RecentActivityWidgetProps) {
+export function RecentActivityWidget({ activity, className }: RecentActivityWidgetProps) {
   return (
-    <WidgetCard title="Atividades recentes" icon={History}>
+    <WidgetCard title="Atividades recentes" icon={History} className={className}>
       <ResourceView resource={activity} className="py-6">
         {(entries) =>
           entries.length === 0 ? (

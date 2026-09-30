@@ -1,5 +1,7 @@
+import { CalendarCheck, Cpu, Wallet } from "lucide-react";
 import { useCallback } from "react";
 
+import { paths } from "@/app/router/paths";
 import { RECENT_ACTIVITY_LIMIT } from "@/features/activity/domain/activity";
 import { CashflowChartWidget } from "@/features/finance/components/cashflow-chart-widget";
 import { FinanceSummaryWidget } from "@/features/finance/components/finance-summary-widget";
@@ -31,6 +33,7 @@ import { listRoutines } from "@/services/routines-service";
 import { getSystemSnapshot } from "@/services/system-service";
 import { listTasks } from "@/services/tasks-service";
 import { listWeeklyPlan } from "@/services/weekly-plan-service";
+import { DashboardSection } from "@/pages/dashboard/components/dashboard-section";
 import { GreetingBanner } from "@/pages/dashboard/components/greeting-banner";
 import { RecentActivityWidget } from "@/pages/dashboard/components/recent-activity-widget";
 
@@ -80,27 +83,37 @@ export function DashboardPage() {
     <>
       <GreetingBanner displayName={displayName} />
 
-      {/* Colunas pela largura da área de conteúdo (container query), não da janela. */}
-      <div className="@container">
-        <div className="grid gap-6 @3xl:grid-cols-2 @6xl:grid-cols-3">
-          <TasksSummaryWidget tasks={tasks} />
-          <RoutinesTodayWidget routines={routines} />
-          <NowNextWidget plan={plan} />
-          <UpcomingEventsWidget agenda={upcoming} today={today} />
-          <SystemStatusWidget snapshot={system} />
+      {/* Larguras escolhidas para as linhas fecharem com 2 e com 3 colunas. */}
+      <DashboardSection title="Seu dia" icon={CalendarCheck}>
+        <NowNextWidget plan={plan} />
+        <TasksSummaryWidget tasks={tasks} />
+        <RoutinesTodayWidget routines={routines} />
+        <UpcomingEventsWidget agenda={upcoming} today={today} />
+        <RecentActivityWidget activity={activity} className="@3xl:col-span-2" />
+      </DashboardSection>
 
-          <FinanceSummaryWidget overview={finance} />
-          <UpcomingBillsWidget recurring={bills} />
-          <InvestmentsWidget investments={investments} />
-          <CashflowChartWidget overview={finance} className="@3xl:col-span-2" />
-          <CleanupWidget history={cleanup} />
+      <DashboardSection
+        title="Finanças"
+        icon={Wallet}
+        link={{ label: "Abrir Finanças", to: paths.finance.overview }}
+      >
+        <FinanceSummaryWidget overview={finance} />
+        <UpcomingBillsWidget recurring={bills} />
+        <InvestmentsWidget investments={investments} />
+        <CashflowChartWidget overview={finance} className="@6xl:col-span-3" />
+      </DashboardSection>
 
-          <StorageWidget snapshot={system} />
-          <DiagnosticsWidget report={diagnostics} />
-          <DeviceBatteryWidget devices={devices} showLink />
-          <RecentActivityWidget activity={activity} />
-        </div>
-      </div>
+      <DashboardSection
+        title="Sistema"
+        icon={Cpu}
+        link={{ label: "Abrir Monitoramento", to: paths.system.monitor }}
+      >
+        <SystemStatusWidget snapshot={system} />
+        <DiagnosticsWidget report={diagnostics} />
+        <DeviceBatteryWidget devices={devices} showLink />
+        <StorageWidget snapshot={system} className="@6xl:col-span-2" />
+        <CleanupWidget history={cleanup} className="@3xl:col-span-2 @6xl:col-span-1" />
+      </DashboardSection>
     </>
   );
 }

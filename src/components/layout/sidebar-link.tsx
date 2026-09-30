@@ -1,4 +1,4 @@
-import { NavLink } from "react-router";
+import { NavLink, useMatch } from "react-router";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
@@ -14,6 +14,10 @@ interface SidebarLinkProps {
 
 export function SidebarLink({ item, collapsed, nested = false, onNavigate }: SidebarLinkProps) {
   const { icon: Icon, label, path } = item;
+  // Classes em texto, não pela função do NavLink: recolhida, o link fica dentro do
+  // `TooltipTrigger asChild`, que junta `className` como texto (uma função viraria
+  // o próprio código-fonte e as classes não seriam aplicadas).
+  const isActive = useMatch({ path, end: true }) !== null;
 
   const link = (
     <NavLink
@@ -21,36 +25,30 @@ export function SidebarLink({ item, collapsed, nested = false, onNavigate }: Sid
       end
       onClick={onNavigate}
       aria-label={collapsed ? label : undefined}
-      className={({ isActive }) =>
-        cn(
-          "group relative flex h-9 items-center gap-3 rounded-md text-sm transition-colors duration-150",
-          collapsed ? "justify-center px-0" : "px-3",
-          nested && !collapsed && "pl-9",
-          isActive
-            ? "bg-primary/10 font-medium text-foreground"
-            : "text-muted-foreground hover:bg-hover hover:text-foreground",
-        )
-      }
-    >
-      {({ isActive }) => (
-        <>
-          <span
-            aria-hidden="true"
-            className={cn(
-              "absolute top-1.5 bottom-1.5 left-0 w-0.5 rounded-full bg-primary shadow-glow-sm transition-opacity duration-200",
-              isActive ? "opacity-100" : "opacity-0",
-            )}
-          />
-          <Icon
-            aria-hidden="true"
-            className={cn(
-              "size-4 shrink-0 transition-colors",
-              isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
-            )}
-          />
-          {!collapsed && <span className="truncate">{label}</span>}
-        </>
+      className={cn(
+        "group relative flex h-9 items-center gap-3 rounded-md text-sm transition-colors duration-150",
+        collapsed ? "justify-center px-0" : "px-3",
+        nested && !collapsed && "pl-9",
+        isActive
+          ? "bg-primary/10 font-medium text-foreground"
+          : "text-muted-foreground hover:bg-hover hover:text-foreground",
       )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "absolute top-1.5 bottom-1.5 left-0 w-0.5 rounded-full bg-primary shadow-glow-sm transition-opacity duration-200",
+          isActive ? "opacity-100" : "opacity-0",
+        )}
+      />
+      <Icon
+        aria-hidden="true"
+        className={cn(
+          "size-4 shrink-0 transition-colors",
+          isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+        )}
+      />
+      {!collapsed && <span className="truncate">{label}</span>}
     </NavLink>
   );
 
