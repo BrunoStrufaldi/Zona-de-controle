@@ -173,6 +173,9 @@ permissions = [
   "allow-list-transactions",
   "allow-list-transaction-tags",
   "allow-get-finance-overview",
+  # Analytics (somente leitura): receita x despesas, categorias e patrimônio
+  # mês a mês, calculados no Rust.
+  "allow-get-finance-analytics",
 
   # Finanças — escrita. Entradas validadas no Rust (nome, valor em centavos
   # maior que zero, data, conta existente, categoria do mesmo tipo, tags).

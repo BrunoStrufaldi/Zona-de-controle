@@ -42,6 +42,12 @@ impl YearMonth {
     pub fn add_months(self, months: i64) -> Self {
         Self::of(self.first_day().add_months(months, 1))
     }
+
+    /// Meses de `self` até `other` (negativo se `other` for anterior).
+    pub fn months_until(self, other: Self) -> i64 {
+        let index = |month: Self| i64::from(month.year) * 12 + i64::from(month.month);
+        index(other) - index(self)
+    }
 }
 
 impl fmt::Display for YearMonth {
@@ -97,6 +103,8 @@ mod tests {
         assert_eq!(september.last_day().to_string(), "2026-09-30");
         assert_eq!(september.add_months(4).to_string(), "2027-01");
         assert_eq!(september.add_months(-9).to_string(), "2025-12");
+        assert_eq!(september.months_until(september.add_months(-9)), -9);
+        assert_eq!(september.months_until(september.add_months(15)), 15);
         assert_eq!(
             YearMonth::parse("2024-02").unwrap().last_day().to_string(),
             "2024-02-29"

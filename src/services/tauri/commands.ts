@@ -14,6 +14,7 @@ import {
   type CategoryInput,
   type CategoryUpdate,
   type FinanceAccount,
+  type FinanceAnalytics,
   type FinanceCategory,
   type FinanceOverview,
   type ImportCommitInput,
@@ -176,6 +177,7 @@ export interface CommandMap {
   set_transaction_status: { args: { id: number; status: TransactionStatus }; result: Transaction };
   delete_transaction: { args: { id: number }; result: null };
   get_finance_overview: { args: { month: string }; result: FinanceOverview };
+  get_finance_analytics: { args: { from: string; to: string }; result: FinanceAnalytics };
   preview_finance_import: { args: { fileName: string; content: string }; result: ImportPreview };
   commit_finance_import: { args: { input: ImportCommitInput }; result: ImportResult };
   list_recurring: { args: { from: string; to: string }; result: RecurringOverview };

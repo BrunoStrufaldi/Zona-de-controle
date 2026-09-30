@@ -34,6 +34,11 @@ export async function preloadInstallments(): Promise<void> {
   await import("@/pages/finance/installments-page");
 }
 
+/** Como `preloadDashboard`, para Analytics (também usa o Recharts). */
+export async function preloadAnalytics(): Promise<void> {
+  await import("@/pages/finance/analytics-page");
+}
+
 /** Renderiza a aplicação completa (layout + rotas) em um caminho específico. */
 export function renderRoute(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });

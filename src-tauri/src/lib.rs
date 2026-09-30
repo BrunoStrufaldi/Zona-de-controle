@@ -104,6 +104,7 @@ pub fn run() {
             commands::finance::set_transaction_status,
             commands::finance::delete_transaction,
             commands::finance::get_finance_overview,
+            commands::finance::get_finance_analytics,
             commands::finance::preview_finance_import,
             commands::finance::commit_finance_import,
             commands::finance::list_recurring,

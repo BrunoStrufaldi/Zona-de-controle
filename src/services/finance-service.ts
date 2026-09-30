@@ -3,6 +3,7 @@ import {
   type CategoryInput,
   type CategoryUpdate,
   type FinanceAccount,
+  type FinanceAnalytics,
   type FinanceCategory,
   type FinanceOverview,
   type ImportCommitInput,
@@ -95,6 +96,11 @@ export async function deleteTransaction(id: number): Promise<void> {
 /** Totais do mês, histórico de 6 meses e despesas por categoria. */
 export function getFinanceOverview(month: YearMonth): Promise<FinanceOverview> {
   return invokeCommand("get_finance_overview", { month });
+}
+
+/** Receita x despesas, categorias e patrimônio mês a mês de `from` a `to` (até 36 meses). */
+export function getFinanceAnalytics(from: YearMonth, to: YearMonth): Promise<FinanceAnalytics> {
+  return invokeCommand("get_finance_analytics", { from, to });
 }
 
 /**

@@ -1,11 +1,13 @@
 import { useCallback, useMemo } from "react";
 
+import { type MonthSpan } from "@/features/finance/domain/analytics";
 import { type DateRange } from "@/features/finance/domain/period";
 import {
   type AccountInput,
   type CategoryInput,
   type CategoryUpdate,
   type FinanceAccount,
+  type FinanceAnalytics,
   type FinanceCategory,
   type FinanceOverview,
   type ImportCommitInput,
@@ -33,6 +35,7 @@ import {
   deleteFinanceCategory,
   deleteRecurring,
   deleteTransaction,
+  getFinanceAnalytics,
   getFinanceOverview,
   getInstallmentsOverview,
   linkRecurringOccurrence,
@@ -197,6 +200,26 @@ export function useFinanceOverview(month: YearMonth): {
   const { resource, mutate } = useMutableResource(load);
   const actions = useMemo(() => registryActions(mutate), [mutate]);
   return { resource, actions };
+}
+
+// ---------------------------------------------------------------- Analytics
+
+export interface AnalyticsData {
+  analytics: FinanceAnalytics;
+  categories: FinanceCategory[];
+}
+
+/** Histórico dos meses `from` a `to` com as categorias (nomes e cores); somente leitura. */
+export function useFinanceAnalytics(span: MonthSpan): AsyncResource<AnalyticsData> {
+  const { from, to } = span;
+  const load = useCallback(
+    () =>
+      Promise.all([getFinanceAnalytics(from, to), listFinanceCategories()]).then(
+        ([analytics, categories]) => ({ analytics, categories }),
+      ),
+    [from, to],
+  );
+  return useAsyncResource(load);
 }
 
 // ---------------------------------------------------------------- Recorrentes

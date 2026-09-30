@@ -5,6 +5,7 @@
 //! acontece só na exibição.
 
 pub mod accounts;
+pub mod analytics;
 pub mod cards;
 pub mod categories;
 pub mod import;

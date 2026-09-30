@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
 use crate::domain::calendar::CalendarDate;
+use crate::domain::finance::analytics::BalanceFlow;
 use crate::domain::finance::installments::Parcel;
 use crate::domain::finance::overview::CategoryTotal;
 use crate::domain::finance::period::DateRange;
@@ -374,6 +375,56 @@ pub fn expenses_by_category(
     Ok(totals)
 }
 
+/// Despesas do intervalo por mês e categoria: `(aaaa-mm, categoria, total)`.
+pub fn expenses_by_category_and_month(
+    connection: &Connection,
+    range: DateRange,
+) -> AppResult<Vec<(String, Option<i64>, i64)>> {
+    let mut statement = connection.prepare(
+        "SELECT substr(date, 1, 7), category_id, SUM(amount) FROM finance_transactions
+         WHERE kind = 'expense' AND date BETWEEN ?1 AND ?2
+         GROUP BY 1, category_id",
+    )?;
+    let rows = statement
+        .query_map([range.from.to_string(), range.to.to_string()], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+/// Efeito de todos os lançamentos pagos no saldo de cada conta, por dia:
+/// `(conta, data, valor com sinal)`. Na transferência o dinheiro sai de
+/// `account_id` e entra em `transfer_account_id` (como em `finance_accounts::list`).
+pub fn paid_balance_flows(connection: &Connection) -> AppResult<Vec<BalanceFlow>> {
+    let mut statement = connection.prepare(
+        "SELECT account_id, date,
+                SUM(CASE WHEN kind = 'income' THEN amount ELSE -amount END)
+         FROM finance_transactions WHERE status = 'paid'
+         GROUP BY account_id, date
+         UNION ALL
+         SELECT transfer_account_id, date, SUM(amount)
+         FROM finance_transactions WHERE status = 'paid' AND kind = 'transfer'
+         GROUP BY transfer_account_id, date",
+    )?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    rows.into_iter()
+        .map(|(account, date, amount)| {
+            let date = CalendarDate::parse(&date)
+                .ok_or_else(|| AppError::Validation(format!("data inválida no banco: {date}")))?;
+            Ok((account, date, amount))
+        })
+        .collect()
+}
+
 fn ensure_references(connection: &Connection, transaction: &ValidTransaction) -> AppResult<()> {
     check_references(
         connection,
@@ -687,6 +738,61 @@ mod tests {
                         category_id: None,
                         total: 3_000
                     },
+                ]
+            );
+
+            let mut by_month = expenses_by_category_and_month(connection, range)?;
+            by_month.sort_by_key(|(month, _, total)| (month.clone(), *total));
+            assert_eq!(
+                by_month,
+                vec![
+                    ("2026-09".to_string(), None, 3_000),
+                    ("2026-09".to_string(), Some(food), 50_000),
+                    ("2026-09".to_string(), Some(home), 200_000),
+                ]
+            );
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn paid_flows_by_account_and_day() {
+        with_account(|connection| {
+            connection.execute(
+                "INSERT INTO finance_accounts (name, kind, color)
+                 VALUES ('Investimentos', 'investment', 'slate')",
+                [],
+            )?;
+            insert(
+                connection,
+                &valid("Salário", TransactionKind::Income, 800_000, "2026-09-05"),
+            )?;
+            insert(
+                connection,
+                &valid("Mercado", TransactionKind::Expense, 30_000, "2026-09-05"),
+            )?;
+            let mut pending = valid("Aluguel", TransactionKind::Expense, 200_000, "2026-09-06");
+            pending.status = TransactionStatus::Pending;
+            insert(connection, &pending)?;
+            let mut transfer = valid(
+                "Aplicação",
+                TransactionKind::Transfer,
+                100_000,
+                "2026-09-07",
+            );
+            transfer.transfer_account_id = Some(2);
+            insert(connection, &transfer)?;
+
+            let mut flows = paid_balance_flows(connection)?;
+            flows.sort();
+            let day = |value: &str| CalendarDate::parse(value).unwrap();
+            // O pendente não conta; a transferência sai de uma conta e entra na outra.
+            assert_eq!(
+                flows,
+                vec![
+                    (1, day("2026-09-05"), 770_000),
+                    (1, day("2026-09-07"), -100_000),
+                    (2, day("2026-09-07"), 100_000),
                 ]
             );
             Ok(())

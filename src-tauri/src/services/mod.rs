@@ -6,6 +6,7 @@ pub mod calendar;
 pub mod devices;
 pub mod diagnostics;
 pub mod finance;
+pub mod finance_analytics;
 pub mod finance_import;
 pub mod finance_installments;
 pub mod finance_recurring;

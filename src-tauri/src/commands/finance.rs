@@ -1,6 +1,7 @@
 use tauri::State;
 
 use crate::domain::finance::accounts::{AccountInput, FinanceAccount};
+use crate::domain::finance::analytics::FinanceAnalytics;
 use crate::domain::finance::categories::{CategoryInput, CategoryUpdate, FinanceCategory};
 use crate::domain::finance::installments::InstallmentsOverview;
 use crate::domain::finance::overview::FinanceOverview;
@@ -8,6 +9,7 @@ use crate::domain::finance::recurring::{RecurringInput, RecurringOverview, Recur
 use crate::domain::finance::transactions::{Transaction, TransactionInput, TransactionStatus};
 use crate::error::AppResult;
 use crate::services::finance as service;
+use crate::services::finance_analytics as analytics;
 use crate::services::finance_import::{
     self as import, ImportCommitInput, ImportPreview, ImportResult,
 };
@@ -134,6 +136,17 @@ pub async fn get_finance_overview(
     month: String,
 ) -> AppResult<FinanceOverview> {
     service::get_overview(&state.db, &month)
+}
+
+/// Receita x despesas, categorias e patrimônio mês a mês de `from` a `to`
+/// (`aaaa-mm`, até 36 meses; somente leitura).
+#[tauri::command]
+pub async fn get_finance_analytics(
+    state: State<'_, AppState>,
+    from: String,
+    to: String,
+) -> AppResult<FinanceAnalytics> {
+    analytics::analytics(&state.db, &from, &to)
 }
 
 /// Lê um extrato (OFX) ou fatura do C6 (CSV) enviado pela tela e devolve a

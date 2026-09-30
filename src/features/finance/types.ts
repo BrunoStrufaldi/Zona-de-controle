@@ -160,6 +160,54 @@ export interface FinanceOverview {
   expensesByCategory: CategoryTotal[];
 }
 
+// ---------------------------------------------------------------- Analytics (7.1)
+
+/** Patrimônio ao fim de um mês (no mês atual, hoje). */
+export interface NetWorthPoint {
+  /** Saldos das contas que não são de investimentos (cartões entram negativos). */
+  accounts: Cents;
+  /** Carteira pelo valor informado + dinheiro parado nas contas de investimentos. */
+  investments: Cents;
+  total: Cents;
+}
+
+export interface AnalyticsMonth extends MonthlyCashflow {
+  /** Receita − despesas. */
+  net: Cents;
+  /** `null` antes do primeiro registro e depois do mês atual. */
+  netWorth: NetWorthPoint | null;
+}
+
+/** Despesas de uma categoria (`null` = sem categoria) no período. */
+export interface CategoryTrend {
+  categoryId: number | null;
+  total: Cents;
+  /** Total no período anterior de mesmo tamanho. */
+  previousTotal: Cents;
+  /** Um valor por mês do período, na ordem de `months`. */
+  months: Cents[];
+}
+
+export interface AnalyticsTotals {
+  income: Cents;
+  expenses: Cents;
+  net: Cents;
+  /** Médias dos `averageMonths` meses completos (o mês atual fica de fora quando há outros). */
+  averageIncome: Cents;
+  averageExpenses: Cents;
+  averageMonths: number;
+}
+
+export interface FinanceAnalytics {
+  from: YearMonth;
+  to: YearMonth;
+  today: IsoDate;
+  totals: AnalyticsTotals;
+  months: AnalyticsMonth[];
+  /** Maior total primeiro; só categorias com despesa no período. */
+  categories: CategoryTrend[];
+}
+
 /** Resumo derivado: saldo e percentual de economia. */
 export interface CashflowSummary {
   income: Cents;

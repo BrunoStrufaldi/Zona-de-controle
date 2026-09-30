@@ -403,10 +403,21 @@ Regras:
   investidos / dias do período; proventos não são fluxo). `exact` só com valor informado há até 35 dias no início (ou
   nada investido antes) e no fim (ou valor zero); senão o ativo é "aproximado". Evolução: fim de cada mês (no atual,
   hoje) do primeiro mês com dado até o atual, no máximo 24; vencimentos = renda fixa com `maturity_date` e valor > 0
-  (`days` negativo = vencido sem resgate). `get_investments_performance(from, to)` é somente leitura; a aba fica em
+  (`days` negativo = vencido sem resgate). Não há importação de investimentos (6.3 dispensada: o C6 não exporta
+  arquivo); se o usuário quiser automatizar, a alternativa discutida é o Excel da Área do Investidor da B3. `get_investments_performance(from, to)` é somente leitura; a aba fica em
   `?tab=performance` e os períodos em `features/finance/domain/performance.ts` (todos terminam hoje; "desde o início"
   = `PORTFOLIO_START`). Gráficos: o valor da carteira e os proventos usam `series2` (azul, como "Receita"; `series1`
   é despesa); o aplicado é referência neutra tracejada. Linhas retas entre os meses (nada é interpolado).
+- **Analytics (7.1):** `domain/finance/analytics.rs::build_analytics` (fonte da verdade), somente leitura por
+  `get_finance_analytics(from, to)` (`aaaa-mm`, até 36 meses, `MonthSpan`). Receita/despesas como na Visão Geral (pendentes
+  incluídos, transferências fora). Médias só dos meses completos **desde o primeiro registro** (meses antes de o usuário
+  começar não são meses sem gastos). Patrimônio ao fim de cada mês (no atual, hoje) = saldos com lançamentos **pagos até
+  a data** (`paid_balance_flows`) + Σ ativos (`value_on` − aplicado líquido), o mesmo total da 6.1 sem dupla contagem;
+  `null` antes do primeiro registro e depois do mês atual (a linha fica sem ponto). Categorias: despesas por mês + total
+  do período anterior de mesmo tamanho. Períodos e textos em `features/finance/domain/analytics.ts`. Gráficos: receita
+  `series2`, despesa `series1`; "receita − despesas" usa duas séries empilhadas (`surplus`/`deficit`) para a cor seguir o
+  sinal (o `Cell` do Recharts 3 está depreciado). A 7.2 (projeção) segue a decisão do usuário: conhecidos (recorrentes +
+  parcelas) + média dos últimos 6 meses do resto, **separada e rotulada "estimativa"**.
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

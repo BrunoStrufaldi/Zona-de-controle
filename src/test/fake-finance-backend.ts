@@ -8,6 +8,7 @@ import {
   type CategoryTotal,
   type CategoryUpdate,
   type FinanceAccount,
+  type FinanceAnalytics,
   type FinanceCategory,
   type FinanceOverview,
   type ImportCommitInput,
@@ -83,6 +84,8 @@ export function mockFinanceBackend(
     investments?: Partial<Omit<InvestmentsOverview, "assets">> & {
       assets?: (Partial<Omit<InvestmentAsset, "position">> & { position?: Partial<Position> })[];
     };
+    /** Análise devolvida por `get_finance_analytics` (calculada no Rust). */
+    analytics?: Partial<FinanceAnalytics>;
     /** Desempenho devolvido por `get_investments_performance` (calculado no Rust). */
     performance?: Partial<InvestmentsPerformance>;
     /** Histórico devolvido por `get_investment_asset`, por id do ativo. */
@@ -575,6 +578,28 @@ export function mockFinanceBackend(
           };
         }),
         expensesByCategory,
+      };
+    }),
+    get_finance_analytics: vi.fn(({ from, to }: { from: string; to: string }): FinanceAnalytics => {
+      const months = [];
+      for (let month = from; month <= to; month = shiftMonth(month, 1)) {
+        months.push({ month, income: 0, expenses: 0, net: 0, netWorth: null });
+      }
+      return {
+        from,
+        to,
+        today: NOW.slice(0, 10),
+        totals: {
+          income: 0,
+          expenses: 0,
+          net: 0,
+          averageIncome: 0,
+          averageExpenses: 0,
+          averageMonths: months.length,
+        },
+        months,
+        categories: [],
+        ...seed.analytics,
       };
     }),
   };
