@@ -225,6 +225,9 @@ permissions = [
   # nenhuma cotação é baixada: o valor atual é sempre o informado pelo usuário).
   "allow-get-investments-overview",
   "allow-get-investment-asset",
+  # Desempenho (somente leitura): resultado do período, evolução mensal e
+  # vencimentos, calculados no Rust a partir dos valores informados.
+  "allow-get-investments-performance",
   # Escritas validadas no Rust: ativo só em conta do tipo Investimentos;
   # movimentação com valor, data e quantidade válidos (com a conta, cria o
   # lançamento e o vínculo na mesma transação); vincular exige transferência

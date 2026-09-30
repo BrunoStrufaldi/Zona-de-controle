@@ -117,6 +117,7 @@ pub fn run() {
             commands::finance::get_installments_overview,
             commands::investments::get_investments_overview,
             commands::investments::get_investment_asset,
+            commands::investments::get_investments_performance,
             commands::investments::create_investment_asset,
             commands::investments::update_investment_asset,
             commands::investments::delete_investment_asset,

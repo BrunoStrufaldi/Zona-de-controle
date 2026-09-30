@@ -1,5 +1,6 @@
 use tauri::State;
 
+use crate::domain::finance::investment_performance::InvestmentsPerformance;
 use crate::domain::finance::investments::{
     AssetDetail, AssetInput, AssetView, InvestmentsOverview, Movement, MovementInput,
     ValuationInput,
@@ -15,6 +16,17 @@ pub async fn get_investments_overview(
     state: State<'_, AppState>,
 ) -> AppResult<InvestmentsOverview> {
     service::overview(&state.db)
+}
+
+/// Resultado e rentabilidade do período (`aaaa-mm-dd`, inclusive), evolução
+/// mensal da carteira e vencimentos da renda fixa (somente leitura).
+#[tauri::command]
+pub async fn get_investments_performance(
+    state: State<'_, AppState>,
+    from: String,
+    to: String,
+) -> AppResult<InvestmentsPerformance> {
+    service::performance(&state.db, &from, &to)
 }
 
 /// Um ativo com todas as movimentações e valores informados (somente leitura).

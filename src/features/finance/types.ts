@@ -618,3 +618,66 @@ export interface InvestmentsOverview {
   staleCount: number;
   unlinked: UnlinkedTransfer[];
 }
+
+/**
+ * Resultado de um ativo (ou da carteira) num período. Espelha
+ * `src-tauri/src/domain/finance/investment_performance.rs`.
+ */
+export interface PeriodResult {
+  /** Valor ao fim do dia anterior ao início. */
+  startValue: Cents;
+  endValue: Cents;
+  contributed: Cents;
+  withdrawn: Cents;
+  income: Cents;
+  /** Valor final − inicial − aplicações + resgates + proventos. */
+  gain: Cents;
+  /** Rentabilidade (Dietz modificado); `null` sem capital no período. */
+  rate: number | null;
+}
+
+export interface AssetPerformance extends PeriodResult {
+  assetId: number;
+  name: string;
+  class: AssetClass;
+  /** Valores informados (há até 35 dias) no início e no fim. */
+  exact: boolean;
+}
+
+export interface PerformanceTotals extends PeriodResult {
+  /** Ativos cujo resultado no período é aproximado. */
+  approximateAssets: number;
+}
+
+/** Carteira ao fim de um mês (no mês atual, hoje). */
+export interface PortfolioMonth {
+  month: YearMonth;
+  value: Cents;
+  /** Aplicações − resgates acumulados até o fim do mês. */
+  invested: Cents;
+  /** Proventos recebidos no mês. */
+  income: Cents;
+}
+
+/** Título de renda fixa com vencimento, ainda com valor. */
+export interface Maturity {
+  assetId: number;
+  name: string;
+  date: IsoDate;
+  value: Cents;
+  /** Dias até o vencimento (negativo = já venceu e não foi resgatado). */
+  days: number;
+}
+
+export interface InvestmentsPerformance {
+  from: IsoDate;
+  to: IsoDate;
+  today: IsoDate;
+  totals: PerformanceTotals;
+  /** Ativos com valor ou movimentação no período, maior valor final primeiro. */
+  assets: AssetPerformance[];
+  /** Até 24 meses, do mais antigo ao atual. */
+  months: PortfolioMonth[];
+  /** Os já vencidos primeiro. */
+  maturities: Maturity[];
+}

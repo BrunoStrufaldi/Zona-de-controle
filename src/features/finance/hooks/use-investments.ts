@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
+import { type DateRange } from "@/features/finance/domain/period";
 import {
   type FinanceRegistry,
   registryActions,
@@ -11,11 +12,12 @@ import {
   type InvestmentAsset,
   type InvestmentMovement,
   type InvestmentsOverview,
+  type InvestmentsPerformance,
   type MovementInput,
   type Quantity,
   type ValuationInput,
 } from "@/features/finance/types";
-import { type AsyncResource } from "@/hooks/use-async-resource";
+import { type AsyncResource, useAsyncResource } from "@/hooks/use-async-resource";
 import { useMutableResource } from "@/hooks/use-mutable-resource";
 import { listFinanceAccounts, listFinanceCategories } from "@/services/finance-service";
 import {
@@ -26,6 +28,7 @@ import {
   deleteInvestmentValuation,
   getInvestmentAsset,
   getInvestmentsOverview,
+  getInvestmentsPerformance,
   linkInvestmentTransaction,
   setInvestmentValuations,
   updateInvestmentAsset,
@@ -114,4 +117,11 @@ export function useInvestments(): {
   );
 
   return { resource, actions };
+}
+
+/** Desempenho do período (somente leitura); trocar o período mantém os dados na tela até a nova leitura. */
+export function useInvestmentsPerformance(range: DateRange): AsyncResource<InvestmentsPerformance> {
+  const { from, to } = range;
+  const load = useCallback(() => getInvestmentsPerformance(from, to), [from, to]);
+  return useAsyncResource(load);
 }

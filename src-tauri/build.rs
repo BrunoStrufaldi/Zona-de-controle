@@ -92,6 +92,7 @@ const APP_COMMANDS: &[&str] = &[
     "get_installments_overview",
     "get_investments_overview",
     "get_investment_asset",
+    "get_investments_performance",
     "create_investment_asset",
     "update_investment_asset",
     "delete_investment_asset",

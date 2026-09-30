@@ -376,6 +376,65 @@ pub struct Position {
     pub movement_count: u32,
 }
 
+/// Valor de um ativo ao fim de um dia.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ValueAt {
+    pub value: i64,
+    pub status: ValueStatus,
+    /// Data do último valor informado até o dia.
+    pub valued_on: Option<CalendarDate>,
+}
+
+/// Valor ao fim do dia `on` (`None` = com todas as movimentações): o último
+/// valor informado até o dia + aplicações − resgates feitos depois dele; sem
+/// nenhum, aplicações − resgates. Quem vendeu todas as cotas fica com zero.
+pub fn value_on(
+    movements: &[Movement],
+    valuations: &[Valuation],
+    on: Option<CalendarDate>,
+) -> ValueAt {
+    let within = |date: CalendarDate| on.map_or(true, |limit| date <= limit);
+    let mut ordered: Vec<&Movement> = movements
+        .iter()
+        .filter(|movement| within(movement.date))
+        .collect();
+    ordered.sort_by_key(|movement| (movement.date, movement.id));
+    let last = valuations
+        .iter()
+        .filter(|valuation| within(valuation.date))
+        .max_by_key(|valuation| valuation.date);
+
+    let base = last.map_or(0, |valuation| valuation.value);
+    let mut flows = 0;
+    let mut moved = false;
+    for movement in &ordered {
+        if last.is_some_and(|valuation| movement.date <= valuation.date) {
+            continue;
+        }
+        match movement.kind {
+            MovementKind::Contribution => flows += movement.amount,
+            MovementKind::Withdrawal => flows -= movement.amount,
+            MovementKind::Income => continue,
+        }
+        moved = true;
+    }
+    let status = match (last, moved) {
+        (None, _) => ValueStatus::NotInformed,
+        (Some(_), true) => ValueStatus::Adjusted,
+        (Some(_), false) => ValueStatus::Informed,
+    };
+    let sold_everything = holdings(&ordered).map(|(quantity, _)| quantity) == Some(0);
+    ValueAt {
+        value: if sold_everything {
+            0
+        } else {
+            (base + flows).max(0)
+        },
+        status,
+        valued_on: last.map(|valuation| valuation.date),
+    }
+}
+
 /// Posição do ativo a partir das movimentações e dos valores informados.
 pub fn position(movements: &[Movement], valuations: &[Valuation], today: CalendarDate) -> Position {
     let mut ordered: Vec<&Movement> = movements.iter().collect();
@@ -393,41 +452,13 @@ pub fn position(movements: &[Movement], valuations: &[Valuation], today: Calenda
         sum(MovementKind::Income),
     );
     let holdings = holdings(&ordered);
-
-    let last = valuations.iter().max_by_key(|valuation| valuation.date);
-    let (mut value, value_status) = match last {
-        None => (contributed - withdrawn, ValueStatus::NotInformed),
-        Some(valuation) => {
-            let after = ordered
-                .iter()
-                .filter(|movement| movement.date > valuation.date);
-            let mut flows = 0;
-            let mut moved = false;
-            for movement in after {
-                match movement.kind {
-                    MovementKind::Contribution => flows += movement.amount,
-                    MovementKind::Withdrawal => flows -= movement.amount,
-                    MovementKind::Income => continue,
-                }
-                moved = true;
-            }
-            let status = if moved {
-                ValueStatus::Adjusted
-            } else {
-                ValueStatus::Informed
-            };
-            (valuation.value + flows, status)
-        }
-    };
-    // Vendeu todas as cotas: não sobra nada, mesmo que o último valor informado seja antigo.
-    if holdings.map(|(quantity, _)| quantity) == Some(0) {
-        value = 0;
-    }
-    let value = value.max(0);
+    let current = value_on(movements, valuations, None);
+    let (value, value_status) = (current.value, current.status);
+    let last = current.valued_on;
 
     let movement_count = ordered.len() as u32;
     let closed = value == 0 && movement_count > 0;
-    let old = last.is_some_and(|valuation| valuation.date.days_until(today) > STALE_AFTER_DAYS);
+    let old = last.is_some_and(|date| date.days_until(today) > STALE_AFTER_DAYS);
     let stale = !closed
         && movement_count + valuations.len() as u32 > 0
         && (value_status != ValueStatus::Informed || old);
@@ -436,7 +467,7 @@ pub fn position(movements: &[Movement], valuations: &[Valuation], today: Calenda
     Position {
         value,
         value_status,
-        valued_on: last.map(|valuation| valuation.date.to_string()),
+        valued_on: last.map(|date| date.to_string()),
         contributed,
         withdrawn,
         income,

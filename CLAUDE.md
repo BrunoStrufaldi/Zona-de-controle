@@ -396,6 +396,17 @@ Regras:
   Exclusões auditadas: `investment_asset.deleted`, `investment_movement.deleted`, `investment_valuation.deleted`.
   `Transaction.investmentAssetId` marca os vinculados (selo "Investimento"). Textos e formulários em
   `features/finance/domain/investments.ts`; hook `use-investments.ts`; service `services/investments-service.ts`.
+- **Desempenho dos investimentos (6.2):** `domain/finance/investment_performance.rs` (fonte da verdade), sobre
+  `investments::value_on` (valor ao fim de um dia: último informado até ele + aplicações − resgates depois; a posição
+  da 6.1 usa a mesma função). Período `from..to`: início = fim do dia anterior a `from`; resultado = fim − início −
+  aplicações + resgates + proventos; rentabilidade por **Dietz modificado** (capital = início + fluxos × dias
+  investidos / dias do período; proventos não são fluxo). `exact` só com valor informado há até 35 dias no início (ou
+  nada investido antes) e no fim (ou valor zero); senão o ativo é "aproximado". Evolução: fim de cada mês (no atual,
+  hoje) do primeiro mês com dado até o atual, no máximo 24; vencimentos = renda fixa com `maturity_date` e valor > 0
+  (`days` negativo = vencido sem resgate). `get_investments_performance(from, to)` é somente leitura; a aba fica em
+  `?tab=performance` e os períodos em `features/finance/domain/performance.ts` (todos terminam hoje; "desde o início"
+  = `PORTFOLIO_START`). Gráficos: o valor da carteira e os proventos usam `series2` (azul, como "Receita"; `series1`
+  é despesa); o aplicado é referência neutra tracejada. Linhas retas entre os meses (nada é interpolado).
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

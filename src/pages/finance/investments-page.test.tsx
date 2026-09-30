@@ -1,12 +1,13 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { paths } from "@/app/router/paths";
 import { QUANTITY_SCALE } from "@/features/finance/domain/investments";
+import { performanceRange } from "@/features/finance/domain/performance";
 import { toIsoDate } from "@/lib/dates";
 import { mockFinanceBackend } from "@/test/fake-finance-backend";
-import { renderRoute } from "@/test/render";
+import { preloadInvestments, renderRoute } from "@/test/render";
 
 const today = toIsoDate(new Date());
 
@@ -51,6 +52,8 @@ const stock = {
 };
 
 describe("página de Investimentos", () => {
+  beforeAll(preloadInvestments);
+
   it("pede uma conta de investimentos antes do primeiro ativo", async () => {
     mockFinanceBackend({ accounts: [{ name: "C6" }] });
     renderRoute(paths.finance.investments);
@@ -262,6 +265,86 @@ describe("página de Investimentos", () => {
     await user.click(within(confirm).getByRole("button", { name: /Excluir ativo/ }));
     await waitFor(() => {
       expect(backend.handlers.delete_investment_asset).toHaveBeenCalledWith({ id: 1 });
+    });
+  });
+
+  it("mostra o desempenho do período, a evolução e os vencimentos", async () => {
+    const user = userEvent.setup();
+    const backend = mockFinanceBackend({
+      accounts: ACCOUNTS,
+      investments: { assets: [cdb] },
+      performance: {
+        totals: {
+          startValue: 100_700,
+          endValue: 101_600,
+          contributed: 0,
+          withdrawn: 0,
+          income: 250,
+          gain: 1_150,
+          rate: 0.0114,
+          approximateAssets: 1,
+        },
+        assets: [
+          {
+            assetId: 1,
+            name: "CDB C6 110%",
+            class: "fixed_income",
+            startValue: 100_700,
+            endValue: 101_600,
+            contributed: 0,
+            withdrawn: 0,
+            income: 250,
+            gain: 1_150,
+            rate: 0.0114,
+            exact: false,
+          },
+        ],
+        months: [
+          { month: "2026-08", value: 100_700, invested: 100_000, income: 0 },
+          { month: "2026-09", value: 101_600, invested: 100_000, income: 250 },
+        ],
+        maturities: [
+          { assetId: 1, name: "CDB C6 110%", date: "2028-01-03", value: 101_600, days: 460 },
+          { assetId: 3, name: "LCI antiga", date: "2026-09-01", value: 20_000, days: -29 },
+        ],
+      },
+    });
+    const { router } = renderRoute(paths.finance.investments);
+
+    await user.click(await screen.findByRole("tab", { name: /Desempenho/ }));
+    expect(router.state.location.search).toBe("?tab=performance");
+    await waitFor(() => {
+      expect(backend.handlers.get_investments_performance).toHaveBeenCalledWith(
+        performanceRange("12m", today),
+      );
+    });
+
+    expect(await screen.findByText("Resultado do período")).toBeInTheDocument();
+    const gain = screen.getByText("Resultado", { selector: "dt" });
+    expect(gain.nextElementSibling).toHaveTextContent("+R$ 11,50");
+    expect(gain.nextElementSibling).toHaveTextContent("+1,1% de rentabilidade");
+    expect(screen.getByText(/1 ativo está sem valor informado recente/)).toBeInTheDocument();
+
+    const table = screen.getByRole("table", { name: "Resultado por ativo" });
+    const row = within(table).getByRole("row", { name: /CDB C6 110%/ });
+    expect(row).toHaveTextContent("aproximado");
+    expect(row).toHaveTextContent("+R$ 11,50 (+1,1%)");
+
+    const maturities = screen.getByRole("list", { name: "Vencimentos da renda fixa" });
+    expect(within(maturities).getByText("venceu há 29 dias")).toBeInTheDocument();
+    expect(within(maturities).getByText("Registrar resgate")).toBeInTheDocument();
+    expect(within(maturities).getByText("vence em 460 dias")).toBeInTheDocument();
+    expect(
+      screen.getByRole("table", {
+        name: "Valor da carteira e aplicado líquido ao fim de cada mês",
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Este mês" }));
+    await waitFor(() => {
+      expect(backend.handlers.get_investments_performance).toHaveBeenLastCalledWith(
+        performanceRange("month", today),
+      );
     });
   });
 });

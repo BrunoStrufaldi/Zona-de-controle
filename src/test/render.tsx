@@ -24,6 +24,11 @@ export async function preloadFinanceOverview(): Promise<void> {
   await import("@/pages/finance/finance-overview-page");
 }
 
+/** Como `preloadDashboard`, para Investimentos (a aba Desempenho usa o Recharts). */
+export async function preloadInvestments(): Promise<void> {
+  await import("@/pages/finance/investments-page");
+}
+
 /** Como `preloadDashboard`, para Parcelamentos (também usa o Recharts). */
 export async function preloadInstallments(): Promise<void> {
   await import("@/pages/finance/installments-page");

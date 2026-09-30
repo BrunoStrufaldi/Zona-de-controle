@@ -19,6 +19,7 @@ import {
   type InvestmentAsset,
   type InvestmentMovement,
   type InvestmentsOverview,
+  type InvestmentsPerformance,
   type MovementInput,
   type OccurrenceStatus,
   type Position,
@@ -82,6 +83,8 @@ export function mockFinanceBackend(
     investments?: Partial<Omit<InvestmentsOverview, "assets">> & {
       assets?: (Partial<Omit<InvestmentAsset, "position">> & { position?: Partial<Position> })[];
     };
+    /** Desempenho devolvido por `get_investments_performance` (calculado no Rust). */
+    performance?: Partial<InvestmentsPerformance>;
     /** Histórico devolvido por `get_investment_asset`, por id do ativo. */
     assetHistory?: Record<number, Pick<AssetDetail, "movements" | "valuations">>;
   } = {},
@@ -642,6 +645,27 @@ export function mockFinanceBackend(
       assets,
       unlinked,
     })),
+    get_investments_performance: vi.fn(
+      ({ from, to }: { from: string; to: string }): InvestmentsPerformance => ({
+        from,
+        to,
+        today: NOW.slice(0, 10),
+        totals: {
+          startValue: 0,
+          endValue: 0,
+          contributed: 0,
+          withdrawn: 0,
+          income: 0,
+          gain: 0,
+          rate: null,
+          approximateAssets: 0,
+        },
+        assets: [],
+        months: [],
+        maturities: [],
+        ...seed.performance,
+      }),
+    ),
     get_investment_asset: vi.fn(({ id }: { id: number }): AssetDetail => ({
       asset: findAsset(id),
       movements: [],

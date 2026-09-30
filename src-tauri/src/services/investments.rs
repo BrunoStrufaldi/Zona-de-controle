@@ -7,6 +7,9 @@ use serde_json::json;
 
 use crate::db::Database;
 use crate::domain::calendar::CalendarDate;
+use crate::domain::finance::investment_performance::{
+    build_performance, InvestmentsPerformance, Period,
+};
 use crate::domain::finance::investments::{
     build_overview, movement_kind_for, position, AssetDetail, AssetInput, AssetView,
     InvestmentsOverview, Movement, MovementInput, MovementKind, ValidMovement, Valuation,
@@ -34,6 +37,20 @@ pub fn overview(db: &Database) -> AppResult<InvestmentsOverview> {
             investments::load_portfolio(connection)?,
             &finance_accounts::list(connection)?,
             investments::unlinked_transfers(connection, MAX_UNLINKED)?,
+            today,
+        ))
+    })
+}
+
+/// Resultado e rentabilidade de `from` a `to`, evolução mensal da carteira e
+/// vencimentos da renda fixa (somente leitura).
+pub fn performance(db: &Database, from: &str, to: &str) -> AppResult<InvestmentsPerformance> {
+    let period = Period::parse(from, to)?;
+    db.with_connection(|connection| {
+        let today = local_today(connection)?;
+        Ok(build_performance(
+            &investments::load_portfolio(connection)?,
+            period,
             today,
         ))
     })
@@ -799,6 +816,45 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn performance_uses_the_informed_values() {
+        let db = Database::open_in_memory().unwrap();
+        let investments = account(&db, "Investimentos", AccountKind::Investment);
+        let asset = create_asset(&db, cdb(investments)).unwrap();
+        create_movement(
+            &db,
+            asset.id,
+            movement(MovementKind::Contribution, "2026-08-10", 100_000, None),
+        )
+        .unwrap();
+        set_valuations(
+            &db,
+            vec![
+                ValuationInput {
+                    asset_id: asset.id,
+                    date: "2026-08-31".into(),
+                    value: 100_700,
+                },
+                ValuationInput {
+                    asset_id: asset.id,
+                    date: "2026-09-30".into(),
+                    value: 101_600,
+                },
+            ],
+        )
+        .unwrap();
+
+        let september = performance(&db, "2026-09-01", "2026-09-30").unwrap();
+        assert_eq!(september.totals.result.gain, 900);
+        assert_eq!(september.totals.approximate_assets, 0);
+        assert!((september.totals.result.rate.unwrap() - 900.0 / 100_700.0).abs() < 1e-12);
+        assert_eq!(september.maturities[0].date, "2028-01-03");
+        assert!(matches!(
+            performance(&db, "2026-09-30", "2026-09-01"),
+            Err(AppError::Validation(_))
+        ));
     }
 
     #[test]

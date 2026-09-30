@@ -1,10 +1,12 @@
-import { Plus, RefreshCw, TrendingUp } from "lucide-react";
+import { ChartLine, Coins, Plus, RefreshCw, TrendingUp } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { ResourceView } from "@/components/shared/resource-view";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AccountsDialog } from "@/features/finance/components/accounts-dialog";
 import { AssetDetailDialog } from "@/features/finance/components/asset-detail-dialog";
 import {
@@ -18,6 +20,7 @@ import {
   MovementFormDialog,
   type MovementFormMode,
 } from "@/features/finance/components/movement-form-dialog";
+import { PerformanceView } from "@/features/finance/components/performance-view";
 import {
   ValuationsDialog,
   type ValuationsTarget,
@@ -28,7 +31,11 @@ import {
   movementKindLabels,
   movementRegisteredLabels,
 } from "@/features/finance/domain/investments";
-import { useInvestments } from "@/features/finance/hooks/use-investments";
+import { type PerformancePeriod, performanceRange } from "@/features/finance/domain/performance";
+import {
+  useInvestments,
+  useInvestmentsPerformance,
+} from "@/features/finance/hooks/use-investments";
 import {
   type InvestmentAsset,
   type InvestmentMovement,
@@ -38,13 +45,31 @@ import {
 import { toIsoDate } from "@/lib/dates";
 import { formatCents, formatDate } from "@/lib/format";
 import { toServiceError } from "@/services/tauri/errors";
+import { type IsoDate } from "@/types/common";
 
 function notifyError(title: string, error: unknown) {
   toast.error(title, { description: toServiceError(error).message });
 }
 
+type InvestmentsTab = "portfolio" | "performance";
+
+/** A aba fica na URL (`?tab=performance`), para voltar a ela ao navegar. */
+const INVESTMENTS_TAB_PARAM = "tab";
+
+function PerformanceTab({ today }: { today: IsoDate }) {
+  const [period, setPeriod] = useState<PerformancePeriod>("12m");
+  const range = performanceRange(period, today);
+  const resource = useInvestmentsPerformance(range);
+  return (
+    <PerformanceView resource={resource} period={period} range={range} onPeriodChange={setPeriod} />
+  );
+}
+
 export function InvestmentsPage() {
   const today = toIsoDate(new Date());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: InvestmentsTab =
+    searchParams.get(INVESTMENTS_TAB_PARAM) === "performance" ? "performance" : "portfolio";
   const { resource, actions } = useInvestments();
   const [accountsOpen, setAccountsOpen] = useState(false);
   const [assetForm, setAssetForm] = useState<AssetFormMode | null>(null);
@@ -104,30 +129,53 @@ export function InvestmentsPage() {
         }
       />
 
-      <ResourceView resource={resource} loadingLabel="Carregando investimentos…">
-        {(data) => (
-          <InvestmentsView
-            data={data}
-            onCreateAccount={() => {
-              setAccountsOpen(true);
-            }}
-            onCreateAsset={openCreateAsset}
-            onUpdateValues={openUpdateValues}
-            onLinkTransfer={setLinking}
-            onDetails={setDetail}
-            onMovement={(asset, movementKind) => {
-              setMovementForm({ kind: "create", asset, movementKind, date: today });
-            }}
-            onValue={(asset) => {
-              setValuations({ assets: [asset], date: today });
-            }}
-            onEdit={(asset) => {
-              setAssetForm({ kind: "edit", asset });
-            }}
-            onDelete={setDeletingAsset}
-          />
-        )}
-      </ResourceView>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => {
+          setSearchParams({ [INVESTMENTS_TAB_PARAM]: value }, { replace: true });
+        }}
+        className="gap-6"
+      >
+        <TabsList aria-label="Visão">
+          <TabsTrigger value="portfolio">
+            <Coins aria-hidden="true" />
+            Carteira
+          </TabsTrigger>
+          <TabsTrigger value="performance">
+            <ChartLine aria-hidden="true" />
+            Desempenho
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="performance">
+          <PerformanceTab today={today} />
+        </TabsContent>
+        <TabsContent value="portfolio">
+          <ResourceView resource={resource} loadingLabel="Carregando investimentos…">
+            {(data) => (
+              <InvestmentsView
+                data={data}
+                onCreateAccount={() => {
+                  setAccountsOpen(true);
+                }}
+                onCreateAsset={openCreateAsset}
+                onUpdateValues={openUpdateValues}
+                onLinkTransfer={setLinking}
+                onDetails={setDetail}
+                onMovement={(asset, movementKind) => {
+                  setMovementForm({ kind: "create", asset, movementKind, date: today });
+                }}
+                onValue={(asset) => {
+                  setValuations({ assets: [asset], date: today });
+                }}
+                onEdit={(asset) => {
+                  setAssetForm({ kind: "edit", asset });
+                }}
+                onDelete={setDeletingAsset}
+              />
+            )}
+          </ResourceView>
+        </TabsContent>
+      </Tabs>
 
       <AssetFormDialog
         mode={assetForm}

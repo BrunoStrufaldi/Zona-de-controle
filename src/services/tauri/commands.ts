@@ -23,6 +23,7 @@ import {
   type InvestmentAsset,
   type InvestmentMovement,
   type InvestmentsOverview,
+  type InvestmentsPerformance,
   type MovementInput,
   type RecurringInput,
   type RecurringOverview,
@@ -194,6 +195,10 @@ export interface CommandMap {
   get_installments_overview: { args: undefined; result: InstallmentsOverview };
   get_investments_overview: { args: undefined; result: InvestmentsOverview };
   get_investment_asset: { args: { id: number }; result: AssetDetail };
+  get_investments_performance: {
+    args: { from: string; to: string };
+    result: InvestmentsPerformance;
+  };
   create_investment_asset: { args: { input: AssetInput }; result: InvestmentAsset };
   update_investment_asset: { args: { id: number; input: AssetInput }; result: InvestmentAsset };
   delete_investment_asset: { args: { id: number }; result: null };

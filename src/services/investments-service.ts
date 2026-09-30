@@ -4,6 +4,7 @@ import {
   type InvestmentAsset,
   type InvestmentMovement,
   type InvestmentsOverview,
+  type InvestmentsPerformance,
   type MovementInput,
   type Quantity,
   type ValuationInput,
@@ -17,6 +18,17 @@ import { type IsoDate } from "@/types/common";
  */
 export function getInvestmentsOverview(): Promise<InvestmentsOverview> {
   return invokeCommand("get_investments_overview");
+}
+
+/**
+ * Resultado e rentabilidade de `from` a `to` (inclusive), evolução mensal da
+ * carteira e vencimentos da renda fixa, calculados no Rust.
+ */
+export function getInvestmentsPerformance(
+  from: IsoDate,
+  to: IsoDate,
+): Promise<InvestmentsPerformance> {
+  return invokeCommand("get_investments_performance", { from, to });
 }
 
 /** Um ativo com todas as movimentações e valores informados. */
