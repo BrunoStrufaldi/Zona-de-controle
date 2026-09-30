@@ -13,8 +13,17 @@ import {
   type ImportCommitInput,
   type ImportPreview,
   type ImportResult,
+  type AssetDetail,
+  type AssetInput,
   type InstallmentsOverview,
+  type InvestmentAsset,
+  type InvestmentMovement,
+  type InvestmentsOverview,
+  type MovementInput,
   type OccurrenceStatus,
+  type Position,
+  type Quantity,
+  type ValuationInput,
   type RecurringInput,
   type RecurringOccurrence,
   type RecurringOverview,
@@ -66,6 +75,15 @@ export function mockFinanceBackend(
     };
     /** Visão devolvida por `get_installments_overview` (o cálculo de verdade é do Rust). */
     installments?: Partial<InstallmentsOverview>;
+    /**
+     * Carteira devolvida por `get_investments_overview` (a posição de verdade é
+     * calculada no Rust). Ativos parciais recebem uma posição vazia.
+     */
+    investments?: Partial<Omit<InvestmentsOverview, "assets">> & {
+      assets?: (Partial<Omit<InvestmentAsset, "position">> & { position?: Partial<Position> })[];
+    };
+    /** Histórico devolvido por `get_investment_asset`, por id do ativo. */
+    assetHistory?: Record<number, Pick<AssetDetail, "movements" | "valuations">>;
   } = {},
 ) {
   let accounts: StoredAccount[] = (seed.accounts ?? []).map((partial, index) => ({
@@ -99,6 +117,7 @@ export function mockFinanceBackend(
       installment: null,
       imported: false,
       recurringId: null,
+      investmentAssetId: null,
       createdAt: NOW,
       updatedAt: NOW,
       ...partial,
@@ -273,6 +292,7 @@ export function mockFinanceBackend(
         installment: null,
         imported: false,
         recurringId: null,
+        investmentAssetId: null,
         createdAt: NOW,
         updatedAt: NOW,
       };
@@ -332,6 +352,7 @@ export function mockFinanceBackend(
             installment: line.installment,
             imported: true,
             recurringId: decision.recurring?.recurringId ?? null,
+            investmentAssetId: null,
             createdAt: NOW,
             updatedAt: NOW,
           },
@@ -452,6 +473,7 @@ export function mockFinanceBackend(
           installment: null,
           imported: false,
           recurringId: id,
+          investmentAssetId: null,
           createdAt: NOW,
           updatedAt: NOW,
         };
@@ -554,11 +576,195 @@ export function mockFinanceBackend(
     }),
   };
 
-  mockDesktopRuntime(handlers);
+  // ------------------------------------------------------------ Investimentos
+
+  const emptyPosition = (partial: Partial<Position> = {}): Position => ({
+    value: 0,
+    valueStatus: "not_informed",
+    valuedOn: null,
+    contributed: 0,
+    withdrawn: 0,
+    income: 0,
+    invested: 0,
+    gain: 0,
+    gainRate: null,
+    quantity: null,
+    averagePrice: null,
+    stale: false,
+    closed: false,
+    movementCount: 0,
+    ...partial,
+  });
+  const investmentSeed = seed.investments ?? {};
+  let assets: InvestmentAsset[] = (investmentSeed.assets ?? []).map((partial, index) => ({
+    id: index + 1,
+    accountId: 1,
+    class: "fixed_income",
+    name: `Ativo ${index + 1}`,
+    ticker: null,
+    maturityDate: null,
+    notes: "",
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...partial,
+    position: emptyPosition(partial.position),
+  }));
+  let unlinked = [...(investmentSeed.unlinked ?? [])];
+  let nextMovementId = 1;
+
+  const findAsset = (id: number) =>
+    assets.find((asset) => asset.id === id) ?? fail("not_found", "ativo não encontrado");
+
+  const movementFrom = (
+    assetId: number,
+    input: Pick<MovementInput, "kind" | "date" | "amount" | "quantity" | "notes">,
+    transactionId: number | null,
+  ): InvestmentMovement => ({
+    id: nextMovementId++,
+    assetId,
+    kind: input.kind,
+    date: input.date,
+    amount: input.amount,
+    quantity: input.quantity,
+    transactionId,
+    notes: input.notes,
+  });
+
+  const investmentHandlers = {
+    get_investments_overview: vi.fn((): InvestmentsOverview => ({
+      today: NOW.slice(0, 10),
+      totals: { value: 0, contributed: 0, withdrawn: 0, income: 0, invested: 0, gain: 0 },
+      byClass: [],
+      accounts: [],
+      netWorth: { accounts: 0, investmentCash: 0, portfolio: 0, total: 0 },
+      staleCount: 0,
+      ...investmentSeed,
+      assets,
+      unlinked,
+    })),
+    get_investment_asset: vi.fn(({ id }: { id: number }): AssetDetail => ({
+      asset: findAsset(id),
+      movements: [],
+      valuations: [],
+      ...seed.assetHistory?.[id],
+    })),
+    create_investment_asset: vi.fn(({ input }: { input: AssetInput }) => {
+      const asset: InvestmentAsset = {
+        id: Math.max(0, ...assets.map((item) => item.id)) + 1,
+        ...input,
+        position: emptyPosition(),
+        createdAt: NOW,
+        updatedAt: NOW,
+      };
+      assets = [...assets, asset];
+      return asset;
+    }),
+    update_investment_asset: vi.fn(({ id, input }: { id: number; input: AssetInput }) => {
+      const updated = { ...findAsset(id), ...input };
+      assets = assets.map((asset) => (asset.id === id ? updated : asset));
+      return updated;
+    }),
+    delete_investment_asset: vi.fn(({ id }: { id: number }) => {
+      findAsset(id);
+      assets = assets.filter((asset) => asset.id !== id);
+      return null;
+    }),
+    create_investment_movement: vi.fn(
+      ({ assetId, input }: { assetId: number; input: MovementInput }) => {
+        const asset = findAsset(assetId);
+        let transactionId: number | null = null;
+        if (input.accountId !== null) {
+          const income = input.kind === "income";
+          const contribution = input.kind === "contribution";
+          const transaction: Transaction = {
+            id: nextTransactionId++,
+            accountId: contribution || income ? input.accountId : asset.accountId,
+            transferAccountId: income ? null : contribution ? asset.accountId : input.accountId,
+            categoryId: null,
+            kind: income ? "income" : "transfer",
+            description: asset.name,
+            amount: input.amount,
+            date: input.date,
+            status: "paid",
+            notes: "",
+            tags: [],
+            purchaseDate: null,
+            installment: null,
+            imported: false,
+            recurringId: null,
+            investmentAssetId: assetId,
+            createdAt: NOW,
+            updatedAt: NOW,
+          };
+          transactions = [...transactions, transaction];
+          transactionId = transaction.id;
+        }
+        return movementFrom(assetId, input, transactionId);
+      },
+    ),
+    update_investment_movement: vi.fn(({ id, input }: { id: number; input: MovementInput }) => ({
+      ...movementFrom(1, input, null),
+      id,
+    })),
+    delete_investment_movement: vi.fn((_args: { id: number }) => null),
+    link_investment_transaction: vi.fn(
+      ({
+        assetId,
+        transactionId,
+        quantity,
+      }: {
+        assetId: number;
+        transactionId: number;
+        quantity: Quantity | null;
+      }) => {
+        findAsset(assetId);
+        const transfer =
+          unlinked.find((item) => item.transactionId === transactionId) ??
+          fail("validation", "o lançamento não é uma transferência com a conta do ativo");
+        unlinked = unlinked.filter((item) => item.transactionId !== transactionId);
+        return movementFrom(
+          assetId,
+          {
+            kind: transfer.kind,
+            date: transfer.date,
+            amount: transfer.amount,
+            quantity,
+            notes: "",
+          },
+          transactionId,
+        );
+      },
+    ),
+    set_investment_valuations: vi.fn(({ valuations }: { valuations: ValuationInput[] }) => {
+      for (const valuation of valuations) {
+        findAsset(valuation.assetId);
+        assets = assets.map((asset) =>
+          asset.id === valuation.assetId
+            ? {
+                ...asset,
+                position: {
+                  ...asset.position,
+                  value: valuation.value,
+                  valueStatus: "informed",
+                  valuedOn: valuation.date,
+                  stale: false,
+                },
+              }
+            : asset,
+        );
+      }
+      return null;
+    }),
+    delete_investment_valuation: vi.fn((_args: { assetId: number; date: string }) => null),
+  };
+
+  const allHandlers = { ...handlers, ...investmentHandlers };
+  mockDesktopRuntime(allHandlers);
   return {
-    handlers,
+    handlers: allHandlers,
     transactions: () => transactions,
     accounts: () => accounts,
     occurrences: () => occurrences,
+    assets: () => assets,
   };
 }

@@ -53,7 +53,7 @@ import {
 } from "@/services/finance-service";
 
 /** Cadastros usados por todas as telas de Finanças. */
-interface FinanceRegistry {
+export interface FinanceRegistry {
   accounts: FinanceAccount[];
   categories: FinanceCategory[];
 }
@@ -69,7 +69,7 @@ export interface RegistryActions {
   removeCategory: (id: number) => Promise<void>;
 }
 
-function registryActions<T extends FinanceRegistry>(mutate: Mutate<T>): RegistryActions {
+export function registryActions<T extends FinanceRegistry>(mutate: Mutate<T>): RegistryActions {
   return {
     saveAccount: (id, input) =>
       mutate(null, () =>

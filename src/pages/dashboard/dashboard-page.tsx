@@ -2,6 +2,7 @@ import { useCallback } from "react";
 
 import { CashflowChartWidget } from "@/features/finance/components/cashflow-chart-widget";
 import { FinanceSummaryWidget } from "@/features/finance/components/finance-summary-widget";
+import { InvestmentsWidget } from "@/features/finance/components/investments-widget";
 import { UpcomingBillsWidget } from "@/features/finance/components/upcoming-bills-widget";
 import { monthOf } from "@/features/finance/domain/period";
 import { UPCOMING_DAYS } from "@/features/finance/domain/recurring";
@@ -20,6 +21,7 @@ import { addDays, toIsoDate } from "@/lib/dates";
 import { dashboardDemoData as demo } from "@/mocks/dashboard";
 import { listCalendar } from "@/services/calendar-service";
 import { getFinanceOverview, listRecurring } from "@/services/finance-service";
+import { getInvestmentsOverview } from "@/services/investments-service";
 import { listBatteryDevices } from "@/services/devices-service";
 import { runDiagnostics } from "@/services/diagnostics-service";
 import { listCleanupHistory } from "@/services/optimization-service";
@@ -43,7 +45,7 @@ const DEVICES_INTERVAL_MS = 60_000;
 /**
  * Dashboard. Widgets de módulos já implementados usam dados reais (Tarefas,
  * Rotinas, Calendário, status do sistema, armazenamento, diagnóstico, bateria,
- * limpeza, finanças e vencimentos das recorrentes);
+ * limpeza, finanças, vencimentos das recorrentes e investimentos);
  * os demais ainda recebem dados de `src/mocks` e são marcados como Demo. Ao
  * implementar um módulo, troque a fonte do widget pelo serviço real e remova `demo`.
  */
@@ -62,6 +64,7 @@ export function DashboardPage() {
   const finance = useAsyncResource(loadFinance);
   const loadBills = useCallback(() => listRecurring(today, addDays(today, UPCOMING_DAYS)), [today]);
   const bills = useAsyncResource(loadBills);
+  const investments = useAsyncResource(getInvestmentsOverview);
 
   return (
     <>
@@ -77,8 +80,9 @@ export function DashboardPage() {
 
           <FinanceSummaryWidget overview={finance} />
           <UpcomingBillsWidget recurring={bills} />
-          <CleanupWidget history={cleanup} />
+          <InvestmentsWidget investments={investments} />
           <CashflowChartWidget overview={finance} className="@3xl:col-span-2" />
+          <CleanupWidget history={cleanup} />
 
           <StorageWidget snapshot={system} />
           <DiagnosticsWidget report={diagnostics} />

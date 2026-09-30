@@ -16,7 +16,7 @@ O **Zona de Controle** reúne em um só lugar três áreas do dia a dia:
 
 Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem, sem contas e sem APIs externas.
 
-> **Estado atual: Fase 5 concluída (contas, lançamentos, Visão Geral, transferências, importação de extratos, recorrentes e parcelamentos).** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** analisa e limpa, com confirmação, cancelamento, auditoria e histórico. Em **Finanças**, contas, lançamentos, transferências, categorias, a Visão Geral do mês, a importação de extratos do banco, as contas recorrentes e os parcelamentos já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
+> **Estado atual: Fase 5 concluída e Fase 6 em andamento (6.1: carteira de investimentos).** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** analisa e limpa, com confirmação, cancelamento, auditoria e histórico. Em **Finanças**, contas, lançamentos, transferências, categorias, a Visão Geral do mês, a importação de extratos do banco, as contas recorrentes, os parcelamentos e a carteira de investimentos já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
 
 ## Stack
 
@@ -103,7 +103,13 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
   - resumo: quanto falta pagar em parcelas, em quantas compras, quanto pesa nas faturas deste mês e quando vence a última parcela;
   - gráfico e tabela das **faturas dos próximos 12 meses**: parcelas mais as recorrentes do cartão (com os dias da fatura), quanto a fatura alivia de um mês para o outro e quais compras encerram em cada mês;
   - compras quitadas ficam numa lista à parte.
-- **Investimentos**: Renda Fixa, Ações, FIIs, ETFs, Cripto e Outros, com patrimônio, distribuição, evolução e rentabilidade.
+- **Investimentos** (6.1 ✅): carteira com Renda fixa, Ações, FIIs, ETFs, Cripto e Outros. **Nenhuma cotação é baixada**: o valor atual de cada ativo é o que você informa, copiado do app do banco ou da corretora:
+  - cada ativo fica numa conta do tipo Investimentos (a instituição) e registra aplicações, resgates e proventos, com quantidade opcional (até 8 casas, para cripto e Tesouro) e preço médio;
+  - ao registrar, dá para escolher a conta de onde sai (ou para onde vai) o dinheiro: a transferência é criada e fica vinculada. As transferências que já existem (ex.: "APLICACAO CDB" importada do extrato) aparecem em **Aplicações e resgates sem ativo** e são vinculadas com um clique;
+  - **Atualizar valores** informa o valor de todos os ativos de uma vez. Depois do último valor informado, só as aplicações e os resgates entram na conta, e o ativo aparece como "Atualizar valor"; sem nenhum valor informado, considera o que foi aplicado;
+  - resultado de cada ativo e da carteira (valor + resgates + proventos − aplicações), distribuição por classe e **patrimônio total** (contas + dinheiro parado nas contas de investimentos + carteira), sem contar o mesmo dinheiro duas vezes;
+  - resgate total encerra o ativo; o histórico de cada ativo mostra as movimentações e os valores informados. Excluir ativo, movimentação ou valor pede confirmação e fica no log de auditoria (os lançamentos vinculados continuam);
+  - card **Investimentos** no dashboard. Evolução, rentabilidade por período e importação do C6 ficam para as próximas etapas.
 - **Analytics**: receita x despesa, gastos por categoria, fluxo de caixa, projeção de 6 meses e impacto das parcelas.
 
 ### Já funcional
@@ -314,7 +320,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada pu
 - **Fase 3 — System Monitor**: monitoramento de CPU, RAM, discos e processos ✅ (3.1); diagnósticos ✅ (3.2); dispositivos e bateria ✅ (3.3a: receptores 2.4 GHz, controles Xbox e Bluetooth; 3.3b: bateria do headset MCHOSE V9 PRO e do mouse Rapoo VT7 Max pelo receptor).
 - **Fase 4 — Safe Optimization** ✅: análise de temporários, caches seguros e Lixeira (4.1); limpeza com confirmação, auditoria e cancelamento (4.2); histórico das limpezas e card no dashboard (4.3).
 - **Fase 5 — Finance Core**: contas, lançamentos, categorias e Visão Geral ✅ (5.1); transferências e importação de extratos OFX/CSV ✅ (5.2); recorrentes ✅ (5.3); parcelamentos ✅ (5.4).
-- **Fase 6 — Investments**: ativos, patrimônio e carteira.
+- **Fase 6 — Investments**: carteira, valores informados, aportes vinculados e patrimônio ✅ (6.1); evolução do patrimônio, rentabilidade e proventos por período (6.2); importação dos investimentos do C6 (6.3).
 - **Fase 7 — Analytics**: gráficos, projeções e fluxo de caixa.
 - **Fase 8 — Polish**: performance, acessibilidade, testes, refinamento visual e empacotamento.
 

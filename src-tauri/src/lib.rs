@@ -115,6 +115,17 @@ pub fn run() {
             commands::finance::skip_recurring_occurrence,
             commands::finance::reopen_recurring_occurrence,
             commands::finance::get_installments_overview,
+            commands::investments::get_investments_overview,
+            commands::investments::get_investment_asset,
+            commands::investments::create_investment_asset,
+            commands::investments::update_investment_asset,
+            commands::investments::delete_investment_asset,
+            commands::investments::create_investment_movement,
+            commands::investments::update_investment_movement,
+            commands::investments::delete_investment_movement,
+            commands::investments::link_investment_transaction,
+            commands::investments::set_investment_valuations,
+            commands::investments::delete_investment_valuation,
         ])
         .run(tauri::generate_context!())
         .expect("falha ao iniciar o Zona de Controle");

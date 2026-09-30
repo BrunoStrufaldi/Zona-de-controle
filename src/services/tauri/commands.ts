@@ -9,6 +9,8 @@ import {
 } from "@/features/productivity/calendar/types";
 import {
   type AccountInput,
+  type AssetDetail,
+  type AssetInput,
   type CategoryInput,
   type CategoryUpdate,
   type FinanceAccount,
@@ -18,12 +20,17 @@ import {
   type ImportPreview,
   type ImportResult,
   type InstallmentsOverview,
+  type InvestmentAsset,
+  type InvestmentMovement,
+  type InvestmentsOverview,
+  type MovementInput,
   type RecurringInput,
   type RecurringOverview,
   type RecurringSeries,
   type Transaction,
   type TransactionInput,
   type TransactionStatus,
+  type ValuationInput,
 } from "@/features/finance/types";
 import {
   type Note,
@@ -185,6 +192,26 @@ export interface CommandMap {
   skip_recurring_occurrence: { args: { id: number; occurrenceDate: string }; result: null };
   reopen_recurring_occurrence: { args: { id: number; occurrenceDate: string }; result: null };
   get_installments_overview: { args: undefined; result: InstallmentsOverview };
+  get_investments_overview: { args: undefined; result: InvestmentsOverview };
+  get_investment_asset: { args: { id: number }; result: AssetDetail };
+  create_investment_asset: { args: { input: AssetInput }; result: InvestmentAsset };
+  update_investment_asset: { args: { id: number; input: AssetInput }; result: InvestmentAsset };
+  delete_investment_asset: { args: { id: number }; result: null };
+  create_investment_movement: {
+    args: { assetId: number; input: MovementInput };
+    result: InvestmentMovement;
+  };
+  update_investment_movement: {
+    args: { id: number; input: MovementInput };
+    result: InvestmentMovement;
+  };
+  delete_investment_movement: { args: { id: number }; result: null };
+  link_investment_transaction: {
+    args: { assetId: number; transactionId: number; quantity: number | null };
+    result: InvestmentMovement;
+  };
+  set_investment_valuations: { args: { valuations: ValuationInput[] }; result: null };
+  delete_investment_valuation: { args: { assetId: number; date: string }; result: null };
 }
 
 export type CommandName = keyof CommandMap;

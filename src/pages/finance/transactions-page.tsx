@@ -267,6 +267,8 @@ export function TransactionsPage() {
             permanentemente, junto com suas tags.
             {transaction.recurringId !== null &&
               " O vencimento da recorrente paga por ele volta a ficar em aberto."}
+            {transaction.investmentAssetId !== null &&
+              " A movimentação do investimento continua na carteira, só sem o vínculo."}
           </>
         )}
         confirmLabel="Excluir lançamento"

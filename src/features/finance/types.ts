@@ -110,6 +110,8 @@ export interface Transaction {
   imported: boolean;
   /** Vinculado a um vencimento desta recorrente. */
   recurringId: number | null;
+  /** Aplicação, resgate ou provento deste investimento. */
+  investmentAssetId: number | null;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;
 }
@@ -432,4 +434,187 @@ export interface InstallmentsOverview {
   finalMonth: YearMonth | null;
   /** Cartões com recorrentes mas sem os dias da fatura (fora do compromisso). */
   cardsWithoutCycle: number[];
+}
+
+// ---------------------------------------------------------------- Investimentos
+
+/**
+ * Espelha `src-tauri/src/domain/finance/investments.rs`. O valor atual é sempre
+ * o INFORMADO pelo usuário: nenhuma cotação é baixada.
+ */
+export const ASSET_CLASSES = [
+  "fixed_income",
+  "stocks",
+  "reits",
+  "etfs",
+  "crypto",
+  "other",
+] as const;
+export type AssetClass = (typeof ASSET_CLASSES)[number];
+
+/** Aplicação (compra), resgate (venda) ou provento (dividendos, juros…). */
+export const MOVEMENT_KINDS = ["contribution", "withdrawal", "income"] as const;
+export type MovementKind = (typeof MOVEMENT_KINDS)[number];
+
+/**
+ * Quantidade em 1e-8 unidade (cripto e Tesouro têm frações): 1 cota =
+ * `QUANTITY_SCALE`.
+ */
+export type Quantity = number;
+
+/** De onde vem o valor atual. */
+export type ValueStatus = "informed" | "adjusted" | "not_informed";
+
+export interface Position {
+  /** Valor atual (nunca negativo). */
+  value: Cents;
+  /**
+   * `informed`: o último valor informado; `adjusted`: ele + aplicações −
+   * resgates feitos depois; `not_informed`: aplicações − resgates.
+   */
+  valueStatus: ValueStatus;
+  valuedOn: IsoDate | null;
+  contributed: Cents;
+  withdrawn: Cents;
+  /** Proventos recebidos (não fazem parte do valor). */
+  income: Cents;
+  /** Aplicado líquido: aplicações − resgates. */
+  invested: Cents;
+  /** Resultado total: valor + resgates + proventos − aplicações. */
+  gain: Cents;
+  /** Resultado sobre o total aplicado. */
+  gainRate: number | null;
+  /** Quando todas as aplicações e resgates têm quantidade. */
+  quantity: Quantity | null;
+  /** Preço médio por unidade (custo médio). */
+  averagePrice: Cents | null;
+  /** Pede atualização do valor. */
+  stale: boolean;
+  /** Tudo resgatado. */
+  closed: boolean;
+  movementCount: number;
+}
+
+export interface InvestmentAsset {
+  id: number;
+  /** Conta do tipo Investimentos (a instituição). */
+  accountId: number;
+  class: AssetClass;
+  name: string;
+  ticker: string | null;
+  /** Só renda fixa. */
+  maturityDate: IsoDate | null;
+  notes: string;
+  position: Position;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+}
+
+export interface AssetInput {
+  accountId: number;
+  class: AssetClass;
+  name: string;
+  ticker: string | null;
+  maturityDate: IsoDate | null;
+  notes: string;
+}
+
+export interface InvestmentMovement {
+  id: number;
+  assetId: number;
+  kind: MovementKind;
+  date: IsoDate;
+  amount: Cents;
+  quantity: Quantity | null;
+  /** Lançamento que moveu o dinheiro (valor e data vêm dele). */
+  transactionId: number | null;
+  notes: string;
+}
+
+export interface MovementInput {
+  kind: MovementKind;
+  date: IsoDate;
+  amount: Cents;
+  quantity: Quantity | null;
+  notes: string;
+  /**
+   * Só na criação: conta de onde sai a aplicação (ou para onde vai o
+   * resgate/provento). Com ela, o lançamento é criado e vinculado.
+   */
+  accountId: number | null;
+  /** Só em resgates: resgate total (o valor passa a ser zero). */
+  closesPosition: boolean;
+}
+
+export interface Valuation {
+  assetId: number;
+  date: IsoDate;
+  value: Cents;
+}
+
+export type ValuationInput = Valuation;
+
+export interface AssetDetail {
+  asset: InvestmentAsset;
+  /** Mais recentes primeiro. */
+  movements: InvestmentMovement[];
+  /** Mais recentes primeiro. */
+  valuations: Valuation[];
+}
+
+export interface ClassShare {
+  class: AssetClass;
+  value: Cents;
+  /** Fração da carteira (0–1). */
+  share: number;
+}
+
+export interface PortfolioTotals {
+  value: Cents;
+  contributed: Cents;
+  withdrawn: Cents;
+  income: Cents;
+  invested: Cents;
+  gain: Cents;
+}
+
+/** O que sobra numa conta de investimentos fora da carteira. */
+export interface InvestmentAccountCash {
+  accountId: number;
+  balance: Cents;
+  netContributions: Cents;
+  /** Negativo = aplicações registradas sem o dinheiro ter entrado na conta. */
+  cash: Cents;
+}
+
+export interface NetWorth {
+  /** Saldos das outras contas (cartões entram negativos). */
+  accounts: Cents;
+  investmentCash: Cents;
+  portfolio: Cents;
+  total: Cents;
+}
+
+/** Transferência para/de uma conta de investimentos ainda sem ativo. */
+export interface UnlinkedTransfer {
+  transactionId: number;
+  /** Aplicação (entra na conta de investimentos) ou resgate (sai dela). */
+  kind: Exclude<MovementKind, "income">;
+  investmentAccountId: number;
+  otherAccountId: number;
+  description: string;
+  amount: Cents;
+  date: IsoDate;
+}
+
+export interface InvestmentsOverview {
+  today: IsoDate;
+  /** Maior valor primeiro; encerrados no fim. */
+  assets: InvestmentAsset[];
+  totals: PortfolioTotals;
+  byClass: ClassShare[];
+  accounts: InvestmentAccountCash[];
+  netWorth: NetWorth;
+  staleCount: number;
+  unlinked: UnlinkedTransfer[];
 }

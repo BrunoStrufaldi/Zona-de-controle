@@ -13,6 +13,7 @@ pub mod finance_categories;
 pub mod finance_import_rules;
 pub mod finance_recurring;
 pub mod finance_transactions;
+pub mod investments;
 pub mod notes;
 pub mod routines;
 pub mod settings;

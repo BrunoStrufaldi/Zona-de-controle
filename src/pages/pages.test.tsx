@@ -164,6 +164,34 @@ describe("páginas integradas ao backend", () => {
     expect(within(card).queryByLabelText("Dados de demonstração")).not.toBeInTheDocument();
   });
 
+  it("Dashboard mostra a carteira e o patrimônio reais", async () => {
+    mockFinanceBackend({
+      accounts: [{ name: "Investimentos C6", kind: "investment" }],
+      investments: {
+        assets: [{ name: "CDB C6", position: { value: 103_000, stale: true } }],
+        totals: {
+          value: 103_000,
+          contributed: 100_000,
+          withdrawn: 0,
+          income: 0,
+          invested: 100_000,
+          gain: 3_000,
+        },
+        netWorth: { accounts: 500_000, investmentCash: 0, portfolio: 103_000, total: 603_000 },
+        staleCount: 1,
+      },
+    });
+    renderRoute(paths.dashboard);
+
+    const carteira = await screen.findByText("Carteira", { selector: "dt" });
+    expect(carteira.nextElementSibling).toHaveTextContent("R$ 1.030,00");
+    expect(carteira.nextElementSibling).toHaveTextContent("+R$ 30,00 (+3%)");
+    expect(screen.getByText("1 ativo precisa do valor atualizado")).toBeInTheDocument();
+    const card = carteira.closest("[data-slot='card']") as HTMLElement;
+    expect(within(card).getByText("R$ 6.030,00")).toBeInTheDocument();
+    expect(within(card).queryByLabelText("Dados de demonstração")).not.toBeInTheDocument();
+  });
+
   it("Dashboard convida a lançar quando o mês está vazio", async () => {
     mockFinanceBackend();
     renderRoute(paths.dashboard);

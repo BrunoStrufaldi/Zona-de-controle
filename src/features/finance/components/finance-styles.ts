@@ -19,4 +19,10 @@ export function balanceToneClass(cents: number): string {
   return cents < 0 ? "text-danger" : "text-foreground";
 }
 
+/** Resultado de investimento: ganho em verde, perda em vermelho. */
+export function gainToneClass(cents: number): string {
+  if (cents > 0) return "text-success";
+  return cents < 0 ? "text-danger" : "text-muted-foreground";
+}
+
 export { categoryBadgeClass, categoryDotClass } from "@/lib/palette";

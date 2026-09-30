@@ -72,6 +72,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "finance_cards",
         sql: include_str!("../../migrations/0011_finance_cards.sql"),
     },
+    Migration {
+        version: 12,
+        name: "investments",
+        sql: include_str!("../../migrations/0012_investments.sql"),
+    },
 ];
 
 const CREATE_SCHEMA_MIGRATIONS: &str = "
@@ -191,6 +196,9 @@ mod tests {
             "finance_import_rules",
             "finance_recurring",
             "finance_recurring_occurrences",
+            "investment_assets",
+            "investment_movements",
+            "investment_valuations",
         ] {
             assert!(table_exists(&connection, table), "{table}");
         }
@@ -484,6 +492,67 @@ mod tests {
         assert!(set(28, 5).is_ok());
         assert!(set(0, 5).is_err());
         assert!(set(28, 32).is_err());
+    }
+
+    #[test]
+    fn upgrades_from_version_11_keeping_transactions() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(CREATE_SCHEMA_MIGRATIONS).unwrap();
+        for migration in &MIGRATIONS[..11] {
+            apply(&mut connection, migration).unwrap();
+        }
+        connection
+            .execute_batch(
+                "INSERT INTO finance_accounts (name, kind, color) VALUES ('C6', 'checking', 'slate');
+                 INSERT INTO finance_accounts (name, kind, color) VALUES ('Investimentos', 'investment', 'teal');
+                 INSERT INTO finance_transactions
+                     (account_id, transfer_account_id, kind, description, amount, date, status)
+                 VALUES (1, 2, 'transfer', 'Aplicação CDB', 100000, '2026-09-10', 'paid');",
+            )
+            .unwrap();
+
+        run(&mut connection).unwrap();
+
+        connection
+            .execute(
+                "INSERT INTO investment_assets (account_id, class, name) VALUES (2, 'fixed_income', 'CDB C6')",
+                [],
+            )
+            .unwrap();
+        let movement = |kind: &str, quantity: Option<i64>, transaction: Option<i64>| {
+            connection.execute(
+                "INSERT INTO investment_movements (asset_id, kind, date, amount, quantity, transaction_id)
+                 VALUES (1, ?1, '2026-09-10', 100000, ?2, ?3)",
+                rusqlite::params![kind, quantity, transaction],
+            )
+        };
+        assert!(movement("contribution", None, Some(1)).is_ok());
+        // Um lançamento vincula uma movimentação só; provento não tem quantidade.
+        assert!(movement("contribution", None, Some(1)).is_err());
+        assert!(movement("income", Some(100), None).is_err());
+        assert!(movement("sale", None, None).is_err());
+        // Excluir o lançamento desfaz o vínculo, mas a aplicação continua.
+        connection
+            .execute("DELETE FROM finance_transactions", [])
+            .unwrap();
+        let linked: Option<i64> = connection
+            .query_row(
+                "SELECT transaction_id FROM investment_movements",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(linked, None);
+        assert!(connection
+            .execute(
+                "INSERT INTO investment_valuations (asset_id, date, value) VALUES (1, '2026-09-30', -1)",
+                [],
+            )
+            .is_err());
+        // A conta com ativos não pode ser excluída.
+        assert!(connection
+            .execute("DELETE FROM finance_accounts WHERE id = 2", [])
+            .is_err());
     }
 
     #[test]

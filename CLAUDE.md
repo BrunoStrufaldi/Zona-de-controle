@@ -376,6 +376,26 @@ Regras:
   as recorrentes em aberto do cartão ficam fora do compromisso (`cards_without_cycle`, a tela avisa) e "Lançar na
   fatura" sugere a data da cobrança; com ele, o vencimento da fatura (`statement_date`). Parcelas digitadas à mão
   ainda não existem (só as importadas).
+- **Investimentos (6.1):** decisão do usuário: **valor atual sempre informado** (copiado do app do banco), nenhuma
+  cotação/índice baixado e nenhum rendimento calculado. `investment_assets` (conta do tipo `investment` obrigatória, a
+  "instituição"; conta com ativos não muda de tipo nem é excluída), `investment_movements` (`contribution`,
+  `withdrawal`, `income`; quantidade em **1e-8 unidade**, `QUANTITY_SCALE`) e `investment_valuations` (um por ativo e
+  dia; o valor de um dia **já inclui** as movimentações até ele). Posição em `domain/finance/investments.rs::position`
+  (fonte da verdade): valor = último informado + aplicações − resgates **depois** dele (`adjusted`) ou, sem nenhum,
+  aplicações − resgates (`not_informed`); quantidade zerada = valor zero; resultado = valor + resgates + proventos −
+  aplicações; preço médio pelo custo médio só quando todas as aplicações/resgates têm quantidade; `stale` = não
+  informado, ajustado ou com mais de 35 dias. **Patrimônio sem dupla contagem:** toda aplicação/resgate (vinculada ou
+  não) consome/devolve dinheiro da conta do ativo; o que sobra nela é `saldo − aplicações + resgates` (negativo = falta
+  a transferência ou o saldo inicial, a tela avisa) e o total é contas não-investimento + esse saldo + carteira.
+  Vínculo com lançamento (`transaction_id` UNIQUE, `ON DELETE SET NULL`: excluir o lançamento mantém a aplicação):
+  transferência **para** a conta do ativo = aplicação, **dela** = resgate, entrada = provento
+  (`movement_kind_for`). Editar um lançamento vinculado exige que continue servindo (`follow_transaction_update`) e
+  leva valor e data para a movimentação; na movimentação vinculada o tipo, o valor e a data não mudam. Transferências
+  entre conta de investimentos e outra sem movimentação = "sem ativo" (`unlinked_transfers`, as 50 mais recentes).
+  `create_investment_movement` com `accountId` cria o lançamento junto; `closesPosition` grava valor 0 na data.
+  Exclusões auditadas: `investment_asset.deleted`, `investment_movement.deleted`, `investment_valuation.deleted`.
+  `Transaction.investmentAssetId` marca os vinculados (selo "Investimento"). Textos e formulários em
+  `features/finance/domain/investments.ts`; hook `use-investments.ts`; service `services/investments-service.ts`.
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

@@ -22,7 +22,9 @@ const SELECT_TRANSACTION: &str = "SELECT id, account_id, transfer_account_id, ca
        description, amount, date, status, notes, purchase_date, installment_number,
        installment_count, external_id IS NOT NULL, created_at, updated_at,
        (SELECT o.recurring_id FROM finance_recurring_occurrences o
-        WHERE o.transaction_id = finance_transactions.id)
+        WHERE o.transaction_id = finance_transactions.id),
+       (SELECT m.asset_id FROM investment_movements m
+        WHERE m.transaction_id = finance_transactions.id)
 FROM finance_transactions";
 
 /// Linha crua; tipo e status são convertidos fora do mapeamento para reportar
@@ -45,6 +47,7 @@ struct TransactionRow {
     created_at: String,
     updated_at: String,
     recurring_id: Option<i64>,
+    investment_asset_id: Option<i64>,
 }
 
 impl TransactionRow {
@@ -67,6 +70,7 @@ impl TransactionRow {
             created_at: row.get(14)?,
             updated_at: row.get(15)?,
             recurring_id: row.get(16)?,
+            investment_asset_id: row.get(17)?,
         })
     }
 
@@ -90,6 +94,7 @@ impl TransactionRow {
             },
             imported: self.imported,
             recurring_id: self.recurring_id,
+            investment_asset_id: self.investment_asset_id,
             created_at: self.created_at,
             updated_at: self.updated_at,
         })

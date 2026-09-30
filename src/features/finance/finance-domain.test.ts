@@ -94,6 +94,7 @@ function transaction(partial: Partial<Transaction>): Transaction {
     installment: null,
     imported: false,
     recurringId: null,
+    investmentAssetId: null,
     createdAt: "2026-09-10T12:00:00Z",
     updatedAt: "2026-09-10T12:00:00Z",
     ...partial,

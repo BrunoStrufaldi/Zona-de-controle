@@ -6,6 +6,7 @@ import {
   MoreHorizontal,
   Pencil,
   Repeat,
+  TrendingUp,
   Trash2,
 } from "lucide-react";
 
@@ -134,6 +135,12 @@ function TransactionRow({
             <Badge variant="primary" title="Pagamento de um vencimento de recorrente">
               <Repeat aria-hidden="true" />
               Recorrente
+            </Badge>
+          )}
+          {transaction.investmentAssetId !== null && (
+            <Badge variant="primary" title="Aplicação, resgate ou provento de um investimento">
+              <TrendingUp aria-hidden="true" />
+              Investimento
             </Badge>
           )}
           {transaction.installment && (

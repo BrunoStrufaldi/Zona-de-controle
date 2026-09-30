@@ -13,6 +13,7 @@ pub mod calendar;
 pub mod devices;
 pub mod diagnostics;
 pub mod finance;
+pub mod investments;
 pub mod notes;
 pub mod optimization;
 pub mod routines;

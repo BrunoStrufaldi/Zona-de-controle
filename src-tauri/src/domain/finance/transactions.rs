@@ -81,6 +81,8 @@ pub struct Transaction {
     pub imported: bool,
     /// Vinculado a um vencimento desta recorrente.
     pub recurring_id: Option<i64>,
+    /// Aplicação, resgate ou provento deste investimento.
+    pub investment_asset_id: Option<i64>,
     pub created_at: String,
     pub updated_at: String,
 }

@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 
 use crate::db::Database;
 use crate::domain::audit::{AuditCategory, AuditOutcome, NewAuditEntry};
-use crate::domain::finance::accounts::{AccountInput, FinanceAccount, MAX_ACCOUNTS};
+use crate::domain::finance::accounts::{AccountInput, AccountKind, FinanceAccount, MAX_ACCOUNTS};
 use crate::domain::finance::categories::{
     CategoryInput, CategoryUpdate, FinanceCategory, MAX_CATEGORIES,
 };
@@ -19,7 +19,9 @@ use crate::error::{AppError, AppResult};
 use crate::repositories::finance_accounts::ACCOUNT_NOT_FOUND;
 use crate::repositories::finance_categories::CATEGORY_NOT_FOUND;
 use crate::repositories::finance_transactions::TRANSACTION_NOT_FOUND;
-use crate::repositories::{audit, finance_accounts, finance_categories, finance_transactions};
+use crate::repositories::{
+    audit, finance_accounts, finance_categories, finance_transactions, investments,
+};
 
 const ACTION_ACCOUNT_DELETED: &str = "finance_account.deleted";
 const ACTION_CATEGORY_DELETED: &str = "finance_category.deleted";
@@ -51,6 +53,14 @@ pub fn update_account(db: &Database, id: i64, input: AccountInput) -> AppResult<
     let account = input.validate()?;
     db.with_connection(|connection| {
         let transaction = connection.transaction()?;
+        if account.kind != AccountKind::Investment
+            && investments::account_has_assets(&transaction, id)?
+        {
+            return Err(AppError::Validation(format!(
+                "a conta “{}” guarda investimentos e precisa continuar do tipo Investimentos",
+                account.name
+            )));
+        }
         finance_accounts::update(&transaction, id, &account)?;
         let updated = load_account(&transaction, id)?;
         transaction.commit()?;
@@ -150,6 +160,7 @@ pub fn update_transaction(
     let valid = input.validate()?;
     db.with_connection(|connection| {
         let transaction = connection.transaction()?;
+        crate::services::investments::follow_transaction_update(&transaction, id, &valid)?;
         finance_transactions::update(&transaction, id, &valid)?;
         let updated = load_transaction(&transaction, id)?;
         transaction.commit()?;
@@ -284,7 +295,6 @@ fn load_transaction(connection: &Connection, id: i64) -> AppResult<Transaction> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::finance::accounts::AccountKind;
     use crate::domain::finance::TransactionKind;
     use crate::domain::task_categories::CategoryColor;
 

@@ -122,7 +122,7 @@ pub fn update(connection: &Connection, id: i64, account: &ValidAccount) -> AppRe
     Ok(())
 }
 
-/// Exclui uma conta sem lançamentos nem recorrentes. Retorna a conta excluída.
+/// Exclui uma conta sem lançamentos, recorrentes nem investimentos. Retorna a conta excluída.
 pub fn delete(connection: &Connection, id: i64) -> AppResult<FinanceAccount> {
     let account = find(connection, id)?.ok_or(AppError::NotFound(ACCOUNT_NOT_FOUND))?;
     if account.transaction_count > 0 {
@@ -139,6 +139,12 @@ pub fn delete(connection: &Connection, id: i64) -> AppResult<FinanceAccount> {
     if recurring > 0 {
         return Err(AppError::Validation(format!(
             "a conta “{}” é usada por recorrentes; exclua-as ou mude-as de conta antes",
+            account.name
+        )));
+    }
+    if crate::repositories::investments::account_has_assets(connection, id)? {
+        return Err(AppError::Validation(format!(
+            "a conta “{}” guarda investimentos; exclua-os ou mude-os de conta antes",
             account.name
         )));
     }

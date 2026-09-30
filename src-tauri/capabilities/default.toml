@@ -221,6 +221,28 @@ permissions = [
   # importadas e projeta as que faltam e as faturas dos próximos 12 meses.
   "allow-get-installments-overview",
 
+  # Investimentos — leitura da carteira e do histórico de um ativo (somente leitura;
+  # nenhuma cotação é baixada: o valor atual é sempre o informado pelo usuário).
+  "allow-get-investments-overview",
+  "allow-get-investment-asset",
+  # Escritas validadas no Rust: ativo só em conta do tipo Investimentos;
+  # movimentação com valor, data e quantidade válidos (com a conta, cria o
+  # lançamento e o vínculo na mesma transação); vincular exige transferência
+  # para/da conta do ativo ou entrada, sem outro vínculo; valores informados
+  # substituem só o do mesmo dia.
+  "allow-create-investment-asset",
+  "allow-update-investment-asset",
+  "allow-create-investment-movement",
+  "allow-update-investment-movement",
+  "allow-link-investment-transaction",
+  "allow-set-investment-valuations",
+  # Exclusões definitivas (ativo com o histórico, movimentação, valor informado):
+  # a interface exige confirmação explícita, os lançamentos vinculados continuam
+  # e a exclusão (ou falha) é auditada.
+  "allow-delete-investment-asset",
+  "allow-delete-investment-movement",
+  "allow-delete-investment-valuation",
+
   # Plugin de notificação: só o necessário para mostrar os lembretes do
   # calendário como notificações do Windows (consultar/pedir permissão e
   # notificar). Sem agendamento, canais, ações ou listeners.

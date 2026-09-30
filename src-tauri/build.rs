@@ -90,6 +90,17 @@ const APP_COMMANDS: &[&str] = &[
     "skip_recurring_occurrence",
     "reopen_recurring_occurrence",
     "get_installments_overview",
+    "get_investments_overview",
+    "get_investment_asset",
+    "create_investment_asset",
+    "update_investment_asset",
+    "delete_investment_asset",
+    "create_investment_movement",
+    "update_investment_movement",
+    "delete_investment_movement",
+    "link_investment_transaction",
+    "set_investment_valuations",
+    "delete_investment_valuation",
 ];
 
 fn main() {
