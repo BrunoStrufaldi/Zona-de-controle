@@ -7,6 +7,7 @@
 
 pub mod c6_card;
 pub mod ofx;
+pub mod recurring_match;
 pub mod suggest;
 
 use serde::Serialize;

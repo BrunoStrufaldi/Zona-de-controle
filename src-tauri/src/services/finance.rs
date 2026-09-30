@@ -216,7 +216,7 @@ pub fn get_overview(db: &Database, month: &str) -> AppResult<FinanceOverview> {
 
 /// Executa a exclusão e o registro de sucesso na mesma transação. Em caso de
 /// erro, registra a falha (melhor esforço: o erro original é o relevante).
-fn delete_with_audit(
+pub(crate) fn delete_with_audit(
     connection: &mut Connection,
     action: &str,
     id: i64,

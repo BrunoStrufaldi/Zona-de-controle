@@ -340,6 +340,24 @@ Regras:
   pela `descriptionKey` que o Rust manda). Auditoria: `finance_import.completed` (sucesso e falha).
   Nunca use extratos reais em testes ou commits; para validar com os arquivos do usuário, leia só
   contadores (sem capturas de tela das linhas).
+- **Recorrentes (5.3):** modelo do Calendário: `finance_recurring` guarda só a regra (`RecurringRule`: frequência,
+  intervalo, fim por data ou vezes; o motor de datas é o `EventRecurrence` de `calendar_events.rs`, sem dias da
+  semana) e os vencimentos são calculados no Rust (`domain/finance/recurring.rs::build_overview`, fonte da verdade de
+  status, totais do período, equivalente mensal, atrasados e "termina em breve" ≤ 30 dias). Vencimento identificado
+  pela **data original**. Nada é gerado antes: `finance_recurring_occurrences` só guarda os resolvidos, vinculados a um
+  lançamento (`transaction_id`, UNIQUE, `ON DELETE CASCADE`: excluir o lançamento reabre o vencimento) ou pulados
+  (`transaction_id` nulo). Resolvidos são histórico e aparecem mesmo se a regra mudar; por isso, com histórico, mudar
+  início/frequência/intervalo exige início depois do último resolvido (`check_schedule_change`); valor, conta e fim
+  mudam livres e valem para os em aberto. Status: `open`, `overdue` (sem lançamento ou com ele pendente, antes de
+  hoje), `pending`, `paid`, `skipped`. "Pagar" registra com os dados da série na data do vencimento
+  (`occurrenceTransaction`); registrar/vincular exige o mesmo tipo da série. Excluir a série é auditado
+  (`finance_recurring.deleted`) e mantém os lançamentos; conta usada por recorrente não pode ser excluída.
+  `Transaction.recurringId` marca os vinculados (selo "Recorrente"). **Importação:** só entradas/saídas
+  (`import/recurring_match.rs`): candidato = vencimento em aberto do mesmo tipo a até 10 dias (semanal 3, diária 0);
+  sugestão automática com valor a até 2% ou R$ 1,00, ou com a mesma `import_key` (chave da descrição gravada no
+  primeiro vínculo, para contas de valor variável); cada linha/vencimento uma vez, melhores pares primeiro. A tela
+  manda `recurring` na decisão e o commit revalida (em aberto, mesmo tipo, sem repetir). Dashboard: card **Próximos
+  vencimentos** (`list_recurring` de hoje a +14 dias).
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

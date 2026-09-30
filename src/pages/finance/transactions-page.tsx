@@ -226,7 +226,7 @@ export function TransactionsPage() {
               ? "1 lançamento importado"
               : `${result.added} lançamentos importados`,
             {
-              description: `${preview.fileName}: ${result.duplicates} já existiam, ${result.skipped} ficaram de fora.`,
+              description: `${preview.fileName}: ${result.duplicates} já existiam, ${result.skipped} ficaram de fora${result.linked > 0 ? `, ${result.linked} pagaram recorrentes` : ""}.`,
             },
           );
         }}
@@ -265,6 +265,8 @@ export function TransactionsPage() {
             O lançamento <strong className="text-foreground">“{transaction.description}”</strong> de{" "}
             {formatCents(transaction.amount)} em {formatDate(transaction.date)} será excluído
             permanentemente, junto com suas tags.
+            {transaction.recurringId !== null &&
+              " O vencimento da recorrente paga por ele volta a ficar em aberto."}
           </>
         )}
         confirmLabel="Excluir lançamento"

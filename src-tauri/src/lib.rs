@@ -106,6 +106,14 @@ pub fn run() {
             commands::finance::get_finance_overview,
             commands::finance::preview_finance_import,
             commands::finance::commit_finance_import,
+            commands::finance::list_recurring,
+            commands::finance::create_recurring,
+            commands::finance::update_recurring,
+            commands::finance::delete_recurring,
+            commands::finance::register_recurring_occurrence,
+            commands::finance::link_recurring_occurrence,
+            commands::finance::skip_recurring_occurrence,
+            commands::finance::reopen_recurring_occurrence,
         ])
         .run(tauri::generate_context!())
         .expect("falha ao iniciar o Zona de Controle");

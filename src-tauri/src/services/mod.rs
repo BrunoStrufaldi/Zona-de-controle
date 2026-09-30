@@ -7,6 +7,7 @@ pub mod devices;
 pub mod diagnostics;
 pub mod finance;
 pub mod finance_import;
+pub mod finance_recurring;
 pub mod notes;
 pub mod optimization;
 pub mod routines;

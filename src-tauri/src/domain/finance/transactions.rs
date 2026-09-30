@@ -79,6 +79,8 @@ pub struct Transaction {
     pub installment: Option<Installment>,
     /// Veio de um extrato importado.
     pub imported: bool,
+    /// Vinculado a um vencimento desta recorrente.
+    pub recurring_id: Option<i64>,
     pub created_at: String,
     pub updated_at: String,
 }

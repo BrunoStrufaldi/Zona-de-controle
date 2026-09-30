@@ -2,7 +2,9 @@ import { useCallback } from "react";
 
 import { CashflowChartWidget } from "@/features/finance/components/cashflow-chart-widget";
 import { FinanceSummaryWidget } from "@/features/finance/components/finance-summary-widget";
+import { UpcomingBillsWidget } from "@/features/finance/components/upcoming-bills-widget";
 import { monthOf } from "@/features/finance/domain/period";
+import { UPCOMING_DAYS } from "@/features/finance/domain/recurring";
 import { UpcomingEventsWidget } from "@/features/productivity/calendar/components/upcoming-events-widget";
 import { RoutinesTodayWidget } from "@/features/productivity/routines/components/routines-today-widget";
 import { TasksSummaryWidget } from "@/features/productivity/tasks/components/tasks-summary-widget";
@@ -17,7 +19,7 @@ import { useDisplayName } from "@/hooks/use-display-name";
 import { addDays, toIsoDate } from "@/lib/dates";
 import { dashboardDemoData as demo } from "@/mocks/dashboard";
 import { listCalendar } from "@/services/calendar-service";
-import { getFinanceOverview } from "@/services/finance-service";
+import { getFinanceOverview, listRecurring } from "@/services/finance-service";
 import { listBatteryDevices } from "@/services/devices-service";
 import { runDiagnostics } from "@/services/diagnostics-service";
 import { listCleanupHistory } from "@/services/optimization-service";
@@ -41,7 +43,7 @@ const DEVICES_INTERVAL_MS = 60_000;
 /**
  * Dashboard. Widgets de módulos já implementados usam dados reais (Tarefas,
  * Rotinas, Calendário, status do sistema, armazenamento, diagnóstico, bateria,
- * limpeza e finanças);
+ * limpeza, finanças e vencimentos das recorrentes);
  * os demais ainda recebem dados de `src/mocks` e são marcados como Demo. Ao
  * implementar um módulo, troque a fonte do widget pelo serviço real e remova `demo`.
  */
@@ -58,6 +60,8 @@ export function DashboardPage() {
   const cleanup = useAsyncResource(loadLastCleanup);
   const loadFinance = useCallback(() => getFinanceOverview(monthOf(today)), [today]);
   const finance = useAsyncResource(loadFinance);
+  const loadBills = useCallback(() => listRecurring(today, addDays(today, UPCOMING_DAYS)), [today]);
+  const bills = useAsyncResource(loadBills);
 
   return (
     <>
@@ -72,6 +76,7 @@ export function DashboardPage() {
           <SystemStatusWidget snapshot={system} />
 
           <FinanceSummaryWidget overview={finance} />
+          <UpcomingBillsWidget recurring={bills} />
           <CleanupWidget history={cleanup} />
           <CashflowChartWidget overview={finance} className="@3xl:col-span-2" />
 

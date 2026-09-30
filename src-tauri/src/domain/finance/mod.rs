@@ -1,4 +1,4 @@
-//! Finanças (Fase 5): contas, categorias, lançamentos e resumos do período.
+//! Finanças (Fase 5): contas, categorias, lançamentos, recorrentes e resumos do período.
 //! Espelhado em `src/features/finance/types.ts`.
 //!
 //! Valores monetários são sempre centavos (`i64`); a conversão para reais
@@ -9,6 +9,7 @@ pub mod categories;
 pub mod import;
 pub mod overview;
 pub mod period;
+pub mod recurring;
 pub mod transactions;
 
 use serde::{Deserialize, Serialize};

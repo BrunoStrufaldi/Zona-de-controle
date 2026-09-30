@@ -1,4 +1,4 @@
-import { FileUp, Info, Upload } from "lucide-react";
+import { FileUp, Info, Repeat, Upload } from "lucide-react";
 import { type ChangeEvent, useId, useState } from "react";
 
 import { Field } from "@/components/shared/form-field";
@@ -28,6 +28,7 @@ import {
   applyCategory,
   buildCommit,
   changeLineKind,
+  chooseRecurring,
   countChoices,
   type ImportChoices,
   importFormatLabels,
@@ -38,6 +39,7 @@ import {
   pickAccount,
   reasonLabels,
 } from "@/features/finance/domain/import";
+import { occurrenceKey } from "@/features/finance/domain/recurring";
 import {
   type FinanceAccount,
   type FinanceCategory,
@@ -302,6 +304,12 @@ function Review({ preview, accounts, categories, onImport, onBack, onImported }:
         <p className="text-sm text-muted-foreground" aria-live="polite">
           <Count value={counts.selected} /> para importar · <Count value={counts.duplicates} /> já
           importados · <Count value={counts.left} /> deixados de fora
+          {counts.linked > 0 && (
+            <>
+              {" "}
+              · <Count value={counts.linked} /> pagando recorrentes
+            </>
+          )}
         </p>
         {counts.duplicates > 0 && (
           <div className="flex items-center gap-2">
@@ -405,6 +413,7 @@ function ReviewRow({
   const disabled = line.duplicate || !choice.include;
   const reason = line.suggestion.reason;
   const kindCategories = categoriesOfKind(categories, choice.kind);
+  const linkable = line.recurringCandidates.length > 0 && choice.kind !== "transfer";
 
   return (
     <li
@@ -507,6 +516,31 @@ function ReviewRow({
             </option>
           ))}
         </select>
+      )}
+      {linkable && (
+        <div className="col-start-2 flex items-center gap-2 sm:col-span-4">
+          <Repeat className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <select
+            aria-label={`Recorrente de “${line.description}”`}
+            className={cn(nativeSelectClass, "sm:w-auto")}
+            value={choice.recurring ? occurrenceKey(choice.recurring) : ""}
+            disabled={disabled}
+            onChange={(event) => {
+              const picked = line.recurringCandidates.find(
+                (candidate) => occurrenceKey(candidate) === event.target.value,
+              );
+              onChange((current) => chooseRecurring(line, current, picked ?? null));
+            }}
+          >
+            <option value="">Não é de uma recorrente</option>
+            {line.recurringCandidates.map((candidate) => (
+              <option key={occurrenceKey(candidate)} value={occurrenceKey(candidate)}>
+                Paga “{candidate.description}” · vence {formatDate(candidate.occurrenceDate)} ·{" "}
+                {formatCents(candidate.amount)}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
     </li>
   );

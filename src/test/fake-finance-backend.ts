@@ -13,6 +13,11 @@ import {
   type ImportCommitInput,
   type ImportPreview,
   type ImportResult,
+  type OccurrenceStatus,
+  type RecurringInput,
+  type RecurringOccurrence,
+  type RecurringOverview,
+  type RecurringSeries,
   type Transaction,
   type TransactionInput,
   type TransactionStatus,
@@ -49,6 +54,15 @@ export function mockFinanceBackend(
     categories?: FinanceCategory[];
     /** Prévia devolvida por `preview_finance_import` (o nome do arquivo vem da chamada). */
     importPreview?: ImportPreview;
+    /**
+     * Recorrentes e vencimentos já calculados (o cálculo de verdade é do Rust).
+     * `list_recurring` devolve os vencimentos do intervalo pedido e, em
+     * `overdue`, os atrasados de antes dele.
+     */
+    recurring?: {
+      series?: Partial<RecurringSeries>[];
+      occurrences?: (Partial<RecurringOccurrence> & Pick<RecurringOccurrence, "occurrenceDate">)[];
+    };
   } = {},
 ) {
   let accounts: StoredAccount[] = (seed.accounts ?? []).map((partial, index) => ({
@@ -79,10 +93,76 @@ export function mockFinanceBackend(
       purchaseDate: null,
       installment: null,
       imported: false,
+      recurringId: null,
       createdAt: NOW,
       updatedAt: NOW,
       ...partial,
     };
+  });
+
+  const seriesDefaults = (id: number): RecurringSeries => ({
+    id,
+    kind: "expense",
+    description: `Recorrente ${id}`,
+    amount: 10_000,
+    accountId: 1,
+    transferAccountId: null,
+    categoryId: null,
+    startDate: "2026-09-05",
+    recurrence: { frequency: "monthly", interval: 1, until: null, count: null },
+    notes: "",
+    nextDate: null,
+    lastDate: null,
+    ended: false,
+    endsSoon: false,
+    overdueCount: 0,
+    lastResolvedDate: null,
+    monthlyAmount: 10_000,
+    createdAt: NOW,
+    updatedAt: NOW,
+  });
+  let series: RecurringSeries[] = (seed.recurring?.series ?? []).map((partial, index) => {
+    const base = { ...seriesDefaults(partial.id ?? index + 1), ...partial };
+    return { ...base, monthlyAmount: partial.monthlyAmount ?? base.amount };
+  });
+  let occurrences: RecurringOccurrence[] = (seed.recurring?.occurrences ?? []).map((partial) => {
+    const owner = series.find((item) => item.id === (partial.recurringId ?? 1));
+    return {
+      recurringId: 1,
+      status: "open",
+      amount: owner?.amount ?? 10_000,
+      transactionId: null,
+      transactionDate: null,
+      ...partial,
+    };
+  });
+
+  const findOccurrence = (id: number, occurrenceDate: string) =>
+    occurrences.find(
+      (occurrence) => occurrence.recurringId === id && occurrence.occurrenceDate === occurrenceDate,
+    ) ?? fail("not_found", "vencimento não encontrado");
+
+  const setOccurrence = (
+    id: number,
+    occurrenceDate: string,
+    change: Partial<RecurringOccurrence>,
+  ) => {
+    findOccurrence(id, occurrenceDate);
+    occurrences = occurrences.map((occurrence) =>
+      occurrence.recurringId === id && occurrence.occurrenceDate === occurrenceDate
+        ? { ...occurrence, ...change }
+        : occurrence,
+    );
+  };
+
+  const settledStatus = (transaction: Transaction): OccurrenceStatus =>
+    transaction.status === "paid" ? "paid" : "pending";
+
+  const fromRecurringInput = (id: number, input: RecurringInput): RecurringSeries => ({
+    ...seriesDefaults(id),
+    ...input,
+    nextDate: input.startDate,
+    monthlyAmount: input.amount,
   });
 
   const withBalances = (): FinanceAccount[] =>
@@ -185,6 +265,7 @@ export function mockFinanceBackend(
         purchaseDate: null,
         installment: null,
         imported: false,
+        recurringId: null,
         createdAt: NOW,
         updatedAt: NOW,
       };
@@ -202,6 +283,11 @@ export function mockFinanceBackend(
       findTransaction(id);
       transactions = transactions.map((transaction) =>
         transaction.id === id ? { ...transaction, status } : transaction,
+      );
+      occurrences = occurrences.map((occurrence) =>
+        occurrence.transactionId === id
+          ? { ...occurrence, status: status === "paid" ? "paid" : "pending" }
+          : occurrence,
       );
       return findTransaction(id);
     }),
@@ -238,6 +324,7 @@ export function mockFinanceBackend(
             purchaseDate: card ? line.date : null,
             installment: line.installment,
             imported: true,
+            recurringId: decision.recurring?.recurringId ?? null,
             createdAt: NOW,
             updatedAt: NOW,
           },
@@ -247,8 +334,164 @@ export function mockFinanceBackend(
         added: input.lines.length,
         duplicates: 0,
         skipped: preview.lines.length - input.lines.length,
+        linked: input.lines.filter((line) => line.recurring !== null).length,
       };
     }),
+    list_recurring: vi.fn(({ from, to }: { from: string; to: string }): RecurringOverview => {
+      const inRange = occurrences.filter(
+        (occurrence) => occurrence.occurrenceDate >= from && occurrence.occurrenceDate <= to,
+      );
+      const kindOf = (occurrence: RecurringOccurrence) =>
+        series.find((item) => item.id === occurrence.recurringId)?.kind;
+      const sum = (kind: string, paidOnly: boolean) =>
+        inRange
+          .filter(
+            (occurrence) =>
+              kindOf(occurrence) === kind &&
+              occurrence.status !== "skipped" &&
+              (!paidOnly || occurrence.status === "paid"),
+          )
+          .reduce((total, occurrence) => total + occurrence.amount, 0);
+      const overdue = occurrences.filter((occurrence) => occurrence.status === "overdue");
+      const active = series.filter((item) => !item.ended);
+      return {
+        today: NOW.slice(0, 10),
+        series,
+        occurrences: inRange,
+        overdue: overdue.filter((occurrence) => occurrence.occurrenceDate < from),
+        totals: {
+          expenses: sum("expense", false),
+          expensesPaid: sum("expense", true),
+          income: sum("income", false),
+          incomePaid: sum("income", true),
+        },
+        summary: {
+          monthlyExpenses: active
+            .filter((item) => item.kind === "expense")
+            .reduce((total, item) => total + item.monthlyAmount, 0),
+          monthlyIncome: active
+            .filter((item) => item.kind === "income")
+            .reduce((total, item) => total + item.monthlyAmount, 0),
+          overdueCount: overdue.length,
+          overdueExpenses: overdue
+            .filter((occurrence) => kindOf(occurrence) === "expense")
+            .reduce((total, occurrence) => total + occurrence.amount, 0),
+          overdueIncome: overdue
+            .filter((occurrence) => kindOf(occurrence) === "income")
+            .reduce((total, occurrence) => total + occurrence.amount, 0),
+        },
+      };
+    }),
+    create_recurring: vi.fn(({ input }: { input: RecurringInput }) => {
+      const created = fromRecurringInput(Math.max(0, ...series.map((item) => item.id)) + 1, input);
+      series = [...series, created];
+      occurrences = [
+        ...occurrences,
+        {
+          recurringId: created.id,
+          occurrenceDate: input.startDate,
+          status: "open",
+          amount: input.amount,
+          transactionId: null,
+          transactionDate: null,
+        },
+      ];
+      return created;
+    }),
+    update_recurring: vi.fn(({ id, input }: { id: number; input: RecurringInput }) => {
+      const current =
+        series.find((item) => item.id === id) ?? fail("not_found", "recorrente não encontrada");
+      const updated = { ...current, ...fromRecurringInput(id, input) };
+      series = series.map((item) => (item.id === id ? updated : item));
+      return updated;
+    }),
+    delete_recurring: vi.fn(({ id }: { id: number }) => {
+      if (!series.some((item) => item.id === id)) fail("not_found", "recorrente não encontrada");
+      series = series.filter((item) => item.id !== id);
+      occurrences = occurrences.filter((occurrence) => occurrence.recurringId !== id);
+      transactions = transactions.map((transaction) =>
+        transaction.recurringId === id ? { ...transaction, recurringId: null } : transaction,
+      );
+      return null;
+    }),
+    register_recurring_occurrence: vi.fn(
+      ({
+        id,
+        occurrenceDate,
+        input,
+      }: {
+        id: number;
+        occurrenceDate: string;
+        input: TransactionInput;
+      }) => {
+        findOccurrence(id, occurrenceDate);
+        const transaction: Transaction = {
+          id: nextTransactionId++,
+          ...fromInput(input),
+          purchaseDate: null,
+          installment: null,
+          imported: false,
+          recurringId: id,
+          createdAt: NOW,
+          updatedAt: NOW,
+        };
+        transactions = [...transactions, transaction];
+        setOccurrence(id, occurrenceDate, {
+          status: settledStatus(transaction),
+          amount: transaction.amount,
+          transactionId: transaction.id,
+          transactionDate: transaction.date,
+        });
+        return transaction;
+      },
+    ),
+    link_recurring_occurrence: vi.fn(
+      ({
+        id,
+        occurrenceDate,
+        transactionId,
+      }: {
+        id: number;
+        occurrenceDate: string;
+        transactionId: number;
+      }) => {
+        const transaction = findTransaction(transactionId);
+        transactions = transactions.map((item) =>
+          item.id === transactionId ? { ...item, recurringId: id } : item,
+        );
+        setOccurrence(id, occurrenceDate, {
+          status: settledStatus(transaction),
+          amount: transaction.amount,
+          transactionId,
+          transactionDate: transaction.date,
+        });
+        return null;
+      },
+    ),
+    skip_recurring_occurrence: vi.fn(
+      ({ id, occurrenceDate }: { id: number; occurrenceDate: string }) => {
+        setOccurrence(id, occurrenceDate, { status: "skipped" });
+        return null;
+      },
+    ),
+    reopen_recurring_occurrence: vi.fn(
+      ({ id, occurrenceDate }: { id: number; occurrenceDate: string }) => {
+        const occurrence = findOccurrence(id, occurrenceDate);
+        transactions = transactions.map((transaction) =>
+          transaction.id === occurrence.transactionId
+            ? { ...transaction, recurringId: null }
+            : transaction,
+        );
+        const owner = series.find((item) => item.id === id);
+        setOccurrence(id, occurrenceDate, {
+          status: "open",
+          amount: owner?.amount ?? occurrence.amount,
+          transactionId: null,
+          transactionDate: null,
+        });
+        return null;
+      },
+    ),
     get_finance_overview: vi.fn(({ month }: { month: string }): FinanceOverview => {
       const inMonth = (target: string) =>
         transactions.filter((transaction) => monthOf(transaction.date) === target);
@@ -292,5 +535,10 @@ export function mockFinanceBackend(
   };
 
   mockDesktopRuntime(handlers);
-  return { handlers, transactions: () => transactions, accounts: () => accounts };
+  return {
+    handlers,
+    transactions: () => transactions,
+    accounts: () => accounts,
+    occurrences: () => occurrences,
+  };
 }

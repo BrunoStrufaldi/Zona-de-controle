@@ -18,7 +18,9 @@ pub const TRANSACTION_NOT_FOUND: &str = "lançamento não encontrado";
 
 const SELECT_TRANSACTION: &str = "SELECT id, account_id, transfer_account_id, category_id, kind,
        description, amount, date, status, notes, purchase_date, installment_number,
-       installment_count, external_id IS NOT NULL, created_at, updated_at
+       installment_count, external_id IS NOT NULL, created_at, updated_at,
+       (SELECT o.recurring_id FROM finance_recurring_occurrences o
+        WHERE o.transaction_id = finance_transactions.id)
 FROM finance_transactions";
 
 /// Linha crua; tipo e status são convertidos fora do mapeamento para reportar
@@ -40,6 +42,7 @@ struct TransactionRow {
     imported: bool,
     created_at: String,
     updated_at: String,
+    recurring_id: Option<i64>,
 }
 
 impl TransactionRow {
@@ -61,6 +64,7 @@ impl TransactionRow {
             imported: row.get(13)?,
             created_at: row.get(14)?,
             updated_at: row.get(15)?,
+            recurring_id: row.get(16)?,
         })
     }
 
@@ -83,6 +87,7 @@ impl TransactionRow {
                 _ => None,
             },
             imported: self.imported,
+            recurring_id: self.recurring_id,
             created_at: self.created_at,
             updated_at: self.updated_at,
         })
@@ -314,28 +319,46 @@ pub fn expenses_by_category(
     Ok(totals)
 }
 
-/// As contas precisam existir; a categoria (opcional) precisa existir e ser do
-/// mesmo tipo do lançamento.
 fn ensure_references(connection: &Connection, transaction: &ValidTransaction) -> AppResult<()> {
-    if !finance_accounts::exists(connection, transaction.account_id)? {
+    check_references(
+        connection,
+        transaction.kind,
+        transaction.account_id,
+        transaction.transfer_account_id,
+        transaction.category_id,
+    )
+}
+
+/// As contas precisam existir; a categoria (opcional) precisa existir e ser do
+/// mesmo tipo do lançamento (ou da recorrente).
+pub fn check_references(
+    connection: &Connection,
+    kind: TransactionKind,
+    account_id: i64,
+    transfer_account_id: Option<i64>,
+    category_id: Option<i64>,
+) -> AppResult<()> {
+    if !finance_accounts::exists(connection, account_id)? {
         return Err(AppError::Validation("conta não encontrada".into()));
     }
-    if let Some(target) = transaction.transfer_account_id {
+    if let Some(target) = transfer_account_id {
         if !finance_accounts::exists(connection, target)? {
             return Err(AppError::Validation(
                 "conta de destino não encontrada".into(),
             ));
         }
     }
-    let Some(category_id) = transaction.category_id else {
+    let Some(category_id) = category_id else {
         return Ok(());
     };
     match finance_categories::kind_of(connection, category_id)? {
         None => Err(AppError::Validation("categoria não encontrada".into())),
-        Some(kind) if kind != transaction.kind => Err(AppError::Validation(match kind {
-            TransactionKind::Income => "a categoria escolhida é de receita".into(),
-            _ => "a categoria escolhida é de despesa".into(),
-        })),
+        Some(category_kind) if category_kind != kind => {
+            Err(AppError::Validation(match category_kind {
+                TransactionKind::Income => "a categoria escolhida é de receita".into(),
+                _ => "a categoria escolhida é de despesa".into(),
+            }))
+        }
         Some(_) => Ok(()),
     }
 }

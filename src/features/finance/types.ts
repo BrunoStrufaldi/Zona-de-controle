@@ -1,5 +1,6 @@
 import { type IsoDate, type IsoDateTime } from "@/types/common";
 import { type CategoryColor } from "@/types/palette";
+import { type RecurrenceFrequency } from "@/types/recurrence";
 
 /**
  * Contrato de Finanças. Espelha `src-tauri/src/domain/finance/` — mantenha-os
@@ -101,6 +102,8 @@ export interface Transaction {
   installment: Installment | null;
   /** Veio de um extrato importado. */
   imported: boolean;
+  /** Vinculado a um vencimento desta recorrente. */
+  recurringId: number | null;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;
 }
@@ -163,7 +166,21 @@ export interface CashflowSummary {
 export type ImportFormat = "ofx" | "c6_card_csv";
 
 export type SuggestionReason =
-  "duplicate" | "bill_payment" | "learned_rule" | "card_payment" | "investment";
+  "duplicate" | "bill_payment" | "learned_rule" | "card_payment" | "investment" | "recurring";
+
+/** Vencimento de uma recorrente (identificado pela data original). */
+export interface OccurrenceRef {
+  recurringId: number;
+  occurrenceDate: IsoDate;
+}
+
+/** Vencimento em aberto que combina com uma linha do arquivo. */
+export interface RecurringCandidate extends OccurrenceRef {
+  description: string;
+  /** Valor previsto. */
+  amount: Cents;
+  categoryId: number | null;
+}
 
 export interface LineSuggestion {
   include: boolean;
@@ -172,6 +189,8 @@ export interface LineSuggestion {
   /** Conta do outro lado, quando é transferência. */
   counterpartAccountId: number | null;
   reason: SuggestionReason | null;
+  /** Vencimento de recorrente a vincular. */
+  recurring: OccurrenceRef | null;
 }
 
 /** Linha do arquivo, como lida pelo Rust. */
@@ -189,6 +208,8 @@ export interface PreviewLine {
   /** Linhas com a mesma chave são parecidas (a categoria escolhida vale para todas). */
   descriptionKey: string | null;
   duplicate: boolean;
+  /** Vencimentos de recorrentes que combinam com a linha (o melhor primeiro). */
+  recurringCandidates: RecurringCandidate[];
   suggestion: LineSuggestion;
 }
 
@@ -210,6 +231,8 @@ export interface ImportDecision {
   kind: TransactionKind;
   categoryId: number | null;
   counterpartAccountId: number | null;
+  /** Só entrada/saída: vencimento de recorrente a vincular. */
+  recurring: OccurrenceRef | null;
 }
 
 export interface ImportCommitInput {
@@ -225,4 +248,107 @@ export interface ImportResult {
   duplicates: number;
   /** Linhas do arquivo não escolhidas. */
   skipped: number;
+  /** Importadas e vinculadas a um vencimento de recorrente. */
+  linked: number;
+}
+
+// ---------------------------------------------------------------- Recorrentes
+
+/**
+ * Repetição a cada `interval` dias/semanas/meses/anos a partir do primeiro
+ * vencimento; termina, opcionalmente, em `until` (inclusive) ou após `count`
+ * vencimentos. Mensal no dia 31 usa o último dia dos meses curtos.
+ */
+export interface RecurringRule {
+  frequency: RecurrenceFrequency;
+  interval: number;
+  until: IsoDate | null;
+  count: number | null;
+}
+
+/** Conta fixa ou receita que se repete (espelha `RecurringSeriesView`). */
+export interface RecurringSeries {
+  id: number;
+  kind: TransactionKind;
+  description: string;
+  /** Valor previsto. */
+  amount: Cents;
+  accountId: number;
+  transferAccountId: number | null;
+  categoryId: number | null;
+  /** Primeiro vencimento acompanhado. */
+  startDate: IsoDate;
+  recurrence: RecurringRule;
+  notes: string;
+  /** Próximo vencimento em aberto (de hoje em diante). */
+  nextDate: IsoDate | null;
+  /** Último vencimento, quando a repetição termina. */
+  lastDate: IsoDate | null;
+  ended: boolean;
+  /** Termina em até 30 dias (hora de renovar ou cancelar). */
+  endsSoon: boolean;
+  overdueCount: number;
+  /** Vencimento resolvido mais recente: mudar a repetição só vale depois dele. */
+  lastResolvedDate: IsoDate | null;
+  /** Valor equivalente por mês. */
+  monthlyAmount: Cents;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+}
+
+export interface RecurringInput {
+  kind: TransactionKind;
+  description: string;
+  amount: Cents;
+  accountId: number;
+  transferAccountId: number | null;
+  categoryId: number | null;
+  startDate: IsoDate;
+  recurrence: RecurringRule;
+  notes: string;
+}
+
+/**
+ * `open`: a vencer, sem lançamento. `overdue`: venceu sem lançamento ou com o
+ * lançamento ainda pendente. `pending`: lançamento pendente no prazo.
+ * `paid`: lançamento pago/recebido. `skipped`: pulado.
+ */
+export type OccurrenceStatus = "open" | "overdue" | "pending" | "paid" | "skipped";
+
+export interface RecurringOccurrence extends OccurrenceRef {
+  status: OccurrenceStatus;
+  /** Do lançamento vinculado; senão, o valor previsto. */
+  amount: Cents;
+  transactionId: number | null;
+  transactionDate: IsoDate | null;
+}
+
+/** Previsto e pago no período (sem transferências e sem os pulados). */
+export interface PlannedTotals {
+  expenses: Cents;
+  expensesPaid: Cents;
+  income: Cents;
+  incomePaid: Cents;
+}
+
+export interface RecurringSummary {
+  /** Soma do equivalente mensal das recorrentes ativas. */
+  monthlyExpenses: Cents;
+  monthlyIncome: Cents;
+  /** Todos os atrasados (inclusive os do período). */
+  overdueCount: number;
+  overdueExpenses: Cents;
+  overdueIncome: Cents;
+}
+
+export interface RecurringOverview {
+  today: IsoDate;
+  /** Ativas primeiro (pelo próximo vencimento); encerradas no fim. */
+  series: RecurringSeries[];
+  /** Vencimentos do período, por data. */
+  occurrences: RecurringOccurrence[];
+  /** Atrasados de antes do período. */
+  overdue: RecurringOccurrence[];
+  totals: PlannedTotals;
+  summary: RecurringSummary;
 }

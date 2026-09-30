@@ -1,8 +1,9 @@
 //! Sugestões da prévia e conversão das linhas escolhidas em lançamentos.
 //!
-//! Ordem das sugestões: duplicado/pagamento da fatura (não importar) → regra
-//! aprendida pela descrição → regra pela categoria do banco → pagamento de
-//! fatura e aplicações (transferências) → entrada ou saída pelo sinal.
+//! Ordem das sugestões: duplicado/pagamento da fatura (não importar) →
+//! vencimento de recorrente (`recurring_match`) → regra aprendida pela
+//! descrição → regra pela categoria do banco → pagamento de fatura e
+//! aplicações (transferências) → entrada ou saída pelo sinal.
 
 use std::collections::HashMap;
 
@@ -10,6 +11,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::calendar::CalendarDate;
 use crate::domain::finance::accounts::AccountKind;
+use crate::domain::finance::import::recurring_match::{
+    LineMatches, OccurrenceRef, RecurringCandidate,
+};
 use crate::domain::finance::import::{ImportFormat, StatementLine};
 use crate::domain::finance::transactions::{
     ImportedFields, Installment, TransactionStatus, ValidTransaction,
@@ -91,6 +95,8 @@ pub enum SuggestionReason {
     CardPayment,
     /// Aplicação ou resgate: transferência com a conta de investimentos.
     Investment,
+    /// Vencimento em aberto de uma recorrente (mesmo tipo, data e valor parecidos).
+    Recurring,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -101,6 +107,8 @@ pub struct LineSuggestion {
     pub category_id: Option<i64>,
     pub counterpart_account_id: Option<i64>,
     pub reason: Option<SuggestionReason>,
+    /// Vencimento de recorrente a vincular.
+    pub recurring: Option<OccurrenceRef>,
 }
 
 /// Linha da prévia, como a tela mostra.
@@ -121,6 +129,8 @@ pub struct PreviewLine {
     /// "parecidas" e a tela aplica a categoria escolhida a todas.
     pub description_key: Option<String>,
     pub duplicate: bool,
+    /// Vencimentos de recorrentes que combinam com a linha (o melhor primeiro).
+    pub recurring_candidates: Vec<RecurringCandidate>,
     pub suggestion: LineSuggestion,
 }
 
@@ -130,7 +140,29 @@ pub fn preview_line(
     duplicate: bool,
     rules: &Rules,
     accounts: &[(i64, AccountKind)],
+    matches: LineMatches,
 ) -> PreviewLine {
+    let suggestion = match matches.suggestion() {
+        Some(candidate) if !duplicate && !line.bill_payment => LineSuggestion {
+            include: true,
+            kind: if line.amount > 0 {
+                TransactionKind::Income
+            } else {
+                TransactionKind::Expense
+            },
+            // A categoria da recorrente vale mais que as regras aprendidas.
+            category_id: candidate
+                .category_id
+                .or(suggest(line, duplicate, rules, accounts).category_id),
+            counterpart_account_id: None,
+            reason: Some(SuggestionReason::Recurring),
+            recurring: Some(OccurrenceRef {
+                recurring_id: candidate.recurring_id,
+                occurrence_date: candidate.occurrence_date.clone(),
+            }),
+        },
+        _ => suggest(line, duplicate, rules, accounts),
+    };
     PreviewLine {
         index,
         date: line.date.to_string(),
@@ -141,7 +173,8 @@ pub fn preview_line(
         source_category: line.source_category.clone(),
         description_key: description_key(&line.description),
         duplicate,
-        suggestion: suggest(line, duplicate, rules, accounts),
+        recurring_candidates: matches.candidates,
+        suggestion,
     }
 }
 
@@ -163,6 +196,7 @@ fn suggest(
         category_id: None,
         counterpart_account_id: None,
         reason,
+        recurring: None,
     };
     if duplicate {
         return plain(false, Some(SuggestionReason::Duplicate));
@@ -223,6 +257,7 @@ fn transfer(counterpart: i64, reason: SuggestionReason) -> LineSuggestion {
         category_id: None,
         counterpart_account_id: Some(counterpart),
         reason: Some(reason),
+        recurring: None,
     }
 }
 
@@ -236,6 +271,9 @@ pub struct ImportDecision {
     pub category_id: Option<i64>,
     #[serde(default)]
     pub counterpart_account_id: Option<i64>,
+    /// Vencimento de recorrente a vincular ao lançamento (só entrada/saída).
+    #[serde(default)]
+    pub recurring: Option<OccurrenceRef>,
 }
 
 /// Monta o lançamento de uma linha. Valor, data, descrição e identificador vêm
@@ -471,6 +509,7 @@ mod tests {
             kind: TransactionKind::Expense,
             category_id: Some(5),
             counterpart_account_id: None,
+            recurring: None,
         };
         let valid = to_transaction(
             &line("Mercado", -4_590),
@@ -498,6 +537,7 @@ mod tests {
             kind: TransactionKind::Transfer,
             category_id: Some(5),
             counterpart_account_id: Some(3),
+            recurring: None,
         };
         let valid = to_transaction(
             &line("RESGATE DE CDB", 50_000),
@@ -538,6 +578,7 @@ mod tests {
             kind: TransactionKind::Expense,
             category_id: None,
             counterpart_account_id: None,
+            recurring: None,
         };
         assert!(to_transaction(&purchase, &decision, 2, ImportFormat::C6CardCsv, None).is_err());
 
@@ -561,6 +602,7 @@ mod tests {
             kind: TransactionKind::Expense,
             category_id: Some(9),
             counterpart_account_id: None,
+            recurring: None,
         };
         let rules = learned_rules(&snack, &categorized);
         let keys: Vec<_> = rules.iter().map(|(key, _)| key.as_str()).collect();
@@ -577,6 +619,7 @@ mod tests {
             kind: TransactionKind::Transfer,
             category_id: None,
             counterpart_account_id: Some(2),
+            recurring: None,
         };
         assert_eq!(
             learned_rules(&line("Fatura de cartão", -10), &card),

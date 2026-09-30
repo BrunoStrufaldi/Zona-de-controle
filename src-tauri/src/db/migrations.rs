@@ -62,6 +62,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "finance",
         sql: include_str!("../../migrations/0009_finance.sql"),
     },
+    Migration {
+        version: 10,
+        name: "finance_recurring",
+        sql: include_str!("../../migrations/0010_finance_recurring.sql"),
+    },
 ];
 
 const CREATE_SCHEMA_MIGRATIONS: &str = "
@@ -179,6 +184,8 @@ mod tests {
             "finance_transactions",
             "finance_transaction_tags",
             "finance_import_rules",
+            "finance_recurring",
+            "finance_recurring_occurrences",
         ] {
             assert!(table_exists(&connection, table), "{table}");
         }
@@ -376,6 +383,64 @@ mod tests {
         assert!(insert(-100, "2026-09-28").is_err());
         assert!(insert(100, "2026-02-30").is_err());
         // Conta com lançamentos não pode ser excluída.
+        assert!(connection
+            .execute("DELETE FROM finance_accounts WHERE id = 1", [])
+            .is_err());
+    }
+
+    #[test]
+    fn upgrades_from_version_9_keeping_transactions() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(CREATE_SCHEMA_MIGRATIONS).unwrap();
+        for migration in &MIGRATIONS[..9] {
+            apply(&mut connection, migration).unwrap();
+        }
+        connection
+            .execute_batch(
+                "INSERT INTO finance_accounts (name, kind, color) VALUES ('C6', 'checking', 'slate');
+                 INSERT INTO finance_transactions (account_id, kind, description, amount, date, status)
+                 VALUES (1, 'expense', 'Aluguel', 200000, '2026-09-05', 'paid');",
+            )
+            .unwrap();
+
+        run(&mut connection).unwrap();
+
+        let description: String = connection
+            .query_row("SELECT description FROM finance_transactions", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(description, "Aluguel");
+        let insert_series = |kind: &str, transfer: Option<i64>, start: &str| {
+            connection.execute(
+                "INSERT INTO finance_recurring
+                     (kind, description, amount, account_id, transfer_account_id, start_date, recurrence)
+                 VALUES (?1, 'Aluguel', 200000, 1, ?2, ?3, '{\"frequency\":\"monthly\"}')",
+                rusqlite::params![kind, transfer, start],
+            )
+        };
+        assert!(insert_series("expense", None, "2026-09-05").is_ok());
+        assert!(insert_series("transfer", None, "2026-09-05").is_err());
+        assert!(insert_series("expense", None, "2026-09-31").is_err());
+        // O vínculo sai junto com o lançamento; a conta com recorrente não pode sair.
+        connection
+            .execute(
+                "INSERT INTO finance_recurring_occurrences (recurring_id, occurrence_date, transaction_id)
+                 VALUES (1, '2026-09-05', 1)",
+                [],
+            )
+            .unwrap();
+        connection
+            .execute("DELETE FROM finance_transactions", [])
+            .unwrap();
+        let links: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM finance_recurring_occurrences",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(links, 0);
         assert!(connection
             .execute("DELETE FROM finance_accounts WHERE id = 1", [])
             .is_err());

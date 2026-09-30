@@ -3,12 +3,14 @@ use tauri::State;
 use crate::domain::finance::accounts::{AccountInput, FinanceAccount};
 use crate::domain::finance::categories::{CategoryInput, CategoryUpdate, FinanceCategory};
 use crate::domain::finance::overview::FinanceOverview;
+use crate::domain::finance::recurring::{RecurringInput, RecurringOverview, RecurringSeriesView};
 use crate::domain::finance::transactions::{Transaction, TransactionInput, TransactionStatus};
 use crate::error::AppResult;
 use crate::services::finance as service;
 use crate::services::finance_import::{
     self as import, ImportCommitInput, ImportPreview, ImportResult,
 };
+use crate::services::finance_recurring as recurring;
 use crate::state::AppState;
 
 /// Contas com saldo e quantidade de lançamentos (somente leitura).
@@ -151,4 +153,81 @@ pub async fn commit_finance_import(
     input: ImportCommitInput,
 ) -> AppResult<ImportResult> {
     import::commit(&state.db, &state.import_previews, input)
+}
+
+/// Recorrentes com os vencimentos de `from` a `to` (até um ano), os atrasados
+/// de antes e os resumos (somente leitura).
+#[tauri::command]
+pub async fn list_recurring(
+    state: State<'_, AppState>,
+    from: String,
+    to: String,
+) -> AppResult<RecurringOverview> {
+    recurring::list(&state.db, &from, &to)
+}
+
+#[tauri::command]
+pub async fn create_recurring(
+    state: State<'_, AppState>,
+    input: RecurringInput,
+) -> AppResult<RecurringSeriesView> {
+    recurring::create(&state.db, input)
+}
+
+#[tauri::command]
+pub async fn update_recurring(
+    state: State<'_, AppState>,
+    id: i64,
+    input: RecurringInput,
+) -> AppResult<RecurringSeriesView> {
+    recurring::update(&state.db, id, input)
+}
+
+/// Exclusão definitiva da recorrente (destrutiva, auditada); os lançamentos
+/// vinculados continuam. A interface pede confirmação antes.
+#[tauri::command]
+pub async fn delete_recurring(state: State<'_, AppState>, id: i64) -> AppResult<()> {
+    recurring::delete(&state.db, id)
+}
+
+/// Cria o lançamento de um vencimento em aberto e o vincula.
+#[tauri::command]
+pub async fn register_recurring_occurrence(
+    state: State<'_, AppState>,
+    id: i64,
+    occurrence_date: String,
+    input: TransactionInput,
+) -> AppResult<Transaction> {
+    recurring::register_occurrence(&state.db, id, &occurrence_date, input)
+}
+
+/// Vincula um vencimento em aberto a um lançamento existente.
+#[tauri::command]
+pub async fn link_recurring_occurrence(
+    state: State<'_, AppState>,
+    id: i64,
+    occurrence_date: String,
+    transaction_id: i64,
+) -> AppResult<()> {
+    recurring::link_occurrence(&state.db, id, &occurrence_date, transaction_id)
+}
+
+/// Pula um vencimento em aberto (não haverá lançamento para ele).
+#[tauri::command]
+pub async fn skip_recurring_occurrence(
+    state: State<'_, AppState>,
+    id: i64,
+    occurrence_date: String,
+) -> AppResult<()> {
+    recurring::skip_occurrence(&state.db, id, &occurrence_date)
+}
+
+/// Desfaz o vínculo ou o pulo de um vencimento; o lançamento continua.
+#[tauri::command]
+pub async fn reopen_recurring_occurrence(
+    state: State<'_, AppState>,
+    id: i64,
+    occurrence_date: String,
+) -> AppResult<()> {
+    recurring::reopen_occurrence(&state.db, id, &occurrence_date)
 }

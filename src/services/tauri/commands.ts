@@ -17,6 +17,9 @@ import {
   type ImportCommitInput,
   type ImportPreview,
   type ImportResult,
+  type RecurringInput,
+  type RecurringOverview,
+  type RecurringSeries,
   type Transaction,
   type TransactionInput,
   type TransactionStatus,
@@ -166,6 +169,20 @@ export interface CommandMap {
   get_finance_overview: { args: { month: string }; result: FinanceOverview };
   preview_finance_import: { args: { fileName: string; content: string }; result: ImportPreview };
   commit_finance_import: { args: { input: ImportCommitInput }; result: ImportResult };
+  list_recurring: { args: { from: string; to: string }; result: RecurringOverview };
+  create_recurring: { args: { input: RecurringInput }; result: RecurringSeries };
+  update_recurring: { args: { id: number; input: RecurringInput }; result: RecurringSeries };
+  delete_recurring: { args: { id: number }; result: null };
+  register_recurring_occurrence: {
+    args: { id: number; occurrenceDate: string; input: TransactionInput };
+    result: Transaction;
+  };
+  link_recurring_occurrence: {
+    args: { id: number; occurrenceDate: string; transactionId: number };
+    result: null;
+  };
+  skip_recurring_occurrence: { args: { id: number; occurrenceDate: string }; result: null };
+  reopen_recurring_occurrence: { args: { id: number; occurrenceDate: string }; result: null };
 }
 
 export type CommandName = keyof CommandMap;

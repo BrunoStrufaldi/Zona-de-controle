@@ -8,6 +8,10 @@ import {
   type ImportCommitInput,
   type ImportPreview,
   type ImportResult,
+  type OccurrenceRef,
+  type RecurringInput,
+  type RecurringOverview,
+  type RecurringSeries,
   type Transaction,
   type TransactionInput,
   type TransactionStatus,
@@ -103,4 +107,68 @@ export function previewFinanceImport(fileName: string, content: string): Promise
 /** Importa as linhas escolhidas da última prévia (auditado). */
 export function commitFinanceImport(input: ImportCommitInput): Promise<ImportResult> {
   return invokeCommand("commit_finance_import", { input });
+}
+
+/**
+ * Recorrentes com os vencimentos de `from` a `to` (até um ano), os atrasados
+ * de antes e os resumos. Os vencimentos são calculados no Rust.
+ */
+export function listRecurring(from: IsoDate, to: IsoDate): Promise<RecurringOverview> {
+  return invokeCommand("list_recurring", { from, to });
+}
+
+export function createRecurring(input: RecurringInput): Promise<RecurringSeries> {
+  return invokeCommand("create_recurring", { input });
+}
+
+export function updateRecurring(id: number, input: RecurringInput): Promise<RecurringSeries> {
+  return invokeCommand("update_recurring", { id, input });
+}
+
+/**
+ * Exclusão definitiva e auditada da recorrente (os lançamentos vinculados
+ * continuam). Só chame após confirmação explícita do usuário.
+ */
+export async function deleteRecurring(id: number): Promise<void> {
+  await invokeCommand("delete_recurring", { id });
+}
+
+/** Cria o lançamento de um vencimento em aberto e o vincula. */
+export function registerRecurringOccurrence(
+  occurrence: OccurrenceRef,
+  input: TransactionInput,
+): Promise<Transaction> {
+  return invokeCommand("register_recurring_occurrence", {
+    id: occurrence.recurringId,
+    occurrenceDate: occurrence.occurrenceDate,
+    input,
+  });
+}
+
+/** Vincula um vencimento em aberto a um lançamento que já existe. */
+export async function linkRecurringOccurrence(
+  occurrence: OccurrenceRef,
+  transactionId: number,
+): Promise<void> {
+  await invokeCommand("link_recurring_occurrence", {
+    id: occurrence.recurringId,
+    occurrenceDate: occurrence.occurrenceDate,
+    transactionId,
+  });
+}
+
+/** Pula um vencimento em aberto (não haverá lançamento para ele). */
+export async function skipRecurringOccurrence(occurrence: OccurrenceRef): Promise<void> {
+  await invokeCommand("skip_recurring_occurrence", {
+    id: occurrence.recurringId,
+    occurrenceDate: occurrence.occurrenceDate,
+  });
+}
+
+/** Desfaz o vínculo ou o pulo; o lançamento vinculado continua existindo. */
+export async function reopenRecurringOccurrence(occurrence: OccurrenceRef): Promise<void> {
+  await invokeCommand("reopen_recurring_occurrence", {
+    id: occurrence.recurringId,
+    occurrenceDate: occurrence.occurrenceDate,
+  });
 }

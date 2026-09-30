@@ -5,6 +5,7 @@ import {
   CircleDashed,
   MoreHorizontal,
   Pencil,
+  Repeat,
   Trash2,
 } from "lucide-react";
 
@@ -128,6 +129,12 @@ function TransactionRow({
             <Badge className={categoryBadgeClass[category.color]}>{category.name}</Badge>
           ) : (
             <Badge variant="outline">{NO_CATEGORY_LABEL}</Badge>
+          )}
+          {transaction.recurringId !== null && (
+            <Badge variant="primary" title="Pagamento de um vencimento de recorrente">
+              <Repeat aria-hidden="true" />
+              Recorrente
+            </Badge>
           )}
           {transaction.installment && (
             <Badge

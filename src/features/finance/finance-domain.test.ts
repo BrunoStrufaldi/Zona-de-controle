@@ -89,6 +89,7 @@ function transaction(partial: Partial<Transaction>): Transaction {
     purchaseDate: null,
     installment: null,
     imported: false,
+    recurringId: null,
     createdAt: "2026-09-10T12:00:00Z",
     updatedAt: "2026-09-10T12:00:00Z",
     ...partial,
@@ -377,7 +378,9 @@ describe("importação", () => {
       categoryId: null,
       counterpartAccountId: null,
       reason: null,
+      recurring: null,
     },
+    recurringCandidates: [],
     ...partial,
   });
   const preview = (
@@ -402,7 +405,12 @@ describe("importação", () => {
     ]);
     const choices = initialChoices(loaded);
     expect(choices[1]?.include).toBe(false);
-    expect(countChoices(loaded, choices)).toEqual({ selected: 1, duplicates: 1, left: 1 });
+    expect(countChoices(loaded, choices)).toEqual({
+      selected: 1,
+      duplicates: 1,
+      left: 1,
+      linked: 0,
+    });
   });
 
   it("limita os tipos pelo sentido do valor e limpa o que não vale mais", () => {
@@ -413,6 +421,7 @@ describe("importação", () => {
       kind: "expense",
       categoryId: 3,
       counterpartAccountId: null,
+      recurring: null,
     } as const;
     expect(changeLineKind(choice, "transfer")).toMatchObject({
       kind: "transfer",
@@ -434,7 +443,13 @@ describe("importação", () => {
     ]);
     const choices = {
       ...initialChoices(loaded),
-      1: { include: true, kind: "transfer", categoryId: 4, counterpartAccountId: null },
+      1: {
+        include: true,
+        kind: "transfer",
+        categoryId: 4,
+        counterpartAccountId: null,
+        recurring: null,
+      },
     } as const;
     expect(buildCommit(loaded, choices, null, null).problem).toBe("Escolha a conta do arquivo.");
     expect(buildCommit(loaded, choices, 1, null).problem).toMatch(/transferências/);
@@ -445,8 +460,14 @@ describe("importação", () => {
       accountId: 1,
       statementDate: null,
       lines: [
-        { index: 0, kind: "expense", categoryId: null, counterpartAccountId: null },
-        { index: 1, kind: "transfer", categoryId: null, counterpartAccountId: 3 },
+        {
+          index: 0,
+          kind: "expense",
+          categoryId: null,
+          counterpartAccountId: null,
+          recurring: null,
+        },
+        { index: 1, kind: "transfer", categoryId: null, counterpartAccountId: 3, recurring: null },
       ],
     });
 
@@ -469,7 +490,13 @@ describe("importação", () => {
     ]);
     const withChoice = {
       ...initialChoices(loaded),
-      1: { include: true, kind: "expense", categoryId: 9, counterpartAccountId: null },
+      1: {
+        include: true,
+        kind: "expense",
+        categoryId: 9,
+        counterpartAccountId: null,
+        recurring: null,
+      },
     } as const;
 
     const { choices, alsoApplied } = applyCategory(loaded, withChoice, 0, 2);

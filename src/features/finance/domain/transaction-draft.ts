@@ -72,11 +72,11 @@ export function toTransactionDraft(transaction: Transaction): TransactionDraft {
  * Troca o tipo do lançamento. A categoria é de um tipo só, então é limpa se
  * não combinar com o novo tipo (transferência não tem categoria).
  */
-export function changeKind(
-  draft: TransactionDraft,
+export function changeKind<T extends { kind: TransactionKind; categoryId: number | null }>(
+  draft: T,
   kind: TransactionKind,
   categories: ReadonlyMap<number, FinanceCategory>,
-): TransactionDraft {
+): T {
   const category = draft.categoryId === null ? undefined : categories.get(draft.categoryId);
   return { ...draft, kind, categoryId: category?.kind === kind ? draft.categoryId : null };
 }

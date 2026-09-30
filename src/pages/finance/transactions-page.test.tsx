@@ -251,7 +251,9 @@ describe("página de Lançamentos", () => {
         categoryId: null,
         counterpartAccountId: null,
         reason: null,
+        recurring: null,
       },
+      recurringCandidates: [],
       ...partial,
     });
     const importPreview: ImportPreview = {
@@ -273,6 +275,7 @@ describe("página de Lançamentos", () => {
             categoryId: null,
             counterpartAccountId: 2,
             reason: "card_payment",
+            recurring: null,
           },
         }),
         line(2, {
@@ -284,6 +287,7 @@ describe("página de Lançamentos", () => {
             categoryId: null,
             counterpartAccountId: null,
             reason: "duplicate",
+            recurring: null,
           },
         }),
       ],
@@ -329,8 +333,20 @@ describe("página de Lançamentos", () => {
           accountId: 1,
           statementDate: null,
           lines: [
-            { index: 0, kind: "expense", categoryId: 1, counterpartAccountId: null },
-            { index: 1, kind: "transfer", categoryId: null, counterpartAccountId: 2 },
+            {
+              index: 0,
+              kind: "expense",
+              categoryId: 1,
+              counterpartAccountId: null,
+              recurring: null,
+            },
+            {
+              index: 1,
+              kind: "transfer",
+              categoryId: null,
+              counterpartAccountId: 2,
+              recurring: null,
+            },
           ],
         },
       });
@@ -339,6 +355,86 @@ describe("página de Lançamentos", () => {
     const list = await screen.findByRole("list", { name: "Lançamentos" });
     expect(within(list).getByText("POSTO EXEMPLO")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("vincula uma linha importada ao vencimento de uma recorrente", async () => {
+    const user = userEvent.setup();
+    const candidate = {
+      recurringId: 4,
+      occurrenceDate: `${thisMonth}-05`,
+      description: "Aluguel",
+      amount: 200_000,
+      categoryId: 1,
+    };
+    const importPreview: ImportPreview = {
+      previewId: 2,
+      fileName: "",
+      format: "ofx",
+      accountKind: "checking",
+      statementDate: null,
+      firstDate: `${thisMonth}-01`,
+      lastDate: `${thisMonth}-20`,
+      lines: [
+        {
+          index: 0,
+          date: `${thisMonth}-06`,
+          description: "PIX IMOBILIARIA",
+          amount: 200_000,
+          inflow: false,
+          installment: null,
+          sourceCategory: null,
+          descriptionKey: "desc:pix imobiliaria",
+          duplicate: false,
+          recurringCandidates: [candidate],
+          suggestion: {
+            include: true,
+            kind: "expense",
+            categoryId: 1,
+            counterpartAccountId: null,
+            reason: "recurring",
+            recurring: { recurringId: 4, occurrenceDate: candidate.occurrenceDate },
+          },
+        },
+      ],
+    };
+    const backend = mockFinanceBackend({ accounts: [{ name: "C6" }], importPreview });
+    renderRoute(paths.finance.transactions);
+
+    await user.click(await screen.findByRole("button", { name: /Importar/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Importar extrato" });
+    await user.upload(
+      within(dialog).getByLabelText("Arquivo do extrato"),
+      new File(["<OFX>fictício</OFX>"], "extrato.ofx", { type: "application/x-ofx" }),
+    );
+
+    const rows = await within(dialog).findByRole("list", { name: "Lançamentos do arquivo" });
+    expect(within(rows).getByText("Vencimento de recorrente")).toBeInTheDocument();
+    const link = within(rows).getByLabelText<HTMLSelectElement>("Recorrente de “PIX IMOBILIARIA”");
+    expect(link.selectedOptions[0]?.textContent).toMatch(/Paga “Aluguel” · vence/);
+    expect(within(dialog).getByText(/para importar/)).toHaveTextContent("1 pagando recorrentes");
+
+    // Desfazer e refazer o vínculo.
+    await user.selectOptions(link, "Não é de uma recorrente");
+    expect(within(dialog).getByText(/para importar/)).not.toHaveTextContent("recorrentes");
+    await user.selectOptions(link, link.options[1] as HTMLOptionElement);
+    await user.click(within(dialog).getByRole("button", { name: "Importar 1 lançamento" }));
+
+    await waitFor(() => {
+      expect(backend.handlers.commit_finance_import).toHaveBeenCalledWith({
+        input: expect.objectContaining({
+          lines: [
+            {
+              index: 0,
+              kind: "expense",
+              categoryId: 1,
+              counterpartAccountId: null,
+              recurring: { recurringId: 4, occurrenceDate: candidate.occurrenceDate },
+            },
+          ],
+        }) as unknown,
+      });
+    });
+    expect(await screen.findByText("1 lançamento importado")).toBeInTheDocument();
   });
 
   it("mostra o erro de um arquivo não reconhecido", async () => {

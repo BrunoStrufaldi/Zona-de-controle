@@ -51,7 +51,7 @@ function pendingNote(pending: number, label: string): string | undefined {
   return pending > 0 ? `${formatCents(pending)} ${label}` : undefined;
 }
 
-type MetricTone = "success" | "danger" | "primary";
+export type MetricTone = "success" | "danger" | "primary";
 
 const metricToneClasses: Record<MetricTone, string> = {
   success: "text-success",
@@ -67,7 +67,8 @@ interface MetricProps {
   tone: MetricTone;
 }
 
-function Metric({ label, value, note, icon: Icon, tone }: MetricProps) {
+/** Um número do resumo: rótulo com ícone, valor e observação opcional. */
+export function Metric({ label, value, note, icon: Icon, tone }: MetricProps) {
   return (
     <div className="grid content-start gap-1 rounded-md border border-border bg-background/40 p-3">
       <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">

@@ -11,6 +11,10 @@ import {
   type ImportCommitInput,
   type ImportPreview,
   type ImportResult,
+  type OccurrenceRef,
+  type RecurringInput,
+  type RecurringOverview,
+  type RecurringSeries,
   type Transaction,
   type TransactionInput,
   type TransactionStatus,
@@ -22,19 +26,27 @@ import {
   commitFinanceImport,
   createFinanceAccount,
   createFinanceCategory,
+  createRecurring,
   createTransaction,
   deleteFinanceAccount,
   deleteFinanceCategory,
+  deleteRecurring,
   deleteTransaction,
   getFinanceOverview,
+  linkRecurringOccurrence,
   previewFinanceImport,
   listFinanceAccounts,
   listFinanceCategories,
+  listRecurring,
   listTransactionTags,
   listTransactions,
+  registerRecurringOccurrence,
+  reopenRecurringOccurrence,
   setTransactionStatus,
+  skipRecurringOccurrence,
   updateFinanceAccount,
   updateFinanceCategory,
+  updateRecurring,
   updateTransaction,
 } from "@/services/finance-service";
 
@@ -182,5 +194,83 @@ export function useFinanceOverview(month: YearMonth): {
   );
   const { resource, mutate } = useMutableResource(load);
   const actions = useMemo(() => registryActions(mutate), [mutate]);
+  return { resource, actions };
+}
+
+// ---------------------------------------------------------------- Recorrentes
+
+export interface RecurringData extends FinanceRegistry {
+  recurring: RecurringOverview;
+  /** Tags em uso (sugestões do formulário de lançamento). */
+  tags: string[];
+}
+
+export interface RecurringActions {
+  /** Cria (`id` nulo) ou edita uma recorrente. */
+  save: (id: number | null, input: RecurringInput) => Promise<RecurringSeries>;
+  /** Exclusão definitiva — chame apenas após confirmação do usuário. */
+  remove: (id: number) => Promise<void>;
+  /** Cria o lançamento do vencimento e o vincula. */
+  register: (occurrence: OccurrenceRef, input: TransactionInput) => Promise<Transaction>;
+  link: (occurrence: OccurrenceRef, transactionId: number) => Promise<void>;
+  skip: (occurrence: OccurrenceRef) => Promise<void>;
+  /** Desfaz o vínculo ou o pulo (o lançamento continua). */
+  reopen: (occurrence: OccurrenceRef) => Promise<void>;
+  /** Marca o lançamento vinculado como pago/recebido ou pendente. */
+  setTransactionStatus: (id: number, status: TransactionStatus) => Promise<Transaction>;
+  /** Lançamentos de um intervalo (para escolher qual vincular). */
+  loadTransactions: (range: DateRange) => Promise<Transaction[]>;
+}
+
+/** Recorrentes com os vencimentos do período, contas e categorias. Tudo é recarregado após cada operação. */
+export function useRecurring(range: DateRange): {
+  resource: AsyncResource<RecurringData>;
+  actions: RecurringActions;
+} {
+  const { from, to } = range;
+  const load = useCallback(
+    () =>
+      Promise.all([
+        listRecurring(from, to),
+        listFinanceAccounts(),
+        listFinanceCategories(),
+        listTransactionTags(),
+      ]).then(([recurring, accounts, categories, tags]) => ({
+        recurring,
+        accounts,
+        categories,
+        tags,
+      })),
+    [from, to],
+  );
+  const { resource, mutate } = useMutableResource(load);
+
+  const actions = useMemo<RecurringActions>(
+    () => ({
+      save: (id, input) =>
+        mutate(null, () => (id === null ? createRecurring(input) : updateRecurring(id, input))),
+      remove: (id) =>
+        mutate(
+          (data) => ({
+            ...data,
+            recurring: {
+              ...data.recurring,
+              series: data.recurring.series.filter((series) => series.id !== id),
+            },
+          }),
+          () => deleteRecurring(id),
+        ),
+      register: (occurrence, input) =>
+        mutate(null, () => registerRecurringOccurrence(occurrence, input)),
+      link: (occurrence, transactionId) =>
+        mutate(null, () => linkRecurringOccurrence(occurrence, transactionId)),
+      skip: (occurrence) => mutate(null, () => skipRecurringOccurrence(occurrence)),
+      reopen: (occurrence) => mutate(null, () => reopenRecurringOccurrence(occurrence)),
+      setTransactionStatus: (id, status) => mutate(null, () => setTransactionStatus(id, status)),
+      loadTransactions: (window) => listTransactions(window.from, window.to),
+    }),
+    [mutate],
+  );
+
   return { resource, actions };
 }

@@ -81,6 +81,14 @@ const APP_COMMANDS: &[&str] = &[
     "get_finance_overview",
     "preview_finance_import",
     "commit_finance_import",
+    "list_recurring",
+    "create_recurring",
+    "update_recurring",
+    "delete_recurring",
+    "register_recurring_occurrence",
+    "link_recurring_occurrence",
+    "skip_recurring_occurrence",
+    "reopen_recurring_occurrence",
 ];
 
 fn main() {

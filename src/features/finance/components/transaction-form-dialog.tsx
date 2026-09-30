@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { AccountSelect, ColorDot } from "@/features/finance/components/account-select";
 import { categoryDotClass } from "@/features/finance/components/finance-styles";
 import { categoriesOfKind } from "@/features/finance/domain/categories";
 import { indexById } from "@/features/finance/domain/filters";
@@ -45,7 +46,6 @@ import {
   type TransactionKind,
   type TransactionStatus,
 } from "@/features/finance/types";
-import { cn } from "@/lib/cn";
 import { mergeTags } from "@/lib/tags";
 import { toServiceError } from "@/services/tauri/errors";
 import { type IsoDate } from "@/types/common";
@@ -58,8 +58,14 @@ const descriptionPlaceholder: Record<TransactionKind, string> = {
   transfer: "Ex.: Pagamento da fatura",
 };
 
+/**
+ * `register`: lançamento de um vencimento de recorrente, já preenchido; o tipo
+ * é o da recorrente e não muda.
+ */
 export type TransactionFormMode =
-  { kind: "create"; date: IsoDate } | { kind: "edit"; transaction: Transaction };
+  | { kind: "create"; date: IsoDate }
+  | { kind: "edit"; transaction: Transaction }
+  | { kind: "register"; draft: TransactionDraft; title: string };
 
 interface TransactionFormDialogProps {
   /** `null` fecha o diálogo. */
@@ -73,9 +79,16 @@ interface TransactionFormDialogProps {
 
 function initialDraft(mode: TransactionFormMode, accounts: readonly FinanceAccount[]) {
   if (mode.kind === "edit") return toTransactionDraft(mode.transaction);
+  if (mode.kind === "register") return mode.draft;
   // Com uma conta só, ela já vem escolhida.
   return emptyTransactionDraft(accounts.length === 1 ? (accounts[0]?.id ?? null) : null, mode.date);
 }
+
+const FORM_TEXT: Record<TransactionFormMode["kind"], { title: string; submit: string }> = {
+  create: { title: "Novo lançamento", submit: "Criar lançamento" },
+  edit: { title: "Editar lançamento", submit: "Salvar alterações" },
+  register: { title: "Registrar vencimento", submit: "Registrar lançamento" },
+};
 
 export function TransactionFormDialog({
   mode,
@@ -95,17 +108,18 @@ export function TransactionFormDialog({
       {mode && (
         <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {mode.kind === "edit" ? "Editar lançamento" : "Novo lançamento"}
-            </DialogTitle>
+            <DialogTitle>{FORM_TEXT[mode.kind].title}</DialogTitle>
             <DialogDescription>
-              Campos com * são obrigatórios. Pendentes não entram no saldo das contas.
+              {mode.kind === "register"
+                ? `${mode.title}. O lançamento fica vinculado ao vencimento; ajuste valor e data se precisar.`
+                : "Campos com * são obrigatórios. Pendentes não entram no saldo das contas."}
             </DialogDescription>
           </DialogHeader>
           <TransactionForm
-            key={mode.kind === "edit" ? mode.transaction.id : "new"}
+            key={mode.kind === "edit" ? mode.transaction.id : mode.kind}
             initial={initialDraft(mode, accounts)}
-            submitLabel={mode.kind === "edit" ? "Salvar alterações" : "Criar lançamento"}
+            submitLabel={FORM_TEXT[mode.kind].submit}
+            lockKind={mode.kind === "register"}
             accounts={accounts}
             categories={categories}
             tagSuggestions={tagSuggestions}
@@ -121,6 +135,8 @@ export function TransactionFormDialog({
 interface TransactionFormProps {
   initial: TransactionDraft;
   submitLabel: string;
+  /** O tipo não pode mudar (lançamento de uma recorrente). */
+  lockKind: boolean;
   accounts: readonly FinanceAccount[];
   categories: readonly FinanceCategory[];
   tagSuggestions: readonly string[];
@@ -131,6 +147,7 @@ interface TransactionFormProps {
 function TransactionForm({
   initial,
   submitLabel,
+  lockKind,
   accounts,
   categories,
   tagSuggestions,
@@ -184,22 +201,24 @@ function TransactionForm({
         void handleSubmit(event);
       }}
     >
-      <Tabs
-        value={draft.kind}
-        onValueChange={(value) => {
-          setDraft((current) =>
-            changeKind(current, value as TransactionKind, indexById(categories)),
-          );
-        }}
-      >
-        <TabsList aria-label="Tipo do lançamento" className="w-full">
-          {TRANSACTION_KINDS.map((kind) => (
-            <TabsTrigger key={kind} value={kind} className="flex-1">
-              {transactionKindLabels[kind]}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      {!lockKind && (
+        <Tabs
+          value={draft.kind}
+          onValueChange={(value) => {
+            setDraft((current) =>
+              changeKind(current, value as TransactionKind, indexById(categories)),
+            );
+          }}
+        >
+          <TabsList aria-label="Tipo do lançamento" className="w-full">
+            {TRANSACTION_KINDS.map((kind) => (
+              <TabsTrigger key={kind} value={kind} className="flex-1">
+                {transactionKindLabels[kind]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
 
       <Field label="Descrição *" htmlFor={ids.description} error={errors.description}>
         <Input
@@ -361,45 +380,5 @@ function TransactionForm({
         </Button>
       </DialogFooter>
     </form>
-  );
-}
-
-interface AccountSelectProps {
-  id: string;
-  accounts: readonly FinanceAccount[];
-  value: number | null;
-  invalid: boolean;
-  onChange: (accountId: number) => void;
-}
-
-function AccountSelect({ id, accounts, value, invalid, onChange }: AccountSelectProps) {
-  return (
-    <Select
-      value={value === null ? "" : String(value)}
-      onValueChange={(next) => {
-        onChange(Number(next));
-      }}
-    >
-      <SelectTrigger id={id} aria-invalid={invalid || undefined}>
-        <SelectValue placeholder="Escolha a conta" />
-      </SelectTrigger>
-      <SelectContent>
-        {accounts.map((account) => (
-          <SelectItem key={account.id} value={String(account.id)}>
-            <ColorDot className={categoryDotClass[account.color]} />
-            {account.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function ColorDot({ className }: { className: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn("mr-2 inline-block size-2 rounded-full align-middle", className)}
-    />
   );
 }

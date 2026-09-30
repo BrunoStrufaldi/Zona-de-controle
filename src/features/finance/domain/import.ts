@@ -4,10 +4,12 @@ import {
   type ImportCommitInput,
   type ImportFormat,
   type ImportPreview,
+  type OccurrenceRef,
   type PreviewLine,
   type SuggestionReason,
   type TransactionKind,
 } from "@/features/finance/types";
+import { occurrenceKey } from "@/features/finance/domain/recurring";
 import { type IsoDate } from "@/types/common";
 
 /** Espelha `MAX_FILE_BYTES` no Rust. */
@@ -24,6 +26,7 @@ export const reasonLabels: Record<SuggestionReason, string> = {
   learned_rule: "Sugerido pelas suas escolhas anteriores",
   card_payment: "Pagamento de fatura: transferência para o cartão",
   investment: "Aplicação ou resgate: transferência com os investimentos",
+  recurring: "Vencimento de recorrente",
 };
 
 /** Escolha da tela para uma linha do arquivo. */
@@ -32,6 +35,8 @@ export interface LineChoice {
   kind: TransactionKind;
   categoryId: number | null;
   counterpartAccountId: number | null;
+  /** Vencimento de recorrente a vincular (só entrada/saída). */
+  recurring: OccurrenceRef | null;
 }
 
 export type ImportChoices = Readonly<Record<number, LineChoice>>;
@@ -46,6 +51,7 @@ export function initialChoices(preview: ImportPreview): ImportChoices {
         kind: line.suggestion.kind,
         categoryId: line.suggestion.categoryId,
         counterpartAccountId: line.suggestion.counterpartAccountId,
+        recurring: line.suggestion.recurring,
       },
     ]),
   );
@@ -56,7 +62,10 @@ export function kindOptions(line: Pick<PreviewLine, "inflow">): TransactionKind[
   return line.inflow ? ["income", "transfer"] : ["expense", "transfer"];
 }
 
-/** Troca o tipo limpando o que não vale mais (categoria ou conta da transferência). */
+/**
+ * Troca o tipo limpando o que não vale mais (categoria, conta da transferência
+ * e o vínculo com a recorrente, que é só de entradas e saídas).
+ */
 export function changeLineKind(choice: LineChoice, kind: TransactionKind): LineChoice {
   if (kind === choice.kind) return choice;
   return {
@@ -64,6 +73,29 @@ export function changeLineKind(choice: LineChoice, kind: TransactionKind): LineC
     kind,
     categoryId: null,
     counterpartAccountId: kind === "transfer" ? choice.counterpartAccountId : null,
+    recurring: null,
+  };
+}
+
+/**
+ * Vincula a linha a um vencimento (ou desfaz, com `null`). Sem categoria
+ * escolhida, a linha fica com a categoria da recorrente.
+ */
+export function chooseRecurring(
+  line: Pick<PreviewLine, "recurringCandidates">,
+  choice: LineChoice,
+  occurrence: OccurrenceRef | null,
+): LineChoice {
+  const candidate = line.recurringCandidates.find(
+    (item) =>
+      item.recurringId === occurrence?.recurringId &&
+      item.occurrenceDate === occurrence.occurrenceDate,
+  );
+  if (!candidate) return { ...choice, recurring: null };
+  return {
+    ...choice,
+    recurring: { recurringId: candidate.recurringId, occurrenceDate: candidate.occurrenceDate },
+    categoryId: choice.categoryId ?? candidate.categoryId,
   };
 }
 
@@ -123,16 +155,23 @@ export interface ImportCounts {
   duplicates: number;
   /** Não duplicadas e desmarcadas. */
   left: number;
+  /** Marcadas e vinculadas a um vencimento de recorrente. */
+  linked: number;
 }
 
 export function countChoices(preview: ImportPreview, choices: ImportChoices): ImportCounts {
   let selected = 0;
   let duplicates = 0;
+  let linked = 0;
   for (const line of preview.lines) {
+    const choice = choices[line.index];
     if (line.duplicate) duplicates += 1;
-    else if (choices[line.index]?.include) selected += 1;
+    else if (choice?.include) {
+      selected += 1;
+      if (choice.recurring !== null && choice.kind !== "transfer") linked += 1;
+    }
   }
-  return { selected, duplicates, left: preview.lines.length - selected - duplicates };
+  return { selected, duplicates, left: preview.lines.length - selected - duplicates, linked };
 }
 
 /**
@@ -159,9 +198,13 @@ export function buildCommit(
         kind: choice.kind,
         categoryId: choice.kind === "transfer" ? null : choice.categoryId,
         counterpartAccountId: choice.kind === "transfer" ? choice.counterpartAccountId : null,
+        recurring: choice.kind === "transfer" ? null : choice.recurring,
       };
     });
   if (lines.length === 0) return fail("Marque ao menos um lançamento.");
+  const linked = lines.flatMap((line) => (line.recurring ? [occurrenceKey(line.recurring)] : []));
+  if (new Set(linked).size !== linked.length)
+    return fail("O mesmo vencimento de recorrente foi escolhido para duas linhas.");
   const badTransfer = lines.find(
     (line) =>
       line.kind === "transfer" &&

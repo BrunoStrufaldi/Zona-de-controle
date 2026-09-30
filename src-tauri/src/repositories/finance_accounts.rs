@@ -114,12 +114,23 @@ pub fn update(connection: &Connection, id: i64, account: &ValidAccount) -> AppRe
     Ok(())
 }
 
-/// Exclui uma conta sem lançamentos. Retorna a conta excluída.
+/// Exclui uma conta sem lançamentos nem recorrentes. Retorna a conta excluída.
 pub fn delete(connection: &Connection, id: i64) -> AppResult<FinanceAccount> {
     let account = find(connection, id)?.ok_or(AppError::NotFound(ACCOUNT_NOT_FOUND))?;
     if account.transaction_count > 0 {
         return Err(AppError::Validation(format!(
             "a conta “{}” tem lançamentos; exclua-os ou mude-os de conta antes",
+            account.name
+        )));
+    }
+    let recurring: i64 = connection.query_row(
+        "SELECT COUNT(*) FROM finance_recurring WHERE account_id = ?1 OR transfer_account_id = ?1",
+        [id],
+        |row| row.get(0),
+    )?;
+    if recurring > 0 {
+        return Err(AppError::Validation(format!(
+            "a conta “{}” é usada por recorrentes; exclua-as ou mude-as de conta antes",
             account.name
         )));
     }

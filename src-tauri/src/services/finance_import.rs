@@ -17,14 +17,18 @@ use crate::db::Database;
 use crate::domain::audit::{AuditCategory, AuditOutcome, NewAuditEntry};
 use crate::domain::calendar::CalendarDate;
 use crate::domain::finance::accounts::AccountKind;
+use crate::domain::finance::import::recurring_match::{match_lines, open_occurrences, LineFacts};
 use crate::domain::finance::import::suggest::{
-    learned_rules, preview_line, to_transaction, ImportDecision, PreviewLine,
+    description_key, learned_rules, preview_line, to_transaction, ImportDecision, PreviewLine,
 };
 use crate::domain::finance::import::{
     date_in_file_name, parse_statement, ImportFormat, ParsedStatement,
 };
+use crate::domain::finance::TransactionKind;
 use crate::error::{AppError, AppResult};
-use crate::repositories::{audit, finance_accounts, finance_import_rules, finance_transactions};
+use crate::repositories::{
+    audit, finance_accounts, finance_import_rules, finance_recurring, finance_transactions,
+};
 
 pub const IMPORT_AUDIT_ACTION: &str = "finance_import.completed";
 const EXPIRED_PREVIEW: &str = "Esta prévia não está mais disponível. Escolha o arquivo de novo.";
@@ -90,6 +94,8 @@ pub struct ImportResult {
     pub duplicates: u32,
     /// Linhas do arquivo que não foram escolhidas.
     pub skipped: u32,
+    /// Importadas e vinculadas a um vencimento de recorrente.
+    pub linked: u32,
 }
 
 /// Lê o arquivo e monta a prévia (somente leitura no banco).
@@ -101,7 +107,7 @@ pub fn preview(
 ) -> AppResult<ImportPreview> {
     let file_name = base_name(file_name);
     let parsed = parse_statement(content)?;
-    let (existing, rules, accounts) = db.with_connection(|connection| {
+    let (existing, rules, accounts, series) = db.with_connection(|connection| {
         let ids: Vec<&str> = parsed
             .lines
             .iter()
@@ -115,19 +121,50 @@ pub fn preview(
             finance_transactions::existing_external_ids(connection, &ids)?,
             finance_import_rules::load(connection)?,
             accounts,
+            finance_recurring::list(connection)?,
         ))
     })?;
 
+    let dates = || parsed.lines.iter().map(|line| line.date);
+    // Vencimentos de recorrentes em aberto perto das datas do arquivo.
+    let matches = match (dates().min(), dates().max()) {
+        (Some(first), Some(last)) => {
+            let keys: Vec<Option<String>> = parsed
+                .lines
+                .iter()
+                .map(|line| description_key(&line.description))
+                .collect();
+            let facts: Vec<Option<LineFacts<'_>>> = parsed
+                .lines
+                .iter()
+                .zip(&keys)
+                .map(|(line, key)| {
+                    let eligible = !existing.contains(&line.external_id) && !line.bill_payment;
+                    eligible.then_some(LineFacts {
+                        date: line.date,
+                        amount: line.amount,
+                        key: key.as_deref(),
+                    })
+                })
+                .collect();
+            match_lines(&facts, &open_occurrences(&series, first, last))
+        }
+        _ => Vec::new(),
+    };
     let lines: Vec<PreviewLine> = parsed
         .lines
         .iter()
+        .zip(
+            matches
+                .into_iter()
+                .chain(std::iter::repeat_with(Default::default)),
+        )
         .enumerate()
-        .map(|(index, line)| {
+        .map(|(index, (line, line_matches))| {
             let duplicate = existing.contains(&line.external_id);
-            preview_line(index, line, duplicate, &rules, &accounts)
+            preview_line(index, line, duplicate, &rules, &accounts, line_matches)
         })
         .collect();
-    let dates = || parsed.lines.iter().map(|line| line.date);
     let first_date = dates()
         .min()
         .map(|date| date.to_string())
@@ -220,6 +257,7 @@ fn import_lines(
         .transpose()?;
 
     let mut seen = HashSet::new();
+    let mut occurrences = HashSet::new();
     let mut prepared = Vec::with_capacity(input.lines.len());
     for decision in &input.lines {
         let line = lines
@@ -227,6 +265,14 @@ fn import_lines(
             .ok_or_else(|| AppError::Validation("linha inexistente na prévia".into()))?;
         if !seen.insert(decision.index) {
             return Err(AppError::Validation("linha repetida na importação".into()));
+        }
+        if let Some(occurrence) = &decision.recurring {
+            if !occurrences.insert(occurrence) {
+                return Err(AppError::Validation(format!(
+                    "“{}”: o mesmo vencimento foi escolhido para duas linhas",
+                    line.description
+                )));
+            }
         }
         let transaction = to_transaction(
             line,
@@ -247,20 +293,52 @@ fn import_lines(
         .map(|(line, _, _)| line.external_id.as_str())
         .collect();
     let existing = finance_transactions::existing_external_ids(&transaction, &ids)?;
+    let series = finance_recurring::list(&transaction)?;
 
     let mut result = ImportResult {
         added: 0,
         duplicates: 0,
         skipped: (lines.len() - prepared.len()) as u32,
+        linked: 0,
     };
     for (line, decision, valid) in &prepared {
         if existing.contains(&line.external_id) {
             result.duplicates += 1;
             continue;
         }
-        finance_transactions::insert(&transaction, valid)?;
+        // Valida o vínculo antes de gravar a linha.
+        let occurrence = decision
+            .recurring
+            .as_ref()
+            .map(|occurrence| {
+                let problem = |message: &str| {
+                    AppError::Validation(format!("“{}”: {message}", line.description))
+                };
+                let item = series
+                    .iter()
+                    .find(|item| item.id == occurrence.recurring_id)
+                    .ok_or_else(|| problem("a recorrente escolhida não existe mais"))?;
+                if item.kind == TransactionKind::Transfer || item.kind != decision.kind {
+                    return Err(problem("o tipo não combina com o da recorrente"));
+                }
+                let date = CalendarDate::parse(&occurrence.occurrence_date)
+                    .filter(|date| item.is_open(*date))
+                    .ok_or_else(|| problem("o vencimento escolhido não está mais em aberto"))?;
+                Ok((item.id, date))
+            })
+            .transpose()?;
+
+        let transaction_id = finance_transactions::insert(&transaction, valid)?;
         for (pattern, target) in learned_rules(line, decision) {
             finance_import_rules::upsert(&transaction, &pattern, target)?;
+        }
+        if let Some((recurring_id, date)) = occurrence {
+            finance_recurring::link(&transaction, recurring_id, date, transaction_id)?;
+            // A descrição do extrato passa a identificar a recorrente.
+            if let Some(key) = description_key(&line.description) {
+                finance_recurring::set_import_key(&transaction, recurring_id, &key)?;
+            }
+            result.linked += 1;
         }
         result.added += 1;
     }
@@ -276,6 +354,7 @@ fn import_lines(
                 "added": result.added,
                 "duplicates": result.duplicates,
                 "skipped": result.skipped,
+                "linked": result.linked,
             }),
         ),
     )?;
@@ -372,6 +451,7 @@ mod tests {
                     kind: line.suggestion.kind,
                     category_id: line.suggestion.category_id,
                     counterpart_account_id: line.suggestion.counterpart_account_id,
+                    recurring: line.suggestion.recurring.clone(),
                 })
                 .collect(),
         }
@@ -410,7 +490,8 @@ mod tests {
             ImportResult {
                 added: 3,
                 duplicates: 0,
-                skipped: 0
+                skipped: 0,
+                linked: 0
             }
         );
 
@@ -475,7 +556,8 @@ mod tests {
             ImportResult {
                 added: 1,
                 duplicates: 0,
-                skipped: 1
+                skipped: 1,
+                linked: 0
             }
         );
 
@@ -523,6 +605,81 @@ mod tests {
     }
 
     #[test]
+    fn links_statement_lines_to_recurring_occurrences() {
+        use crate::domain::finance::recurring::{OccurrenceStatus, RecurringInput, RecurringRule};
+        use crate::domain::task_recurrence::RecurrenceFrequency;
+        use crate::services::finance_recurring;
+
+        let db = Database::open_in_memory().unwrap();
+        let store = ImportPreviewStore::new();
+        let checking = account(&db, "C6", AccountKind::Checking);
+        let fuel = category(&db, "Transporte");
+        let series = finance_recurring::create(
+            &db,
+            RecurringInput {
+                kind: TransactionKind::Expense,
+                description: "Combustível".into(),
+                amount: 4_590,
+                account_id: checking,
+                transfer_account_id: None,
+                category_id: Some(fuel),
+                start_date: "2026-09-01".into(),
+                recurrence: RecurringRule {
+                    frequency: RecurrenceFrequency::Monthly,
+                    interval: 1,
+                    until: None,
+                    count: None,
+                },
+                notes: String::new(),
+            },
+        )
+        .unwrap();
+
+        let preview = preview(&db, &store, "extrato.ofx", OFX).unwrap();
+        let fuel_line = &preview.lines[0];
+        assert_eq!(
+            fuel_line.suggestion.reason,
+            Some(SuggestionReason::Recurring)
+        );
+        assert_eq!(fuel_line.suggestion.category_id, Some(fuel));
+        assert_eq!(
+            fuel_line
+                .suggestion
+                .recurring
+                .as_ref()
+                .map(|o| o.occurrence_date.as_str()),
+            Some("2026-09-01")
+        );
+        assert_eq!(fuel_line.recurring_candidates.len(), 1);
+        // A mesma ocorrência não pode ir para duas linhas.
+        let mut twice = accept_all(&preview, checking);
+        twice.lines[1].kind = TransactionKind::Expense;
+        twice.lines[1].counterpart_account_id = None;
+        twice.lines[1].recurring = fuel_line.suggestion.recurring.clone();
+        assert!(matches!(
+            commit(&db, &store, twice),
+            Err(AppError::Validation(_))
+        ));
+
+        let result = commit(&db, &store, accept_all(&preview, checking)).unwrap();
+        assert_eq!((result.added, result.linked), (3, 1));
+        let overview = finance_recurring::list(&db, "2026-09-01", "2026-09-30").unwrap();
+        assert_eq!(overview.occurrences[0].status, OccurrenceStatus::Paid);
+        assert_eq!(
+            overview.occurrences[0].transaction_date.as_deref(),
+            Some("2026-09-02")
+        );
+        // A descrição do extrato ficou como chave da recorrente.
+        let stored = db
+            .with_connection(|connection| {
+                crate::repositories::finance_recurring::find(connection, series.id)
+            })
+            .unwrap()
+            .unwrap();
+        assert_eq!(stored.import_key.as_deref(), Some("desc:posto exemplo"));
+    }
+
+    #[test]
     fn rejects_invalid_choices() {
         let db = Database::open_in_memory().unwrap();
         let store = ImportPreviewStore::new();
@@ -535,6 +692,7 @@ mod tests {
             kind: TransactionKind::Expense,
             category_id: None,
             counterpart_account_id: None,
+            recurring: None,
         });
         assert!(matches!(
             commit(&db, &store, repeated),

@@ -200,6 +200,23 @@ permissions = [
   "allow-preview-finance-import",
   "allow-commit-finance-import",
 
+  # Finanças — recorrentes (contas fixas e receitas que se repetem). A leitura
+  # calcula os vencimentos do período no Rust. As escritas validam no Rust
+  # (valor, contas, categoria do mesmo tipo, regra de repetição) e só agem
+  # sobre vencimentos em aberto da própria série: registrar cria o lançamento e
+  # o vínculo numa transação; vincular exige lançamento do mesmo tipo e sem
+  # outro vínculo; pular e reabrir não apagam lançamentos.
+  "allow-list-recurring",
+  "allow-create-recurring",
+  "allow-update-recurring",
+  "allow-register-recurring-occurrence",
+  "allow-link-recurring-occurrence",
+  "allow-skip-recurring-occurrence",
+  "allow-reopen-recurring-occurrence",
+  # Exclusão definitiva de uma recorrente: a interface exige confirmação
+  # explícita, os lançamentos vinculados continuam e a exclusão (ou falha) é auditada.
+  "allow-delete-recurring",
+
   # Plugin de notificação: só o necessário para mostrar os lembretes do
   # calendário como notificações do Windows (consultar/pedir permissão e
   # notificar). Sem agendamento, canais, ações ou listeners.
