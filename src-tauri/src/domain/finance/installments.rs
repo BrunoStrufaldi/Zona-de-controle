@@ -243,6 +243,35 @@ fn to_purchase(
     }
 }
 
+/// Parcela que nenhuma fatura importada trouxe ainda, projetada a partir da
+/// mais recente da compra.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProjectedParcel {
+    pub account_id: i64,
+    pub due_date: CalendarDate,
+    pub amount: i64,
+}
+
+/// Todas as parcelas projetadas (passadas e futuras); as lançadas ficam de
+/// fora, porque já são lançamentos.
+pub fn projected_parcels(parcels: &[Parcel]) -> Vec<ProjectedParcel> {
+    let mut projected = Vec::new();
+    for (_, members) in group(parcels) {
+        let account_id = members[0].account_id;
+        for (index, parcel) in schedule(&members).into_iter().enumerate() {
+            let number = index as u32 + 1;
+            if members.iter().all(|member| member.number != number) {
+                projected.push(ProjectedParcel {
+                    account_id,
+                    due_date: parcel.due_date,
+                    amount: parcel.amount,
+                });
+            }
+        }
+    }
+    projected
+}
+
 /// Monta a visão dos parcelamentos e o compromisso dos próximos meses.
 pub fn build_overview(
     parcels: &[Parcel],
@@ -403,6 +432,19 @@ mod tests {
                 current_month: 10_000,
             }
         );
+    }
+
+    #[test]
+    fn projects_only_the_parcels_not_imported() {
+        let parcels = [
+            parcel(1, "LOJA EXEMPLO", 3, 5, "2026-09-05"),
+            parcel(2, "LOJA EXEMPLO", 4, 5, "2026-10-05"),
+        ];
+        let dates: Vec<String> = projected_parcels(&parcels)
+            .iter()
+            .map(|parcel| parcel.due_date.to_string())
+            .collect();
+        assert_eq!(dates, vec!["2026-07-05", "2026-08-05", "2026-11-05"]);
     }
 
     #[test]

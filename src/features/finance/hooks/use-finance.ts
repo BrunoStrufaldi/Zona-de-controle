@@ -10,6 +10,7 @@ import {
   type FinanceAnalytics,
   type FinanceCategory,
   type FinanceOverview,
+  type FinanceProjection,
   type ImportCommitInput,
   type ImportPreview,
   type ImportResult,
@@ -37,6 +38,7 @@ import {
   deleteTransaction,
   getFinanceAnalytics,
   getFinanceOverview,
+  getFinanceProjection,
   getInstallmentsOverview,
   linkRecurringOccurrence,
   previewFinanceImport,
@@ -220,6 +222,23 @@ export function useFinanceAnalytics(span: MonthSpan): AsyncResource<AnalyticsDat
     [from, to],
   );
   return useAsyncResource(load);
+}
+
+export interface ProjectionData {
+  projection: FinanceProjection;
+  /** Para nomear os cartões sem os dias da fatura. */
+  accounts: FinanceAccount[];
+}
+
+function loadProjection(): Promise<ProjectionData> {
+  return Promise.all([getFinanceProjection(), listFinanceAccounts()]).then(
+    ([projection, accounts]) => ({ projection, accounts }),
+  );
+}
+
+/** Projeção dos próximos meses (somente leitura). */
+export function useFinanceProjection(): AsyncResource<ProjectionData> {
+  return useAsyncResource(loadProjection);
 }
 
 // ---------------------------------------------------------------- Recorrentes

@@ -17,6 +17,7 @@ import {
   type FinanceAnalytics,
   type FinanceCategory,
   type FinanceOverview,
+  type FinanceProjection,
   type ImportCommitInput,
   type ImportPreview,
   type ImportResult,
@@ -178,6 +179,7 @@ export interface CommandMap {
   delete_transaction: { args: { id: number }; result: null };
   get_finance_overview: { args: { month: string }; result: FinanceOverview };
   get_finance_analytics: { args: { from: string; to: string }; result: FinanceAnalytics };
+  get_finance_projection: { args: undefined; result: FinanceProjection };
   preview_finance_import: { args: { fileName: string; content: string }; result: ImportPreview };
   commit_finance_import: { args: { input: ImportCommitInput }; result: ImportResult };
   list_recurring: { args: { from: string; to: string }; result: RecurringOverview };

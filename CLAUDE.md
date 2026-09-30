@@ -416,8 +416,18 @@ Regras:
   `null` antes do primeiro registro e depois do mês atual (a linha fica sem ponto). Categorias: despesas por mês + total
   do período anterior de mesmo tamanho. Períodos e textos em `features/finance/domain/analytics.ts`. Gráficos: receita
   `series2`, despesa `series1`; "receita − despesas" usa duas séries empilhadas (`surplus`/`deficit`) para a cor seguir o
-  sinal (o `Cell` do Recharts 3 está depreciado). A 7.2 (projeção) segue a decisão do usuário: conhecidos (recorrentes +
-  parcelas) + média dos últimos 6 meses do resto, **separada e rotulada "estimativa"**.
+  sinal (o `Cell` do Recharts 3 está depreciado).
+- **Projeção (7.2):** `domain/finance/projection.rs::build_projection` (fonte da verdade), somente leitura por
+  `get_finance_projection`; aba `?tab=projection` do Analytics. Decisão do usuário: conhecidos + média do resto,
+  **separada e rotulada "estimativa"** (nunca somada sem distinguir). Só contas do dia a dia (não `investment` nem com
+  ativos); transferências fora. Saldo inicial = pagos até hoje. Mês atual + `PROJECTION_MONTHS` (6); pendentes atrasados
+  caem no mês atual. Conhecidos: lançamentos pendentes ou com data futura (`ledger_since`: parcela → `installments`,
+  vinculado a recorrente → `recurring`, resto → `scheduled`), parcelas não importadas (`installments::projected_parcels`)
+  e recorrentes em aberto (`Series::upcoming_open`: no cartão pelo vencimento da fatura, sem o ciclo na data da cobrança;
+  atrasadas fora do cartão **não** entram). Estimativa: média dos meses completos da base (`ESTIMATE_MONTHS`, desde o
+  primeiro registro) do que não é parcela nem recorrente, menos o já lançado (variável) no mês, mínimo 0.
+  `unlinked_recurring` conta vencimentos da base sem vínculo (pagos sem vínculo entram na média e contariam em dobro; a
+  tela avisa).
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

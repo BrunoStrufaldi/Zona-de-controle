@@ -14,6 +14,7 @@ pub mod investment_performance;
 pub mod investments;
 pub mod overview;
 pub mod period;
+pub mod projection;
 pub mod recurring;
 pub mod transactions;
 

@@ -11,6 +11,7 @@ import {
   type FinanceAnalytics,
   type FinanceCategory,
   type FinanceOverview,
+  type FinanceProjection,
   type ImportCommitInput,
   type ImportPreview,
   type ImportResult,
@@ -84,6 +85,8 @@ export function mockFinanceBackend(
     investments?: Partial<Omit<InvestmentsOverview, "assets">> & {
       assets?: (Partial<Omit<InvestmentAsset, "position">> & { position?: Partial<Position> })[];
     };
+    /** Projeção devolvida por `get_finance_projection` (calculada no Rust). */
+    projection?: Partial<FinanceProjection>;
     /** Análise devolvida por `get_finance_analytics` (calculada no Rust). */
     analytics?: Partial<FinanceAnalytics>;
     /** Desempenho devolvido por `get_investments_performance` (calculado no Rust). */
@@ -578,6 +581,25 @@ export function mockFinanceBackend(
           };
         }),
         expensesByCategory,
+      };
+    }),
+    get_finance_projection: vi.fn((): FinanceProjection => {
+      const flows = () => ({ recurring: 0, installments: 0, scheduled: 0, estimated: 0 });
+      return {
+        today: NOW.slice(0, 10),
+        startBalance: 0,
+        months: [0, 1, 2, 3, 4, 5, 6].map((offset) => ({
+          month: shiftMonth(monthOf(NOW.slice(0, 10)), offset),
+          income: flows(),
+          expenses: flows(),
+          balanceKnown: 0,
+          balance: 0,
+        })),
+        estimate: { months: 0, income: 0, expenses: 0 },
+        installmentsFinalMonth: null,
+        cardsWithoutCycle: [],
+        unlinkedRecurring: 0,
+        ...seed.projection,
       };
     }),
     get_finance_analytics: vi.fn(({ from, to }: { from: string; to: string }): FinanceAnalytics => {

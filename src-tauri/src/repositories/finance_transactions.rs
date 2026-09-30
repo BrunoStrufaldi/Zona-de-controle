@@ -10,6 +10,7 @@ use crate::domain::finance::analytics::BalanceFlow;
 use crate::domain::finance::installments::Parcel;
 use crate::domain::finance::overview::CategoryTotal;
 use crate::domain::finance::period::DateRange;
+use crate::domain::finance::projection::LedgerRow;
 use crate::domain::finance::transactions::{
     Installment, Transaction, TransactionStatus, ValidTransaction,
 };
@@ -425,6 +426,49 @@ pub fn paid_balance_flows(connection: &Connection) -> AppResult<Vec<BalanceFlow>
         .collect()
 }
 
+/// Entradas e saídas (sem transferências) a partir de `from`, mais as
+/// pendentes de antes dele, com a marca de parcela e de recorrente.
+pub fn ledger_since(connection: &Connection, from: CalendarDate) -> AppResult<Vec<LedgerRow>> {
+    let mut statement = connection.prepare(
+        "SELECT t.account_id, t.kind, t.amount, t.date, t.status = 'pending',
+                t.installment_number IS NOT NULL,
+                EXISTS (SELECT 1 FROM finance_recurring_occurrences o
+                        WHERE o.transaction_id = t.id)
+         FROM finance_transactions t
+         WHERE t.kind != 'transfer' AND (t.date >= ?1 OR t.status = 'pending')",
+    )?;
+    let rows = statement
+        .query_map([from.to_string()], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, bool>(4)?,
+                row.get::<_, bool>(5)?,
+                row.get::<_, bool>(6)?,
+            ))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    rows.into_iter()
+        .map(
+            |(account_id, kind, amount, date, pending, installment, recurring)| {
+                Ok(LedgerRow {
+                    account_id,
+                    kind: TransactionKind::parse(&kind)?,
+                    amount,
+                    date: CalendarDate::parse(&date).ok_or_else(|| {
+                        AppError::Validation(format!("data inválida no banco: {date}"))
+                    })?,
+                    pending,
+                    installment,
+                    recurring,
+                })
+            },
+        )
+        .collect()
+}
+
 fn ensure_references(connection: &Connection, transaction: &ValidTransaction) -> AppResult<()> {
     check_references(
         connection,
@@ -786,6 +830,14 @@ mod tests {
             let mut flows = paid_balance_flows(connection)?;
             flows.sort();
             let day = |value: &str| CalendarDate::parse(value).unwrap();
+            let ledger = ledger_since(connection, day("2026-09-06"))?;
+            // Sem a transferência e sem o que é de antes (a não ser pendente).
+            let kept: Vec<_> = ledger.iter().map(|row| (row.amount, row.pending)).collect();
+            assert_eq!(kept, vec![(200_000, true)]);
+            let all = ledger_since(connection, day("2026-09-01"))?;
+            assert_eq!(all.len(), 3);
+            assert!(all.iter().all(|row| !row.installment && !row.recurring));
+
             // O pendente não conta; a transferência sai de uma conta e entra na outra.
             assert_eq!(
                 flows,

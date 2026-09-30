@@ -208,6 +208,55 @@ export interface FinanceAnalytics {
   categories: CategoryTrend[];
 }
 
+// ---------------------------------------------------------------- Projeção (7.2)
+
+/** Entradas ou saídas previstas de um mês, por origem. */
+export interface ProjectedFlows {
+  /** Vencimentos em aberto e lançamentos vinculados a recorrentes. */
+  recurring: Cents;
+  /** Parcelas (importadas com data futura e projetadas). */
+  installments: Cents;
+  /** Outros lançamentos já registrados: com data futura ou ainda pendentes. */
+  scheduled: Cents;
+  /** Estimativa: média do que não é recorrente nem parcela, menos o já lançado no mês. */
+  estimated: Cents;
+}
+
+export interface ProjectionMonth {
+  /** O primeiro é o mês atual (só o que falta dele). */
+  month: YearMonth;
+  income: ProjectedFlows;
+  expenses: ProjectedFlows;
+  /** Saldo ao fim do mês só com os valores conhecidos. */
+  balanceKnown: Cents;
+  /** Saldo ao fim do mês com a estimativa. */
+  balance: Cents;
+}
+
+/** Médias por mês usadas na estimativa (`months` = 0: nada é estimado). */
+export interface EstimateBase {
+  months: number;
+  income: Cents;
+  expenses: Cents;
+}
+
+export interface FinanceProjection {
+  today: IsoDate;
+  /** Saldo de hoje das contas do dia a dia (sem investimentos; cartões negativos). */
+  startBalance: Cents;
+  months: ProjectionMonth[];
+  estimate: EstimateBase;
+  /** Mês da última parcela prevista. */
+  installmentsFinalMonth: YearMonth | null;
+  /** Cartões com recorrentes mas sem os dias da fatura. */
+  cardsWithoutCycle: number[];
+  /**
+   * Vencimentos de recorrentes (fora do cartão) dos meses da média sem
+   * lançamento vinculado: se foram pagos sem vínculo, contam em dobro.
+   */
+  unlinkedRecurring: number;
+}
+
 /** Resumo derivado: saldo e percentual de economia. */
 export interface CashflowSummary {
   income: Cents;

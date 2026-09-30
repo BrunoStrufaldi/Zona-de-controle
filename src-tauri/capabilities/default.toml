@@ -176,6 +176,9 @@ permissions = [
   # Analytics (somente leitura): receita x despesas, categorias e patrimônio
   # mês a mês, calculados no Rust.
   "allow-get-finance-analytics",
+  # Projeção (somente leitura): saldo previsto dos próximos meses, com os
+  # valores conhecidos e a estimativa separados, calculada no Rust.
+  "allow-get-finance-projection",
 
   # Finanças — escrita. Entradas validadas no Rust (nome, valor em centavos
   # maior que zero, data, conta existente, categoria do mesmo tipo, tags).

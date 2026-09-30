@@ -412,6 +412,35 @@ impl Series {
         charges
     }
 
+    /// Vencimentos em aberto que ainda vão mexer no saldo, de hoje até `to`,
+    /// pela data em que o dinheiro sai ou entra: fora do cartão, o próprio
+    /// vencimento; no cartão, o vencimento da fatura (sem os dias da fatura, a
+    /// data da cobrança). Atrasados fora do cartão ficam de fora: podem já ter
+    /// sido pagos sem vínculo, e a tela de Recorrentes cuida deles.
+    pub fn upcoming_open(&self, today: CalendarDate, to: CalendarDate) -> Vec<StatementCharge> {
+        if self.kind == TransactionKind::Transfer {
+            return Vec::new();
+        }
+        let cycle = self.card_cycle.filter(|_| self.on_card);
+        // No cartão, uma cobrança de até ~2 meses atrás ainda pode estar numa fatura a vencer.
+        let since = if cycle.is_some() {
+            today.add_days(-70)
+        } else {
+            today
+        };
+        self.schedule
+            .dates()
+            .skip_while(|date| *date < since)
+            .take_while(|date| *date <= to)
+            .filter(|date| !self.resolved.contains_key(date))
+            .map(|date| StatementCharge {
+                due_date: cycle.map_or(date, |cycle| cycle.due_date_for(date)),
+                amount: self.amount,
+            })
+            .filter(|charge| charge.due_date >= today && charge.due_date <= to)
+            .collect()
+    }
+
     /// Vencimentos de `from` a `to`: os da regra e os resolvidos (histórico).
     pub fn occurrences(
         &self,
@@ -1000,6 +1029,52 @@ mod tests {
         let open =
             streaming.occurrences(date("2026-09-01"), date("2026-09-30"), date("2026-09-01"));
         assert_eq!(open[0].statement_date.as_deref(), Some("2026-10-05"));
+    }
+
+    #[test]
+    fn upcoming_open_is_when_the_money_moves() {
+        let dues = |series: &Series| -> Vec<String> {
+            series
+                .upcoming_open(date("2026-09-20"), date("2026-12-31"))
+                .iter()
+                .map(|charge| charge.due_date.to_string())
+                .collect()
+        };
+        // Fora do cartão: do dia em diante; o atrasado (10/09) e o resolvido ficam de fora.
+        let mut rent = series(
+            TransactionKind::Expense,
+            200_000,
+            schedule("2026-08-10", rule(Monthly, 1)),
+        );
+        rent.resolved.insert(
+            date("2026-10-10"),
+            linked(1, 200_000, TransactionStatus::Pending),
+        );
+        assert_eq!(dues(&rent), vec!["2026-11-10", "2026-12-10"]);
+
+        // No cartão (fecha 28, vence 5): a cobrança de 15/09 ainda cai na fatura de 05/10.
+        let mut streaming = series(
+            TransactionKind::Expense,
+            5_590,
+            schedule("2026-08-15", rule(Monthly, 1)),
+        );
+        streaming.on_card = true;
+        streaming.card_cycle = Some(CardCycle {
+            closing_day: 28,
+            due_day: 5,
+        });
+        assert_eq!(
+            dues(&streaming),
+            vec!["2026-10-05", "2026-11-05", "2026-12-05"]
+        );
+        // Sem os dias da fatura: pela data da cobrança.
+        streaming.card_cycle = None;
+        assert_eq!(
+            dues(&streaming),
+            vec!["2026-10-15", "2026-11-15", "2026-12-15"]
+        );
+        streaming.kind = TransactionKind::Transfer;
+        assert!(dues(&streaming).is_empty());
     }
 
     #[test]

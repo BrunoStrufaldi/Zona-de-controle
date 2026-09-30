@@ -80,6 +80,7 @@ const APP_COMMANDS: &[&str] = &[
     "delete_transaction",
     "get_finance_overview",
     "get_finance_analytics",
+    "get_finance_projection",
     "preview_finance_import",
     "commit_finance_import",
     "list_recurring",

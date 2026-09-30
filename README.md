@@ -16,7 +16,7 @@ O **Zona de Controle** reúne em um só lugar três áreas do dia a dia:
 
 Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem, sem contas e sem APIs externas.
 
-> **Estado atual: Fases 5 (Finanças) e 6 (Investimentos) concluídas e Fase 7 em andamento (7.1: histórico do Analytics).** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** analisa e limpa, com confirmação, cancelamento, auditoria e histórico. Em **Finanças**, contas, lançamentos, transferências, categorias, a Visão Geral do mês, a importação de extratos do banco, as contas recorrentes, os parcelamentos, a carteira de investimentos, o desempenho dela e o histórico do Analytics já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
+> **Estado atual: Fases 5 (Finanças), 6 (Investimentos) e 7 (Analytics) concluídas.** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** analisa e limpa, com confirmação, cancelamento, auditoria e histórico. Em **Finanças**, contas, lançamentos, transferências, categorias, a Visão Geral do mês, a importação de extratos do banco, as contas recorrentes, os parcelamentos, a carteira de investimentos, o desempenho dela e o Analytics (histórico e projeção) já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
 
 ## Stack
 
@@ -120,7 +120,11 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
   - receita x despesas e receita − despesas mês a mês, com os meses no vermelho destacados;
   - evolução do patrimônio ao fim de cada mês: saldo das contas (só o que foi pago; cartões entram negativos) mais os investimentos pelo valor informado, sem contar duas vezes o dinheiro aplicado. Meses antes do primeiro registro ficam sem ponto, nunca como zero;
   - despesas por categoria no período, com a participação e a variação sobre o período anterior de mesmo tamanho; escolher uma categoria mostra os gastos dela mês a mês;
-  - próxima etapa (7.2): projeção dos próximos 6 meses e impacto das parcelas.
+- **Projeção** (7.2 ✅), na aba Projeção do Analytics: o saldo das contas do dia a dia (sem as de investimentos) ao fim do mês atual e dos próximos 6:
+  - **valores conhecidos**: vencimentos em aberto das recorrentes (as do cartão no vencimento da fatura), parcelas (as das faturas importadas e as que ainda vão vir) e lançamentos já registrados com data futura ou pendentes;
+  - **estimativa**, sempre separada e marcada: a média dos últimos 6 meses do que não é recorrente nem parcela (mercado, lazer, Pix avulsos…), menos o que já está lançado no mês. O gráfico e a tabela mostram o saldo com e sem ela;
+  - menor saldo previsto, quanto vai em parcelas por mês e quando elas diminuem;
+  - avisos quando algo pode distorcer a conta: recorrentes pagas sem vínculo (entrariam em dobro) e cartões sem os dias da fatura. Transferências e aplicações não entram.
 
 ### Já funcional
 
@@ -331,7 +335,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada pu
 - **Fase 4 — Safe Optimization** ✅: análise de temporários, caches seguros e Lixeira (4.1); limpeza com confirmação, auditoria e cancelamento (4.2); histórico das limpezas e card no dashboard (4.3).
 - **Fase 5 — Finance Core**: contas, lançamentos, categorias e Visão Geral ✅ (5.1); transferências e importação de extratos OFX/CSV ✅ (5.2); recorrentes ✅ (5.3); parcelamentos ✅ (5.4).
 - **Fase 6 — Investments**: carteira, valores informados, aportes vinculados e patrimônio ✅ (6.1); evolução da carteira, rentabilidade, proventos por período e vencimentos ✅ (6.2). A importação dos investimentos (6.3) foi dispensada: o C6 não exporta posição nem movimentações; as aplicações e os resgates chegam pelo extrato OFX da conta corrente (e são ligados aos ativos) e o valor atual é informado.
-- **Fase 7 — Analytics**: receita x despesas, categorias e evolução do patrimônio mês a mês ✅ (7.1); projeção de 6 meses e impacto das parcelas (7.2).
+- **Fase 7 — Analytics**: receita x despesas, categorias e evolução do patrimônio mês a mês ✅ (7.1); projeção de 6 meses e impacto das parcelas ✅ (7.2).
 - **Fase 8 — Polish**: performance, acessibilidade, testes, refinamento visual e empacotamento.
 
 ## Contribuindo

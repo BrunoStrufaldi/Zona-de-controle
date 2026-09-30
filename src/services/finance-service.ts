@@ -6,6 +6,7 @@ import {
   type FinanceAnalytics,
   type FinanceCategory,
   type FinanceOverview,
+  type FinanceProjection,
   type ImportCommitInput,
   type ImportPreview,
   type ImportResult,
@@ -101,6 +102,11 @@ export function getFinanceOverview(month: YearMonth): Promise<FinanceOverview> {
 /** Receita x despesas, categorias e patrimônio mês a mês de `from` a `to` (até 36 meses). */
 export function getFinanceAnalytics(from: YearMonth, to: YearMonth): Promise<FinanceAnalytics> {
   return invokeCommand("get_finance_analytics", { from, to });
+}
+
+/** Saldo previsto no fim do mês atual e dos próximos 6 (conhecidos e estimativa separados). */
+export function getFinanceProjection(): Promise<FinanceProjection> {
+  return invokeCommand("get_finance_projection");
 }
 
 /**
