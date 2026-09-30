@@ -96,7 +96,7 @@ describe("navigation", () => {
   it("não possui caminhos duplicados", () => {
     const allPaths = flattenNavigation(navigation).map((item) => item.path);
     expect(new Set(allPaths).size).toBe(allPaths.length);
-    expect(allPaths).toHaveLength(16);
+    expect(allPaths).toHaveLength(17);
   });
 });
 

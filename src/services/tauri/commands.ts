@@ -62,6 +62,11 @@ import {
   type DiagnosticThresholds,
 } from "@/features/system/diagnostics/types";
 import {
+  type DiskUsageProgress,
+  type DiskUsageScan,
+  type FolderChildren,
+} from "@/features/system/disk-usage/types";
+import {
   type CleanupHistory,
   type CleanupItemPage,
   type CleanupProgress,
@@ -116,6 +121,14 @@ export interface CommandMap {
   get_cleanup_progress: { args: undefined; result: CleanupProgress | null };
   cancel_cleanup: { args: undefined; result: boolean };
   list_cleanup_history: { args: { limit: number }; result: CleanupHistory };
+  scan_disk_usage: { args: { mountPoint: string }; result: DiskUsageScan | null };
+  get_disk_usage_progress: { args: undefined; result: DiskUsageProgress | null };
+  cancel_disk_usage: { args: undefined; result: boolean };
+  get_disk_usage_scan: { args: undefined; result: DiskUsageScan | null };
+  list_disk_usage_children: {
+    args: { scanId: number; folderId: number; limit: number };
+    result: FolderChildren;
+  };
   list_tasks: { args: undefined; result: Task[] };
   list_archived_tasks: { args: undefined; result: Task[] };
   list_task_tags: { args: undefined; result: string[] };

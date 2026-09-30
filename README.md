@@ -16,7 +16,7 @@ O **Zona de Controle** reúne em um só lugar três áreas do dia a dia:
 
 Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem, sem contas e sem APIs externas.
 
-> **Estado atual: Fases 5 (Finanças), 6 (Investimentos) e 7 (Analytics) concluídas.** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** analisa e limpa, com confirmação, cancelamento, auditoria e histórico. Em **Finanças**, contas, lançamentos, transferências, categorias, a Visão Geral do mês, a importação de extratos do banco, as contas recorrentes, os parcelamentos, a carteira de investimentos, o desempenho dela e o Analytics (histórico e projeção) já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
+> **Estado atual: Fases 5 (Finanças), 6 (Investimentos) e 7 (Analytics) concluídas.** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** analisa e limpa, com confirmação, cancelamento, auditoria e histórico, e o **Espaço em disco** mostra o que ocupa cada unidade, pasta por pasta. Em **Finanças**, contas, lançamentos, transferências, categorias, a Visão Geral do mês, a importação de extratos do banco, as contas recorrentes, os parcelamentos, a carteira de investimentos, o desempenho dela e o Analytics (histórico e projeção) já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
 
 ## Stack
 
@@ -79,6 +79,13 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
   - mostra o andamento e pode ser cancelada entre um arquivo e outro. No fim, mostra quanto foi liberado e o que ficou (e por quê). Sucesso, cancelamento e falha vão para o log de auditoria.
 
   **Histórico** (4.3): as últimas limpezas na tela Otimização (data, resultado, locais, quanto liberou e o que ficou; as recusas aparecem com o motivo) e o total liberado. Vem direto do log de auditoria, que não pode ser apagado, então não há como o histórico divergir do que aconteceu. O dashboard ganhou o card **Limpeza**, com o total e a última limpeza (sem analisar as pastas).
+
+- **Espaço em disco** ✅ (4.4): o que ocupa cada unidade, como no WinDirStat. Somente leitura: lê o nome, o tamanho e a data de cada arquivo, sem abrir nenhum, sem pedir administrador e sem alterar ou remover nada.
+  - árvore de pastas, maiores primeiro, com a parte de cada uma na pasta de cima, o espaço em disco, o tamanho, a quantidade de arquivos e a modificação mais recente. Abre com o mouse ou o teclado (←/→ abrem e fecham, ↑/↓ andam), e o caminho do item selecionado pode ser copiado;
+  - os 100 maiores arquivos da unidade, com a pasta de cada um;
+  - resumo da unidade: quanto está nas pastas, o que não foi identificado e o livre. O "não identificado" é o que o Windows diz estar em uso, mas fica em pastas sem acesso (como os pontos de restauração em System Volume Information) ou em arquivos internos do sistema de arquivos: o app mostra a diferença e não inventa o que há nela;
+  - arquivos com links físicos (comuns em `C:\Windows\WinSxS`) contam uma vez só; atalhos de pasta (links e junções) não são seguidos; arquivos só na nuvem do OneDrive aparecem com o espaço que ocupam de fato (quase nada);
+  - a análise mostra o andamento e pode ser cancelada. No C: com ~760 mil arquivos, a primeira leva cerca de 1 minuto e as seguintes, poucos segundos. O resultado fica só na memória enquanto o app está aberto. O card **Armazenamento** ganhou o link **Ver o que ocupa** para cada unidade.
 
 ### Finanças (Fases 5 a 7)
 
@@ -332,7 +339,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada pu
 - **Fase 1 — Foundation** ✅: boilerplate, design system, layout, navegação, Tauri e SQLite preparado.
 - **Fase 2 — Productivity** ✅: tarefas ✅ (2.1); recorrência, checklists, categorias e arquivamento ✅ (2.2); notas e diário ✅ (2.3); rotinas ✅ (2.4); calendário ✅ (2.5).
 - **Fase 3 — System Monitor**: monitoramento de CPU, RAM, discos e processos ✅ (3.1); diagnósticos ✅ (3.2); dispositivos e bateria ✅ (3.3a: receptores 2.4 GHz, controles Xbox e Bluetooth; 3.3b: bateria do headset MCHOSE V9 PRO e do mouse Rapoo VT7 Max pelo receptor).
-- **Fase 4 — Safe Optimization** ✅: análise de temporários, caches seguros e Lixeira (4.1); limpeza com confirmação, auditoria e cancelamento (4.2); histórico das limpezas e card no dashboard (4.3).
+- **Fase 4 — Safe Optimization** ✅: análise de temporários, caches seguros e Lixeira (4.1); limpeza com confirmação, auditoria e cancelamento (4.2); histórico das limpezas e card no dashboard (4.3); espaço em disco por pasta, somente leitura (4.4).
 - **Fase 5 — Finance Core**: contas, lançamentos, categorias e Visão Geral ✅ (5.1); transferências e importação de extratos OFX/CSV ✅ (5.2); recorrentes ✅ (5.3); parcelamentos ✅ (5.4).
 - **Fase 6 — Investments**: carteira, valores informados, aportes vinculados e patrimônio ✅ (6.1); evolução da carteira, rentabilidade, proventos por período e vencimentos ✅ (6.2). A importação dos investimentos (6.3) foi dispensada: o C6 não exporta posição nem movimentações; as aplicações e os resgates chegam pelo extrato OFX da conta corrente (e são ligados aos ativos) e o valor atual é informado.
 - **Fase 7 — Analytics**: receita x despesas, categorias e evolução do patrimônio mês a mês ✅ (7.1); projeção de 6 meses e impacto das parcelas ✅ (7.2).

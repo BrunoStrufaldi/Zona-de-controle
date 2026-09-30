@@ -11,6 +11,7 @@ use crate::error::AppResult;
 use crate::platform::devices::{DeviceReader, SaveReading};
 use crate::platform::system_monitor::SystemMonitor;
 use crate::services;
+use crate::services::disk_usage::{DiskUsageRun, DiskUsageStore};
 use crate::services::finance_import::ImportPreviewStore;
 use crate::services::optimization::{CleanupRun, CleanupScanStore};
 
@@ -34,6 +35,10 @@ pub struct AppState {
     pub cleanup_scans: Arc<CleanupScanStore>,
     /// Limpeza em andamento (progresso e cancelamento).
     pub cleanup_run: Arc<CleanupRun>,
+    /// Última análise do Espaço em disco (só em memória).
+    pub disk_usage_scans: Arc<DiskUsageStore>,
+    /// Análise do Espaço em disco em andamento (progresso e cancelamento).
+    pub disk_usage_run: Arc<DiskUsageRun>,
     /// Última prévia de importação de extrato (só em memória).
     pub import_previews: ImportPreviewStore,
 }
@@ -83,6 +88,8 @@ impl AppState {
             local_app_data,
             cleanup_scans: Arc::new(CleanupScanStore::new()),
             cleanup_run: Arc::new(CleanupRun::new()),
+            disk_usage_scans: Arc::new(DiskUsageStore::new()),
+            disk_usage_run: Arc::new(DiskUsageRun::new()),
             import_previews: ImportPreviewStore::new(),
         })
     }

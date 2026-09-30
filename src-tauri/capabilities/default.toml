@@ -83,6 +83,18 @@ permissions = [
   # `cleanup.executed` do log de auditoria e o total liberado.
   "allow-list-cleanup-history",
 
+  # Espaço em disco — análise do que ocupa uma unidade (SOMENTE LEITURA). A tela
+  # manda só a letra da unidade, que precisa estar na lista do monitor (nunca um
+  # caminho). Lê nomes, tamanhos e datas pasta a pasta, sem abrir arquivos, sem
+  # seguir links/junções e sem pedir administrador. O resultado fica só em
+  # memória (a última análise) e é listado pasta a pasta. Andamento e
+  # cancelamento só afetam a própria análise.
+  "allow-scan-disk-usage",
+  "allow-get-disk-usage-progress",
+  "allow-cancel-disk-usage",
+  "allow-get-disk-usage-scan",
+  "allow-list-disk-usage-children",
+
   # Tarefas — leitura da lista (ativas e arquivadas), das tags e das categorias.
   "allow-list-tasks",
   "allow-list-archived-tasks",

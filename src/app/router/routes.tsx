@@ -79,6 +79,12 @@ export const routes: RouteObject[] = [
               import("@/pages/system/optimization-page").then((m) => m.OptimizationPage),
             ),
           },
+          {
+            path: paths.system.diskUsage,
+            lazy: lazyPage(() =>
+              import("@/pages/system/disk-usage-page").then((m) => m.DiskUsagePage),
+            ),
+          },
 
           // Finanças
           {

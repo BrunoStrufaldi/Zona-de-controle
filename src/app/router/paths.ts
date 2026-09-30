@@ -15,6 +15,7 @@ export const paths = {
     devices: "/system/devices",
     diagnostics: "/system/diagnostics",
     optimization: "/system/optimization",
+    diskUsage: "/system/disk-usage",
   },
   finance: {
     overview: "/finance",
@@ -52,6 +53,14 @@ export const SETTINGS_TAB_PARAM = "tab";
 
 /** Link para os limites do diagnóstico em Configurações. */
 export const diagnosticThresholdsHref = `${paths.settings}?${SETTINGS_TAB_PARAM}=diagnostics`;
+
+/** Parâmetro de URL que analisa uma unidade no Espaço em disco (ex.: `?drive=C:`). */
+export const DISK_USAGE_DRIVE_PARAM = "drive";
+
+/** Link para ver o que ocupa uma unidade (card Armazenamento). */
+export function diskUsageHref(mountPoint: string): string {
+  return `${paths.system.diskUsage}?${DISK_USAGE_DRIVE_PARAM}=${encodeURIComponent(mountPoint)}`;
+}
 
 /** Parâmetro de URL que abre o formulário de novo lançamento na página de Lançamentos. */
 export const NEW_TRANSACTION_PARAM = "new";

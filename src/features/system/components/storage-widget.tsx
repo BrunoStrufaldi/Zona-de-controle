@@ -1,5 +1,7 @@
 import { HardDrive } from "lucide-react";
+import { Link } from "react-router";
 
+import { diskUsageHref } from "@/app/router/paths";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ResourceView } from "@/components/shared/resource-view";
 import { WidgetCard } from "@/components/shared/widget-card";
@@ -63,12 +65,21 @@ function DiskRow({ disk }: { disk: DiskUsage }) {
         tone={healthProgressTone[health]}
         aria-label={`Uso da unidade ${disk.mountPoint}`}
       />
-      <span className="flex flex-wrap justify-between gap-x-3 text-xs text-subtle-foreground">
+      <span className="flex flex-wrap items-center justify-between gap-x-3 text-xs text-subtle-foreground">
         <span>
           {formatPercent(ratio, 0)} em uso · {formatBytes(disk.totalBytes - disk.usedBytes, 0)}{" "}
           livres
         </span>
-        <span>{details.join(" · ")}</span>
+        <span className="flex items-center gap-2">
+          {details.join(" · ")}
+          <Link
+            to={diskUsageHref(disk.mountPoint)}
+            className="font-medium text-primary hover:underline"
+            aria-label={`Ver o que ocupa a unidade ${disk.mountPoint}`}
+          >
+            Ver o que ocupa
+          </Link>
+        </span>
       </span>
     </li>
   );

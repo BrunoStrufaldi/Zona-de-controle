@@ -428,6 +428,20 @@ Regras:
   primeiro registro) do que não é parcela nem recorrente, menos o já lançado (variável) no mês, mínimo 0.
   `unlinked_recurring` conta vencimentos da base sem vínculo (pagos sem vínculo entram na média e contariam em dobro; a
   tela avisa).
+- **Espaço em disco (4.4, só leitura):** como o WinDirStat. `platform/disk_usage.rs` (`VolumeLister`) lista cada pasta
+  de uma vez com `GetFileInformationByHandleEx(FileIdBothDirectoryInfo)` (pasta aberta só com `FILE_LIST_DIRECTORY`,
+  nenhum arquivo aberto): tamanho, espaço em disco (`AllocationSize`), data e `FileId`. Pasta com ponto de nova análise só
+  é seguida se **não** for "name surrogate" (junção, link, ponto de montagem ficam de fora; OneDrive entra); marca 0 =
+  não segue. A árvore é pura (`domain/disk_usage.rs`, `DiskTreeBuilder` → `DiskTree`): id da pasta filha sempre maior que
+  o da mãe (as somas vão de trás para frente), links físicos contam uma vez pelo `FileId` (só NTFS/ReFS), só os
+  `FILES_PER_FOLDER` (50) maiores arquivos de cada pasta ficam com nome (o resto vira "itens menores") e os nomes ficam
+  num texto só (`Names`). Não use `collect` para trocar `RawEntry` por `FileEntry`: reaproveita o buffer maior e a árvore
+  do C: passa de ~65 para ~145 MB. `services/disk_usage.rs` lê em até 8 threads (2 em HD) e monta a árvore numa;
+  guarda só a última análise concluída (`DiskUsageStore`; cancelar mantém a anterior). `scan_disk_usage` recebe só a
+  letra da unidade, que precisa estar no `system_monitor` (nunca um caminho). "Não identificado" = em uso − somado,
+  nunca estimado. Tela: `pages/system/disk-usage-page.tsx`, conteúdo das pastas pedido ao abrir
+  (`list_disk_usage_children`, até 500), andamento por consulta (300 ms, como a limpeza) e `?drive=C:`
+  (`diskUsageHref`, link do card Armazenamento). Medição real: `cargo test --release measures_the_real_system_drive -- --ignored --nocapture`.
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

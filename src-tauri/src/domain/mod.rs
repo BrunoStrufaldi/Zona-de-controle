@@ -6,6 +6,7 @@ pub mod calendar;
 pub mod calendar_events;
 pub mod devices;
 pub mod diagnostics;
+pub mod disk_usage;
 pub mod finance;
 pub mod notes;
 pub mod optimization;

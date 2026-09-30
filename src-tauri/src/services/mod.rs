@@ -5,6 +5,7 @@ pub mod backup;
 pub mod calendar;
 pub mod devices;
 pub mod diagnostics;
+pub mod disk_usage;
 pub mod finance;
 pub mod finance_analytics;
 pub mod finance_import;

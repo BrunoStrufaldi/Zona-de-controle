@@ -8,4 +8,5 @@
 pub mod cleanup;
 pub mod cleanup_executor;
 pub mod devices;
+pub mod disk_usage;
 pub mod system_monitor;
