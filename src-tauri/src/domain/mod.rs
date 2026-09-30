@@ -1,5 +1,6 @@
 //! Regras e contratos de domínio, independentes do Tauri e do banco.
 
+pub mod activity;
 pub mod audit;
 pub mod backup;
 pub mod calendar;
@@ -18,3 +19,4 @@ pub mod task_categories;
 pub mod task_recurrence;
 pub mod tasks;
 pub mod text;
+pub mod weekly_plan;

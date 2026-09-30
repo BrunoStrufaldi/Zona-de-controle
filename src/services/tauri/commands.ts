@@ -74,9 +74,11 @@ import {
   type CleanupScan,
   type CleanupSource,
 } from "@/features/system/optimization/types";
+import { type PlanBlock, type PlanBlockInput } from "@/features/productivity/weekly-plan/types";
 import { type ProcessList, type SystemInfo, type SystemSnapshot } from "@/features/system/types";
 import { DESKTOP_ONLY_MESSAGE, ServiceError, toServiceError } from "@/services/tauri/errors";
 import { isDesktopRuntime } from "@/services/tauri/runtime";
+import { type ActivityEntry } from "@/types/activity";
 import { type AppInfo } from "@/types/app";
 import { type AuditEntry } from "@/types/audit";
 import { type BackupFile, type BackupOverview } from "@/types/backup";
@@ -163,6 +165,11 @@ export interface CommandMap {
   update_routine: { args: { id: number; input: RoutineInput }; result: Routine };
   set_habit_done: { args: { habitId: number; date: string; done: boolean }; result: Routine };
   delete_routine: { args: { id: number }; result: null };
+  list_weekly_plan: { args: undefined; result: PlanBlock[] };
+  create_plan_block: { args: { input: PlanBlockInput }; result: PlanBlock };
+  update_plan_block: { args: { id: number; input: PlanBlockInput }; result: PlanBlock };
+  delete_plan_block: { args: { id: number }; result: null };
+  list_recent_activity: { args: { limit: number }; result: ActivityEntry[] };
   list_calendar: { args: { from: string; to: string }; result: CalendarAgenda };
   create_calendar_event: { args: { input: EventInput }; result: CalendarEvent };
   update_calendar_event: { args: { id: number; input: EventInput }; result: CalendarEvent };

@@ -16,7 +16,7 @@ O **Zona de Controle** reúne em um só lugar três áreas do dia a dia:
 
 Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem, sem contas e sem APIs externas.
 
-> **Estado atual: Fases 5 (Finanças), 6 (Investimentos) e 7 (Analytics) concluídas.** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** analisa e limpa, com confirmação, cancelamento, auditoria e histórico, e o **Espaço em disco** mostra o que ocupa cada unidade, pasta por pasta. Em **Finanças**, contas, lançamentos, transferências, categorias, a Visão Geral do mês, a importação de extratos do banco, as contas recorrentes, os parcelamentos, a carteira de investimentos, o desempenho dela e o Analytics (histórico e projeção) já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
+> **Estado atual: Fases 5 (Finanças), 6 (Investimentos) e 7 (Analytics) concluídas.** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** analisa e limpa, com confirmação, cancelamento, auditoria e histórico, e o **Espaço em disco** mostra o que ocupa cada unidade, pasta por pasta. Em **Finanças**, contas, lançamentos, transferências, categorias, a Visão Geral do mês, a importação de extratos do banco, as contas recorrentes, os parcelamentos, a carteira de investimentos, o desempenho dela e o Analytics (histórico e projeção) já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Todos os cards do dashboard usam dados reais; se algum dia um card usar dados fictícios para ilustrar o layout, ele aparece marcado com **Demo**.
 
 ## Stack
 
@@ -52,7 +52,7 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
 
 - **Tarefas** ✅ (2.1 e 2.2): lista e Kanban, status, prioridades, vencimento com destaque (atrasada, hoje, em breve), tags, busca e filtros, recorrência, checklists, categorias e arquivamento.
 - **Notas e diário** ✅ (2.3): editor Markdown, notas rápidas, diário por data, busca, tags, favoritos, pastas e histórico.
-- **Rotinas** ✅ (2.4): rotinas diárias e semanais, hábitos, histórico de execução e indicadores de consistência.
+- **Rotinas** ✅ (2.4): rotinas diárias e semanais, hábitos, histórico de execução e indicadores de consistência, e o **planejamento semanal** fixo (2.6).
 - **Calendário** ✅ (2.5): eventos, lembretes, recorrência, notificações locais e visões mensal, semanal e diária.
 
 ### Monitoramento do sistema (Fases 3 e 4)
@@ -144,6 +144,7 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
   - **categorias** criadas pelo usuário, com nome e cor (uma por tarefa), filtro por categoria e exclusão confirmada e auditada. A tarefa perde a categoria, mas não é excluída;
   - **arquivamento** manual ou em lote ("Arquivar concluídas"). Tarefas arquivadas saem da lista, do Kanban e do dashboard e ficam na aba Arquivadas, de onde podem ser restauradas ou excluídas;
   - widget "Tarefas de hoje" no dashboard com dados reais.
+- **Atividades recentes** (dashboard): tarefas concluídas, hábitos marcados, lançamentos registrados no app, limpezas e importações de extrato, do mais recente para o mais antigo. Montado com o que cada módulo já guarda; lançamentos importados aparecem como a importação.
 - **Notas e diário**:
   - editor Markdown com salvamento automático e modos Editar, Dividir (lado a lado) e Visualizar. A prévia suporta títulos, listas, tarefas (`- [ ]`), tabelas, citações e código. HTML bruto nunca é renderizado; links e imagens aparecem só como texto, sem abrir nem baixar nada;
   - pastas (excluir uma pasta não exclui as notas), tags compartilhadas com as tarefas, favoritas e busca sem acentos no título, no conteúdo e nas tags;
@@ -157,6 +158,13 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
   - editar uma rotina não reescreve o passado: hábitos removidos deixam de valer a partir de hoje e hábitos novos contam a partir de hoje;
   - widget "Rotinas de hoje" no dashboard com dados reais;
   - exclusão só após confirmação, registrada na auditoria.
+- **Planejamento semanal** (2.6, aba da tela Rotinas): a semana fixa, como uma planilha de horários, só para planejar (nada é marcado como feito):
+  - grade de segunda a domingo com blocos de horário (ex.: "Trabalho HomeOffice", seg/qua/sex, 08:00–15:00; "Faculdade", seg a sex, 18:30–22:30), cada um com cor e observação, e anotações de dia inteiro (ex.: sábado "Estudar pelo menos 1h");
+  - um bloco vale para vários dias de uma vez (atalhos "Seg a sex", "Fim de semana", "Todo dia"). Clicar num horário vazio cria um bloco já com o dia e a hora; clicar num bloco edita;
+  - dois blocos não podem ocupar o mesmo horário no mesmo dia: o app avisa qual bloco conflita;
+  - a linha vermelha marca a hora atual e o bloco em andamento fica destacado;
+  - card **Agora e a seguir** no dashboard: o bloco de agora (até que horas) e o próximo (hoje, amanhã ou o dia da semana);
+  - excluir um bloco pede confirmação e fica no log de auditoria.
 - **Calendário**:
   - visões **mensal**, **semanal** e **diária**, com navegação por período e botão "Hoje". Na grade de horários, eventos sobrepostos ficam lado a lado e uma linha marca a hora atual; clicar num horário vazio cria um evento ali;
   - eventos com horário ou de dia inteiro, de um ou vários dias, com cor, local e descrição;
@@ -337,7 +345,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada pu
 ## Roadmap
 
 - **Fase 1 — Foundation** ✅: boilerplate, design system, layout, navegação, Tauri e SQLite preparado.
-- **Fase 2 — Productivity** ✅: tarefas ✅ (2.1); recorrência, checklists, categorias e arquivamento ✅ (2.2); notas e diário ✅ (2.3); rotinas ✅ (2.4); calendário ✅ (2.5).
+- **Fase 2 — Productivity** ✅: tarefas ✅ (2.1); recorrência, checklists, categorias e arquivamento ✅ (2.2); notas e diário ✅ (2.3); rotinas ✅ (2.4); calendário ✅ (2.5); planejamento semanal fixo ✅ (2.6).
 - **Fase 3 — System Monitor**: monitoramento de CPU, RAM, discos e processos ✅ (3.1); diagnósticos ✅ (3.2); dispositivos e bateria ✅ (3.3a: receptores 2.4 GHz, controles Xbox e Bluetooth; 3.3b: bateria do headset MCHOSE V9 PRO e do mouse Rapoo VT7 Max pelo receptor).
 - **Fase 4 — Safe Optimization** ✅: análise de temporários, caches seguros e Lixeira (4.1); limpeza com confirmação, auditoria e cancelamento (4.2); histórico das limpezas e card no dashboard (4.3); espaço em disco por pasta, somente leitura (4.4).
 - **Fase 5 — Finance Core**: contas, lançamentos, categorias e Visão Geral ✅ (5.1); transferências e importação de extratos OFX/CSV ✅ (5.2); recorrentes ✅ (5.3); parcelamentos ✅ (5.4).

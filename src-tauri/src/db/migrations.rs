@@ -77,6 +77,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "investments",
         sql: include_str!("../../migrations/0012_investments.sql"),
     },
+    Migration {
+        version: 13,
+        name: "weekly_plan",
+        sql: include_str!("../../migrations/0013_weekly_plan.sql"),
+    },
 ];
 
 const CREATE_SCHEMA_MIGRATIONS: &str = "
@@ -553,6 +558,35 @@ mod tests {
         assert!(connection
             .execute("DELETE FROM finance_accounts WHERE id = 2", [])
             .is_err());
+    }
+
+    #[test]
+    fn upgrades_from_version_12_keeping_routines() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(CREATE_SCHEMA_MIGRATIONS).unwrap();
+        for migration in &MIGRATIONS[..12] {
+            apply(&mut connection, migration).unwrap();
+        }
+        connection
+            .execute(
+                "INSERT INTO routines (name, weekdays, start_date) VALUES ('Manhã', 127, '2026-09-01')",
+                [],
+            )
+            .unwrap();
+
+        run(&mut connection).unwrap();
+
+        let routines: i64 = connection
+            .query_row("SELECT COUNT(*) FROM routines", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(routines, 1);
+        connection
+            .execute(
+                "INSERT INTO weekly_plan_blocks (title, weekdays, start_time, end_time, color)
+                 VALUES ('Faculdade', 62, '18:30', '22:30', 'violet')",
+                [],
+            )
+            .unwrap();
     }
 
     #[test]

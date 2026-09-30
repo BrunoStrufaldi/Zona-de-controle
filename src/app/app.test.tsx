@@ -17,15 +17,16 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
   });
 
-  it("marca como Demo apenas os widgets com dados fictícios", async () => {
+  it("não marca nenhum widget como Demo: todos usam dados reais", async () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: /Tarefas de hoje/ });
-    // Só a atividade recente ainda usa src/mocks; os demais são reais.
-    expect(screen.getAllByLabelText("Dados de demonstração")).toHaveLength(1);
+    expect(screen.queryAllByLabelText("Dados de demonstração")).toHaveLength(0);
     for (const title of [
       /Tarefas de hoje/,
       /Rotinas de hoje/,
+      /Agora e a seguir/,
+      /Atividades recentes/,
       /Status do sistema/,
       /Armazenamento/,
       /^Diagnóstico/,

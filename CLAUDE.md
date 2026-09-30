@@ -160,7 +160,7 @@ Regras:
 
 ## Regra de mocks
 
-- Dados fictícios existem **somente** em `src/mocks/`.
+- Dados fictícios existem **somente** em `src/mocks/` (hoje vazia: todos os widgets usam dados reais).
 - Todo componente que exibe dado de mock mostra o selo **Demo** (`WidgetCard demo` ou `<DemoBadge />`).
 - Nunca apresente métricas do sistema, bateria ou valores financeiros fictícios como reais.
   Sem leitura real → "Não disponível" / estado vazio, nunca um valor estimado.
@@ -203,6 +203,21 @@ Regras:
   Hábitos têm validade (`created_on` inclusive, `removed_on` exclusive): editar a rotina nunca apaga
   hábitos, só encerra a validade, para não reescrever o passado. Marcação: de hoje até
   `BACKFILL_DAYS` (7) dias atrás, só em dias da agenda. Nomes dos dias da semana: `src/lib/weekdays.ts`.
+- **Planejamento semanal (2.6):** aba `?tab=plan` de Rotinas (`weeklyPlanHref`), módulo próprio em
+  `features/productivity/weekly-plan` (a página compõe os dois). `weekly_plan_blocks` (migration 0013): `weekdays` na
+  máscara das rotinas (`Weekdays`), `start_time`/`end_time` `HH:MM` ou os dois nulos (dia inteiro), cor nomeada e
+  observação. Só plano: nada é marcado. Sobreposição de horários no mesmo dia é recusada no Rust
+  (`domain/weekly_plan.rs::find_conflict`, encostar não conflita; dia inteiro nunca conflita), com a mensagem
+  nomeando o bloco. Sem virar a meia-noite (fim > início). Exclusão auditada (`weekly_block.deleted`, categoria
+  `routines`). "Agora / a seguir" é do frontend (`domain/plan.ts::nowAndNext`, com o relógio local via
+  `hooks/use-now.ts`); card **Agora e a seguir** no dashboard. Grade: segunda a domingo (`DISPLAY_WEEKDAYS`), faixa
+  06–22 ampliada para caber os blocos (`gridRange`); as classes de cor dos blocos (`categoryBlockClass`) ficam em
+  `lib/palette.ts`, compartilhadas com o calendário.
+- **Atividades recentes (dashboard):** `list_recent_activity(limit ≤ 50)`, somente leitura, sem tabela nova
+  (`services/activity.rs`): tarefas com `completed_at`, `habit_completions.completed_at`, lançamentos com
+  `external_id IS NULL` (os importados aparecem como a importação) e, do `audit_log`, limpezas `success`/`cancelled` e
+  importações `success`. O Rust manda `kind` + campos e os textos ficam em `features/activity/domain/activity.ts`.
+  Lançamento marcado como pago não aparece: a mudança de status não guarda o momento.
 - **Calendário:** datas/horários locais sem fuso (`aaaa-mm-dd` + `HH:MM`; `TimeOfDay` e
   `LocalDateTime` em `domain/calendar.rs`, "agora" via `repositories::clock::local_now`). A série guarda
   só a regra; as ocorrências são calculadas no Rust (`domain/calendar_events.rs`, fonte da verdade)

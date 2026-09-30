@@ -77,6 +77,51 @@ describe("páginas integradas ao backend", () => {
     expect(within(list).queryByText("Só amanhã")).not.toBeInTheDocument();
   });
 
+  it("Dashboard mostra o bloco do planejamento de agora e as atividades reais", async () => {
+    mockDesktopRuntime({
+      list_weekly_plan: () => [
+        {
+          id: 1,
+          title: "O dia todo",
+          notes: "",
+          weekdays: [0, 1, 2, 3, 4, 5, 6],
+          startTime: "00:00",
+          endTime: "23:59",
+          color: "teal",
+        },
+      ],
+      list_recent_activity: ({ limit }) =>
+        [
+          {
+            id: "task:1",
+            occurredAt: "2026-09-25T11:45:00.000Z",
+            kind: "taskCompleted" as const,
+            taskId: 1,
+            title: "Enviar relatório",
+          },
+          {
+            id: "audit:9",
+            occurredAt: "2026-09-24T17:05:00.000Z",
+            kind: "cleanupRun" as const,
+            cancelled: false,
+            removedBytes: 1024 ** 3,
+          },
+        ].slice(0, limit),
+    });
+    renderRoute(paths.dashboard);
+
+    const nowCard = (await screen.findByRole("heading", { name: "Agora e a seguir" })).closest(
+      "[data-slot='card']",
+    ) as HTMLElement;
+    // O único bloco é o de agora e também o próximo (amanhã à meia-noite).
+    expect(await within(nowCard).findByText("até 23:59")).toBeInTheDocument();
+    expect(within(nowCard).getAllByText("O dia todo")).toHaveLength(2);
+
+    const activity = await screen.findByRole("list", { name: "Atividades recentes" });
+    expect(within(activity).getByText("Tarefa “Enviar relatório” concluída")).toBeInTheDocument();
+    expect(within(activity).getByText("Limpeza concluída: 1 GB liberados")).toBeInTheDocument();
+  });
+
   it("Dashboard mostra o status e o armazenamento reais do sistema", async () => {
     mockSystemBackend();
     renderRoute(paths.dashboard);

@@ -36,3 +36,21 @@ export const categoryBadgeClass: Record<CategoryColor, string> = {
   pink: "border-category-pink/35 bg-category-pink/10 text-category-pink",
   slate: "border-category-slate/35 bg-category-slate/10 text-category-slate",
 };
+
+/** Bloco na grade de horários (calendário e planejamento semanal) (fundo opaco para ficar legível sobre as linhas). */
+export const categoryBlockClass: Record<CategoryColor, string> = {
+  red: "border-category-red bg-[color-mix(in_oklab,var(--color-category-red)_22%,var(--color-card))]",
+  orange:
+    "border-category-orange bg-[color-mix(in_oklab,var(--color-category-orange)_22%,var(--color-card))]",
+  amber:
+    "border-category-amber bg-[color-mix(in_oklab,var(--color-category-amber)_22%,var(--color-card))]",
+  green:
+    "border-category-green bg-[color-mix(in_oklab,var(--color-category-green)_22%,var(--color-card))]",
+  teal: "border-category-teal bg-[color-mix(in_oklab,var(--color-category-teal)_22%,var(--color-card))]",
+  blue: "border-category-blue bg-[color-mix(in_oklab,var(--color-category-blue)_22%,var(--color-card))]",
+  violet:
+    "border-category-violet bg-[color-mix(in_oklab,var(--color-category-violet)_22%,var(--color-card))]",
+  pink: "border-category-pink bg-[color-mix(in_oklab,var(--color-category-pink)_22%,var(--color-card))]",
+  slate:
+    "border-category-slate bg-[color-mix(in_oklab,var(--color-category-slate)_22%,var(--color-card))]",
+};

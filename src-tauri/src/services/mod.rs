@@ -1,6 +1,7 @@
 //! Casos de uso: orquestram domínio, repositórios, transações e auditoria.
 //! Os commands (camada IPC) apenas delegam para cá.
 
+pub mod activity;
 pub mod backup;
 pub mod calendar;
 pub mod devices;
@@ -18,3 +19,4 @@ pub mod routines;
 pub mod settings;
 pub mod task_categories;
 pub mod tasks;
+pub mod weekly_plan;

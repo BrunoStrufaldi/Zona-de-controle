@@ -1,7 +1,6 @@
 import { type MouseEvent, useEffect, useRef, useState } from "react";
 
 import { EventChip, TaskChip } from "@/features/productivity/calendar/components/agenda-chips";
-import { eventBlockClass } from "@/features/productivity/calendar/components/event-styles";
 import {
   type DayItems,
   initialScrollHour,
@@ -15,6 +14,7 @@ import { type EventOccurrence } from "@/features/productivity/calendar/types";
 import { cn } from "@/lib/cn";
 import { dayOfMonth, weekdayOf } from "@/lib/dates";
 import { formatDate, formatFullDate } from "@/lib/format";
+import { categoryBlockClass } from "@/lib/palette";
 import { weekdayLong, weekdayShort } from "@/lib/weekdays";
 import { type IsoDate } from "@/types/common";
 
@@ -209,7 +209,7 @@ export function TimeGridView({
                     }}
                     className={cn(
                       "absolute flex cursor-pointer flex-col overflow-hidden rounded-md border-l-2 px-1.5 py-0.5 text-left text-xs text-foreground transition-[filter] hover:brightness-125 focus-visible:z-10 focus-visible:shadow-glow-sm focus-visible:outline-none",
-                      eventBlockClass[occurrence.color],
+                      categoryBlockClass[occurrence.color],
                     )}
                   >
                     <span className="truncate font-medium">{occurrence.title}</span>

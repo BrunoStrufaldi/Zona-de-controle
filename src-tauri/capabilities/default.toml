@@ -158,6 +158,22 @@ permissions = [
   # confirmação explícita e cada exclusão (ou falha) é auditada.
   "allow-delete-routine",
 
+  # Planejamento semanal (aba da tela Rotinas) — leitura dos blocos fixos da
+  # semana, criação e edição (validadas no Rust: horários sem sobreposição no
+  # mesmo dia). Nada é executado; é só o plano.
+  "allow-list-weekly-plan",
+  "allow-create-plan-block",
+  "allow-update-plan-block",
+
+  # Planejamento semanal — exclusão de um bloco (DESTRUTIVA): a tela confirma
+  # nomeando o bloco e o Rust exclui e audita na mesma transação.
+  "allow-delete-plan-block",
+
+  # Dashboard — atividades recentes (SOMENTE LEITURA): tarefas concluídas,
+  # hábitos marcados, lançamentos criados, limpezas e importações, lidos das
+  # tabelas dos módulos e do log de auditoria. Nada é gravado.
+  "allow-list-recent-activity",
+
   # Calendário — leitura das ocorrências de um intervalo (com as tarefas que
   # vencem nele, somente leitura).
   "allow-list-calendar",

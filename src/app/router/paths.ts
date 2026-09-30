@@ -54,6 +54,12 @@ export const SETTINGS_TAB_PARAM = "tab";
 /** Link para os limites do diagnóstico em Configurações. */
 export const diagnosticThresholdsHref = `${paths.settings}?${SETTINGS_TAB_PARAM}=diagnostics`;
 
+/** Parâmetro de URL que abre uma aba da tela Rotinas (ex.: `?tab=plan`). */
+export const ROUTINES_TAB_PARAM = "tab";
+
+/** Link para o planejamento semanal (aba da tela Rotinas). */
+export const weeklyPlanHref = `${paths.productivity.routines}?${ROUTINES_TAB_PARAM}=plan`;
+
 /** Parâmetro de URL que analisa uma unidade no Espaço em disco (ex.: `?drive=C:`). */
 export const DISK_USAGE_DRIVE_PARAM = "drive";
 

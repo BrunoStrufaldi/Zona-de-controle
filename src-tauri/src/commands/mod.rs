@@ -6,6 +6,7 @@
 //!   `capabilities/default.toml` (menor privilégio).
 //! - Leitura e operações destrutivas NUNCA ficam no mesmo command.
 
+pub mod activity;
 pub mod app;
 pub mod audit;
 pub mod backup;
@@ -21,3 +22,4 @@ pub mod routines;
 pub mod settings;
 pub mod system;
 pub mod tasks;
+pub mod weekly_plan;
