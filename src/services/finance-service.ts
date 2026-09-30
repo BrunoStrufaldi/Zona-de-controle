@@ -8,6 +8,7 @@ import {
   type ImportCommitInput,
   type ImportPreview,
   type ImportResult,
+  type InstallmentsOverview,
   type OccurrenceRef,
   type RecurringInput,
   type RecurringOverview,
@@ -171,4 +172,12 @@ export async function reopenRecurringOccurrence(occurrence: OccurrenceRef): Prom
     id: occurrence.recurringId,
     occurrenceDate: occurrence.occurrenceDate,
   });
+}
+
+/**
+ * Compras parceladas (das faturas importadas) e o compromisso das faturas dos
+ * próximos 12 meses, calculados no Rust.
+ */
+export function getInstallmentsOverview(): Promise<InstallmentsOverview> {
+  return invokeCommand("get_installments_overview");
 }

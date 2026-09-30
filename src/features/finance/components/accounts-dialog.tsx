@@ -28,6 +28,7 @@ import {
   suggestColor,
   validateName,
 } from "@/features/finance/domain/categories";
+import { describeStatementDays, parseStatementDays } from "@/features/finance/domain/cards";
 import { accountKindLabels } from "@/features/finance/domain/labels";
 import { parseSignedAmount, toAmountInput } from "@/features/finance/domain/money";
 import {
@@ -93,6 +94,8 @@ export function AccountsDialog({ open, accounts, onSave, onDelete, onClose }: Ac
                       kind: account.kind,
                       color: account.color,
                       openingBalance: account.openingBalance,
+                      closingDay: account.closingDay,
+                      dueDay: account.dueDay,
                     }}
                     accounts={accounts}
                     editingId={account.id}
@@ -132,6 +135,8 @@ export function AccountsDialog({ open, accounts, onSave, onDelete, onClose }: Ac
                 kind: "checking",
                 color: suggestColor(accounts),
                 openingBalance: 0,
+                closingDay: null,
+                dueDay: null,
               }}
               accounts={accounts}
               editingId={null}
@@ -173,6 +178,7 @@ interface AccountRowProps {
 
 function AccountRow({ account, onEdit, onDelete }: AccountRowProps) {
   const inUse = account.transactionCount > 0;
+  const statement = describeStatementDays(account);
   return (
     <li className="flex items-center gap-3 rounded-md border border-border bg-raised/40 px-3 py-2">
       <span
@@ -184,6 +190,7 @@ function AccountRow({ account, onEdit, onDelete }: AccountRowProps) {
         <span className="text-xs text-muted-foreground">
           {accountKindLabels[account.kind]} · {account.transactionCount}{" "}
           {account.transactionCount === 1 ? "lançamento" : "lançamentos"}
+          {statement && ` · ${statement}`}
         </span>
       </div>
       <span
@@ -230,9 +237,21 @@ function AccountForm({ initial, accounts, editingId, onSubmit, onCancel }: Accou
   const [balanceText, setBalanceText] = useState(
     initial.openingBalance === 0 ? "" : toAmountInput(initial.openingBalance),
   );
+  const [closingText, setClosingText] = useState(
+    initial.closingDay === null ? "" : String(initial.closingDay),
+  );
+  const [dueText, setDueText] = useState(initial.dueDay === null ? "" : String(initial.dueDay));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const ids = { name: useId(), kind: useId(), balance: useId(), error: useId() };
+  const ids = {
+    name: useId(),
+    kind: useId(),
+    balance: useId(),
+    closing: useId(),
+    due: useId(),
+    error: useId(),
+  };
+  const card = kind === "credit_card";
 
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -244,15 +263,25 @@ function AccountForm({ initial, accounts, editingId, onSubmit, onCancel }: Accou
       (clash) => `Já existe uma conta chamada “${clash}”.`,
     );
     const openingBalance = parseSignedAmount(balanceText);
+    // Fora do cartão, os dias da fatura não valem.
+    const days = card ? parseStatementDays(closingText, dueText) : parseStatementDays("", "");
     const validation =
       nameError ??
-      (openingBalance === null ? "Saldo inicial inválido. Use o formato 1.234,56." : null);
+      (openingBalance === null ? "Saldo inicial inválido. Use o formato 1.234,56." : null) ??
+      days.error;
     setError(validation);
     if (validation !== null || openingBalance === null) return;
 
     setSaving(true);
     try {
-      await onSubmit({ name: normalizeName(name), kind, color, openingBalance });
+      await onSubmit({
+        name: normalizeName(name),
+        kind,
+        color,
+        openingBalance,
+        closingDay: days.closingDay,
+        dueDay: days.dueDay,
+      });
       if (editingId === null) {
         setName("");
         setBalanceText("");
@@ -327,6 +356,42 @@ function AccountForm({ initial, accounts, editingId, onSubmit, onCancel }: Accou
           -1.500,00).
         </p>
       </div>
+      {card && (
+        <div className="grid gap-1.5">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor={ids.closing}>Fecha no dia</Label>
+              <Input
+                id={ids.closing}
+                value={closingText}
+                inputMode="numeric"
+                placeholder="Ex.: 28"
+                className="h-8 font-mono tabular"
+                onChange={(event) => {
+                  setClosingText(event.target.value);
+                }}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor={ids.due}>Vence no dia</Label>
+              <Input
+                id={ids.due}
+                value={dueText}
+                inputMode="numeric"
+                placeholder="Ex.: 5"
+                className="h-8 font-mono tabular"
+                onChange={(event) => {
+                  setDueText(event.target.value);
+                }}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Opcional. Compras a partir do dia do fechamento vão para a fatura seguinte. Com os dois
+            dias, as recorrentes do cartão entram na previsão das próximas faturas.
+          </p>
+        </div>
+      )}
       <ColorPicker label="Cor da conta" value={color} onChange={setColor} />
       {error && (
         <p id={ids.error} role="alert" className="text-xs text-danger">

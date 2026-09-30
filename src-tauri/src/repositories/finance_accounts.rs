@@ -18,7 +18,7 @@ pub fn list(connection: &Connection) -> AppResult<Vec<FinanceAccount>> {
                          WHEN t.transfer_account_id = a.id THEN t.amount
                          WHEN t.kind = 'income' THEN t.amount
                          ELSE -t.amount END), 0),
-                COUNT(t.id)
+                COUNT(t.id), a.closing_day, a.due_day
          FROM finance_accounts a
          LEFT JOIN finance_transactions t
                 ON t.account_id = a.id OR t.transfer_account_id = a.id
@@ -35,13 +35,15 @@ pub fn list(connection: &Connection) -> AppResult<Vec<FinanceAccount>> {
                 row.get::<_, i64>(4)?,
                 row.get::<_, i64>(5)?,
                 row.get::<_, u32>(6)?,
+                row.get::<_, Option<u32>>(7)?,
+                row.get::<_, Option<u32>>(8)?,
             ))
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
 
     rows.into_iter()
         .map(
-            |(id, name, kind, color, opening_balance, balance, transaction_count)| {
+            |(id, name, kind, color, opening_balance, balance, transaction_count, closing, due)| {
                 Ok(FinanceAccount {
                     id,
                     name,
@@ -50,6 +52,8 @@ pub fn list(connection: &Connection) -> AppResult<Vec<FinanceAccount>> {
                     opening_balance,
                     balance,
                     transaction_count,
+                    closing_day: closing,
+                    due_day: due,
                 })
             },
         )
@@ -81,13 +85,15 @@ pub fn exists(connection: &Connection, id: i64) -> AppResult<bool> {
 pub fn insert(connection: &Connection, account: &ValidAccount) -> AppResult<i64> {
     ensure_unique_name(connection, &account.name, None)?;
     connection.execute(
-        "INSERT INTO finance_accounts (name, kind, color, opening_balance)
-         VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO finance_accounts (name, kind, color, opening_balance, closing_day, due_day)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![
             account.name,
             account.kind.as_str(),
             account.color.as_str(),
-            account.opening_balance
+            account.opening_balance,
+            account.card_cycle.map(|cycle| cycle.closing_day),
+            account.card_cycle.map(|cycle| cycle.due_day),
         ],
     )?;
     Ok(connection.last_insert_rowid())
@@ -97,15 +103,17 @@ pub fn update(connection: &Connection, id: i64, account: &ValidAccount) -> AppRe
     ensure_unique_name(connection, &account.name, Some(id))?;
     let changed = connection.execute(
         "UPDATE finance_accounts
-         SET name = ?2, kind = ?3, color = ?4, opening_balance = ?5,
-             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         SET name = ?2, kind = ?3, color = ?4, opening_balance = ?5, closing_day = ?6,
+             due_day = ?7, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE id = ?1",
         params![
             id,
             account.name,
             account.kind.as_str(),
             account.color.as_str(),
-            account.opening_balance
+            account.opening_balance,
+            account.card_cycle.map(|cycle| cycle.closing_day),
+            account.card_cycle.map(|cycle| cycle.due_day),
         ],
     )?;
     if changed == 0 {
@@ -173,6 +181,7 @@ mod tests {
             kind: AccountKind::Checking,
             color: CategoryColor::Slate,
             opening_balance,
+            card_cycle: None,
         }
     }
 

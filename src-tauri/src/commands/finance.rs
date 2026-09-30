@@ -2,6 +2,7 @@ use tauri::State;
 
 use crate::domain::finance::accounts::{AccountInput, FinanceAccount};
 use crate::domain::finance::categories::{CategoryInput, CategoryUpdate, FinanceCategory};
+use crate::domain::finance::installments::InstallmentsOverview;
 use crate::domain::finance::overview::FinanceOverview;
 use crate::domain::finance::recurring::{RecurringInput, RecurringOverview, RecurringSeriesView};
 use crate::domain::finance::transactions::{Transaction, TransactionInput, TransactionStatus};
@@ -10,6 +11,7 @@ use crate::services::finance as service;
 use crate::services::finance_import::{
     self as import, ImportCommitInput, ImportPreview, ImportResult,
 };
+use crate::services::finance_installments as installments;
 use crate::services::finance_recurring as recurring;
 use crate::state::AppState;
 
@@ -230,4 +232,13 @@ pub async fn reopen_recurring_occurrence(
     occurrence_date: String,
 ) -> AppResult<()> {
     recurring::reopen_occurrence(&state.db, id, &occurrence_date)
+}
+
+/// Compras parceladas e o compromisso das faturas dos próximos 12 meses
+/// (parcelas + recorrentes no cartão). Somente leitura.
+#[tauri::command]
+pub async fn get_installments_overview(
+    state: State<'_, AppState>,
+) -> AppResult<InstallmentsOverview> {
+    installments::overview(&state.db)
 }

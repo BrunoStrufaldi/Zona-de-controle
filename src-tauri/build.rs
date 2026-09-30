@@ -89,6 +89,7 @@ const APP_COMMANDS: &[&str] = &[
     "link_recurring_occurrence",
     "skip_recurring_occurrence",
     "reopen_recurring_occurrence",
+    "get_installments_overview",
 ];
 
 fn main() {

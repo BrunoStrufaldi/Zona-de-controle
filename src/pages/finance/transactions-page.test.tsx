@@ -35,6 +35,38 @@ describe("página de Lançamentos", () => {
     expect(await within(dialog).findByLabelText("Saldo de C6")).toHaveTextContent("R$ 1.500,00");
   });
 
+  it("cadastra um cartão com os dias de fechamento e vencimento da fatura", async () => {
+    const user = userEvent.setup();
+    const backend = mockFinanceBackend({ accounts: [{ name: "C6" }] });
+    renderRoute(paths.finance.transactions);
+
+    await user.click(await screen.findByRole("button", { name: /^Contas$/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Contas" });
+    const form = within(dialog).getByRole("region", { name: "Nova conta" });
+    await user.type(within(form).getByLabelText("Nome"), "Cartão C6");
+    // Os dias só aparecem para cartão de crédito.
+    expect(within(form).queryByLabelText("Fecha no dia")).not.toBeInTheDocument();
+    await user.click(within(form).getByLabelText("Tipo"));
+    await user.click(await screen.findByRole("option", { name: "Cartão de crédito" }));
+    await user.type(within(form).getByLabelText("Fecha no dia"), "28");
+    await user.click(within(form).getByRole("button", { name: /Adicionar conta/ }));
+    expect(await within(form).findByRole("alert")).toHaveTextContent(/os dois vazios/);
+
+    await user.type(within(form).getByLabelText("Vence no dia"), "5");
+    await user.click(within(form).getByRole("button", { name: /Adicionar conta/ }));
+    await waitFor(() => {
+      expect(backend.handlers.create_finance_account).toHaveBeenCalledWith({
+        input: expect.objectContaining({
+          name: "Cartão C6",
+          kind: "credit_card",
+          closingDay: 28,
+          dueDay: 5,
+        }) as unknown,
+      });
+    });
+    expect(await within(dialog).findByText(/fecha dia 28, vence dia 5/)).toBeInTheDocument();
+  });
+
   it("cria um lançamento pelo formulário, com o valor em centavos", async () => {
     const user = userEvent.setup();
     const backend = mockFinanceBackend({ accounts: [{ name: "C6" }] });

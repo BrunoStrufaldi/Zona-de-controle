@@ -48,6 +48,9 @@ export interface FinanceAccount {
   /** Saldo inicial + entradas pagas − saídas pagas ± transferências pagas. */
   balance: Cents;
   transactionCount: number;
+  /** Só cartão de crédito: dia de fechamento e de vencimento da fatura. */
+  closingDay: number | null;
+  dueDay: number | null;
 }
 
 export interface AccountInput {
@@ -55,6 +58,9 @@ export interface AccountInput {
   kind: AccountKind;
   color: CategoryColor;
   openingBalance: Cents;
+  /** Só cartão de crédito: os dois juntos ou nenhum. */
+  closingDay: number | null;
+  dueDay: number | null;
 }
 
 export interface FinanceCategory {
@@ -280,6 +286,8 @@ export interface RecurringSeries {
   startDate: IsoDate;
   recurrence: RecurringRule;
   notes: string;
+  /** A conta é um cartão de crédito: cobrada na fatura, sem pagamento um a um. */
+  onCard: boolean;
   /** Próximo vencimento em aberto (de hoje em diante). */
   nextDate: IsoDate | null;
   /** Último vencimento, quando a repetição termina. */
@@ -311,9 +319,12 @@ export interface RecurringInput {
 /**
  * `open`: a vencer, sem lançamento. `overdue`: venceu sem lançamento ou com o
  * lançamento ainda pendente. `pending`: lançamento pendente no prazo.
- * `paid`: lançamento pago/recebido. `skipped`: pulado.
+ * `paid`: lançamento pago/recebido (no cartão: já na fatura). `skipped`: pulado.
+ * `awaiting_statement`: no cartão, o dia passou e a fatura ainda não foi
+ * importada (nunca "atrasado").
  */
-export type OccurrenceStatus = "open" | "overdue" | "pending" | "paid" | "skipped";
+export type OccurrenceStatus =
+  "open" | "overdue" | "pending" | "paid" | "skipped" | "awaiting_statement";
 
 export interface RecurringOccurrence extends OccurrenceRef {
   status: OccurrenceStatus;
@@ -321,19 +332,29 @@ export interface RecurringOccurrence extends OccurrenceRef {
   amount: Cents;
   transactionId: number | null;
   transactionDate: IsoDate | null;
+  /**
+   * No cartão com os dias da fatura, sem lançamento: vencimento da fatura em
+   * que a cobrança cai (data sugerida ao lançar à mão).
+   */
+  statementDate: IsoDate | null;
 }
 
-/** Previsto e pago no período (sem transferências e sem os pulados). */
+/**
+ * Previsto e realizado no período (sem transferências e sem os pulados).
+ * Realizado = pago/recebido ou, no cartão, já na fatura.
+ */
 export interface PlannedTotals {
   expenses: Cents;
-  expensesPaid: Cents;
+  expensesRealized: Cents;
   income: Cents;
-  incomePaid: Cents;
+  incomeRealized: Cents;
 }
 
 export interface RecurringSummary {
   /** Soma do equivalente mensal das recorrentes ativas. */
   monthlyExpenses: Cents;
+  /** Parte de `monthlyExpenses` cobrada no cartão. */
+  monthlyCardExpenses: Cents;
   monthlyIncome: Cents;
   /** Todos os atrasados (inclusive os do período). */
   overdueCount: number;
@@ -351,4 +372,64 @@ export interface RecurringOverview {
   overdue: RecurringOccurrence[];
   totals: PlannedTotals;
   summary: RecurringSummary;
+}
+
+// ---------------------------------------------------------------- Parcelamentos
+
+/** Compra parcelada (parcelas das faturas importadas, agrupadas no Rust). */
+export interface InstallmentPurchase {
+  /** Chave estável do agrupamento. */
+  id: string;
+  accountId: number;
+  categoryId: number | null;
+  description: string;
+  purchaseDate: IsoDate | null;
+  /** Valor da parcela (o da mais recente). */
+  installmentAmount: Cents;
+  count: number;
+  /** Parcelas com vencimento antes de hoje. */
+  paid: number;
+  /** Próxima parcela a vencer. */
+  current: number | null;
+  remaining: number;
+  remainingAmount: Cents;
+  totalAmount: Cents;
+  /** Parcelas que já vieram em faturas importadas. */
+  imported: number;
+  firstDueDate: IsoDate;
+  nextDueDate: IsoDate | null;
+  finalDueDate: IsoDate;
+  finished: boolean;
+}
+
+/** Quanto das faturas de um mês (pelo vencimento) já está comprometido. */
+export interface CommitmentMonth {
+  month: YearMonth;
+  installments: Cents;
+  parcels: number;
+  /** Recorrentes no cartão previstas para as faturas do mês. */
+  recurring: Cents;
+  /** Ids das compras cuja última parcela vence no mês. */
+  ending: string[];
+}
+
+export interface InstallmentsSummary {
+  activePurchases: number;
+  remainingParcels: number;
+  remainingAmount: Cents;
+  /** Parcelas + recorrentes no cartão com vencimento no mês atual. */
+  currentMonth: Cents;
+}
+
+export interface InstallmentsOverview {
+  today: IsoDate;
+  /** Ativas (a que termina antes primeiro) e depois as encerradas mais recentes. */
+  purchases: InstallmentPurchase[];
+  /** O mês atual e os 11 seguintes. */
+  months: CommitmentMonth[];
+  summary: InstallmentsSummary;
+  /** Mês da última parcela de todas as compras ativas. */
+  finalMonth: YearMonth | null;
+  /** Cartões com recorrentes mas sem os dias da fatura (fora do compromisso). */
+  cardsWithoutCycle: number[];
 }

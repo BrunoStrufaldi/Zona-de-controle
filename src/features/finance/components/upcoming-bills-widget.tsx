@@ -92,7 +92,7 @@ export function UpcomingBillsWidget({ recurring, className }: UpcomingBillsWidge
                     </span>
                     <span className="min-w-0 flex-1 truncate">{series.description}</span>
                     <Badge variant={occurrence.status === "overdue" ? "danger" : "outline"}>
-                      {occurrenceStatusLabel(occurrence.status, series.kind)}
+                      {occurrenceStatusLabel(occurrence.status, series)}
                     </Badge>
                     <span
                       className={cn(

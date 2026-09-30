@@ -100,6 +100,7 @@ const statusVariant: Record<OccurrenceStatus, BadgeProps["variant"]> = {
   pending: "warning",
   paid: "success",
   skipped: "default",
+  awaiting_statement: "default",
 };
 
 interface OccurrenceRowProps extends OccurrenceHandlers {
@@ -125,7 +126,9 @@ function OccurrenceRow({
 }: OccurrenceRowProps) {
   const open = isOpen(occurrence);
   const linked = occurrence.transactionId !== null;
-  const unpaid = linked && occurrence.status !== "paid";
+  // No cartão a cobrança é da fatura: sem "Pagar" nem "Marcar como pago".
+  const settle = open && !series.onCard;
+  const unpaid = linked && occurrence.status !== "paid" && !series.onCard;
   const skipped = occurrence.status === "skipped";
   const name = `“${series.description}” de ${formatDate(occurrence.occurrenceDate)}`;
 
@@ -146,7 +149,7 @@ function OccurrenceRow({
         <span className="truncate text-sm font-medium">{series.description}</span>
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <Badge variant={statusVariant[occurrence.status]}>
-            {occurrenceStatusLabel(occurrence.status, series.kind)}
+            {occurrenceStatusLabel(occurrence.status, series)}
           </Badge>
           {series.kind === "transfer" ? (
             <Badge variant="info">
@@ -159,6 +162,9 @@ function OccurrenceRow({
             <Badge variant="outline">{NO_CATEGORY_LABEL}</Badge>
           )}
           {account && <span>{account.name}</span>}
+          {occurrence.statementDate && (
+            <span>fatura de {formatDate(occurrence.statementDate)}</span>
+          )}
           {linked && occurrence.transactionDate && (
             <span>
               lançamento de {formatDate(occurrence.transactionDate)}
@@ -179,7 +185,7 @@ function OccurrenceRow({
       </span>
 
       <div className="flex w-28 shrink-0 justify-end">
-        {open && (
+        {settle && (
           <Button
             size="sm"
             variant="secondary"
@@ -244,7 +250,9 @@ function OccurrenceRow({
                 }}
               >
                 <FilePen aria-hidden="true" />
-                Registrar com outro valor ou data…
+                {series.onCard
+                  ? "Lançar na fatura manualmente…"
+                  : "Registrar com outro valor ou data…"}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => {

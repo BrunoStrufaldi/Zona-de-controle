@@ -358,6 +358,24 @@ Regras:
   primeiro vínculo, para contas de valor variável); cada linha/vencimento uma vez, melhores pares primeiro. A tela
   manda `recurring` na decisão e o commit revalida (em aberto, mesmo tipo, sem repetir). Dashboard: card **Próximos
   vencimentos** (`list_recurring` de hoje a +14 dias).
+- **Recorrentes no cartão (5.3b):** série cuja conta é `credit_card` tem `on_card` (vem do JOIN com a conta). Sem
+  lançamento: `open` ("Prevista") e, passado o dia, `awaiting_statement` ("Aguardando fatura"), nunca `overdue`;
+  vinculada (qualquer status) = `paid` ("Na fatura"). Não entra em atrasados nem no card **Próximos vencimentos**,
+  sem botão "Pagar" (só "Lançar na fatura manualmente…" no menu, para não duplicar com a importação). Totais do
+  período usam "realizado" (`expenses_realized`). Na importação da fatura o casamento é pela **data da compra**
+  (`StatementLine.date`), então a assinatura do dia 15 vincula ao vencimento do dia 15.
+- **Parcelamentos (5.4):** sem tabela nova: saem das saídas com `installment_number` (faturas importadas), em
+  `domain/finance/installments.rs::build_overview` (fonte da verdade). Compra = mesma conta + `purchase_date` +
+  descrição (`fold`) + nº de parcelas; número repetido no grupo = compras iguais diferentes (junta pelo valor). Parcelas
+  que faltam são projetadas a partir da mais recente, um mês por parcela no mesmo dia (`add_months`); vencimento antes
+  de hoje = paga. Compromisso = mês atual + 11 (parcelas por mês do vencimento + recorrentes do cartão via
+  `Series::statement_charges`: vinculadas pela data do lançamento, em aberto pelo ciclo do cartão). **Ciclo do
+  cartão:** `finance_accounts.closing_day/due_day` (migration 0011, os dois ou nenhum, só `credit_card`;
+  `domain/finance/cards.rs::CardCycle::due_date_for`): cobrança antes do dia do fechamento cai na fatura que fecha no
+  mês, a partir dele na seguinte; vencimento no mesmo mês se `due_day > closing_day`, senão no seguinte. Sem o ciclo,
+  as recorrentes em aberto do cartão ficam fora do compromisso (`cards_without_cycle`, a tela avisa) e "Lançar na
+  fatura" sugere a data da cobrança; com ele, o vencimento da fatura (`statement_date`). Parcelas digitadas à mão
+  ainda não existem (só as importadas).
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

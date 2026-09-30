@@ -17,6 +17,7 @@ import {
   type ImportCommitInput,
   type ImportPreview,
   type ImportResult,
+  type InstallmentsOverview,
   type RecurringInput,
   type RecurringOverview,
   type RecurringSeries,
@@ -183,6 +184,7 @@ export interface CommandMap {
   };
   skip_recurring_occurrence: { args: { id: number; occurrenceDate: string }; result: null };
   reopen_recurring_occurrence: { args: { id: number; occurrenceDate: string }; result: null };
+  get_installments_overview: { args: undefined; result: InstallmentsOverview };
 }
 
 export type CommandName = keyof CommandMap;

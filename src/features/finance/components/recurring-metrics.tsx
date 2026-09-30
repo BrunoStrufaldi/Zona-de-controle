@@ -21,23 +21,19 @@ export function RecurringMetrics({ recurring, className }: RecurringMetricsProps
       <Metric
         label="Contas fixas por mês"
         value={formatCents(summary.monthlyExpenses)}
-        note={
-          summary.monthlyIncome > 0
-            ? `${formatCents(summary.monthlyIncome)} de receitas fixas`
-            : undefined
-        }
+        note={fixedNote(summary.monthlyCardExpenses, summary.monthlyIncome)}
         icon={Repeat}
         tone="primary"
       />
       <Metric
-        label="Pago no mês"
-        value={formatCents(totals.expensesPaid)}
-        note={`de ${formatCents(totals.expenses)} previstos`}
+        label="Realizado no mês"
+        value={formatCents(totals.expensesRealized)}
+        note={`de ${formatCents(totals.expenses)} previstos (pago ou na fatura)`}
         icon={CircleCheck}
         tone="success"
       />
       <Metric
-        label="Falta pagar no mês"
+        label="Falta no mês"
         value={formatCents(remaining.expenses)}
         note={remaining.income > 0 ? `${formatCents(remaining.income)} a receber` : undefined}
         icon={Hourglass}
@@ -58,4 +54,13 @@ export function RecurringMetrics({ recurring, className }: RecurringMetricsProps
       />
     </dl>
   );
+}
+
+/** "R$ 180,00 no cartão · R$ 8.000,00 de receitas fixas". */
+function fixedNote(card: number, income: number): string | undefined {
+  const parts = [
+    card > 0 ? `${formatCents(card)} no cartão` : null,
+    income > 0 ? `${formatCents(income)} de receitas fixas` : null,
+  ].filter((part) => part !== null);
+  return parts.length > 0 ? parts.join(" · ") : undefined;
 }

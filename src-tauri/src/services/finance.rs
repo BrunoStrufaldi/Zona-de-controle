@@ -294,6 +294,8 @@ mod tests {
             kind: AccountKind::Checking,
             color: CategoryColor::Slate,
             opening_balance: 10_000,
+            closing_day: None,
+            due_day: None,
         }
     }
 

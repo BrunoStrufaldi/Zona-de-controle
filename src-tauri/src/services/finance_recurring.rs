@@ -201,6 +201,8 @@ mod tests {
                 kind: AccountKind::Checking,
                 color: CategoryColor::Slate,
                 opening_balance: 0,
+                closing_day: None,
+                due_day: None,
             },
         )
         .unwrap()
@@ -277,7 +279,7 @@ mod tests {
         );
         let overview = list(&db, "2090-01-01", "2090-01-31").unwrap();
         assert_eq!(overview.occurrences[0].amount, 205_000);
-        assert_eq!(overview.totals.expenses_paid, 205_000);
+        assert_eq!(overview.totals.expenses_realized, 205_000);
 
         // Já resolvido, fora da regra ou de outro tipo: recusado.
         assert!(matches!(
@@ -306,6 +308,27 @@ mod tests {
             link_occurrence(&db, series.id, "2090-02-05", paid.id),
             Err(AppError::Validation(_))
         ));
+    }
+
+    #[test]
+    fn series_on_a_credit_card_are_marked() {
+        let db = Database::open_in_memory().unwrap();
+        let card = finance::create_account(
+            &db,
+            AccountInput {
+                name: "Cartão C6".into(),
+                kind: AccountKind::CreditCard,
+                color: CategoryColor::Slate,
+                opening_balance: 0,
+                closing_day: None,
+                due_day: None,
+            },
+        )
+        .unwrap()
+        .id;
+        let checking = account(&db, "C6");
+        assert!(create(&db, rent(card, "2090-01-05")).unwrap().on_card);
+        assert!(!create(&db, rent(checking, "2090-01-05")).unwrap().on_card);
     }
 
     #[test]

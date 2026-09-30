@@ -40,6 +40,7 @@ function series(partial: Partial<RecurringSeries> = {}): RecurringSeries {
     startDate: "2026-09-05",
     recurrence: { frequency: "monthly", interval: 1, until: null, count: null },
     notes: "",
+    onCard: false,
     nextDate: "2026-10-05",
     lastDate: null,
     ended: false,
@@ -61,6 +62,7 @@ function occurrence(partial: Partial<RecurringOccurrence> = {}): RecurringOccurr
     amount: 200_000,
     transactionId: null,
     transactionDate: null,
+    statementDate: null,
     ...partial,
   };
 }
@@ -167,10 +169,17 @@ describe("vencimentos", () => {
   });
 
   it("rotula o status pelo tipo", () => {
-    expect(occurrenceStatusLabel("open", "expense")).toBe("A pagar");
-    expect(occurrenceStatusLabel("open", "income")).toBe("A receber");
-    expect(occurrenceStatusLabel("paid", "income")).toBe("Recebido");
-    expect(occurrenceStatusLabel("overdue", "expense")).toBe("Atrasada");
+    const expense = { kind: "expense", onCard: false } as const;
+    const card = { kind: "expense", onCard: true } as const;
+    expect(occurrenceStatusLabel("open", expense)).toBe("A pagar");
+    expect(occurrenceStatusLabel("open", { kind: "income", onCard: false })).toBe("A receber");
+    expect(occurrenceStatusLabel("paid", { kind: "income", onCard: false })).toBe("Recebido");
+    expect(occurrenceStatusLabel("overdue", expense)).toBe("Atrasada");
+    // No cartão: prevista, aguardando a fatura e, com o vínculo, na fatura.
+    expect(occurrenceStatusLabel("open", card)).toBe("Prevista");
+    expect(occurrenceStatusLabel("awaiting_statement", card)).toBe("Aguardando fatura");
+    expect(occurrenceStatusLabel("paid", card)).toBe("Na fatura");
+    expect(isOpen(occurrence({ status: "awaiting_statement" }))).toBe(true);
     expect(isOpen(occurrence())).toBe(true);
     // Atrasado com lançamento pendente não pode ser registrado de novo.
     expect(isOpen(occurrence({ status: "overdue", transactionId: 3 }))).toBe(false);
@@ -193,7 +202,7 @@ describe("vencimentos", () => {
     });
     expect(occurrenceDraft(rent, due)).toMatchObject({ amountText: "2000,00", status: "paid" });
     expect(
-      plannedRemaining({ expenses: 300, expensesPaid: 100, income: 50, incomePaid: 50 }),
+      plannedRemaining({ expenses: 300, expensesRealized: 100, income: 50, incomeRealized: 50 }),
     ).toEqual({ expenses: 200, income: 0 });
   });
 
@@ -215,17 +224,24 @@ describe("vencimentos", () => {
   it("lista o que precisa de atenção no dashboard", () => {
     const overview: RecurringOverview = {
       today: "2026-10-01",
-      series: [series(), series({ id: 2, description: "Internet" })],
+      series: [
+        series(),
+        series({ id: 2, description: "Internet" }),
+        series({ id: 3, description: "Streaming", onCard: true }),
+      ],
       occurrences: [
         occurrence({ occurrenceDate: "2026-10-05" }),
         occurrence({ recurringId: 2, occurrenceDate: "2026-10-02", status: "paid" }),
         occurrence({ recurringId: 2, occurrenceDate: "2026-10-03", status: "pending" }),
         occurrence({ recurringId: 7, occurrenceDate: "2026-10-04" }),
+        // No cartão: fica de fora (vem na fatura).
+        occurrence({ recurringId: 3, occurrenceDate: "2026-10-02" }),
       ],
       overdue: [occurrence({ occurrenceDate: "2026-09-05", status: "overdue" })],
-      totals: { expenses: 0, expensesPaid: 0, income: 0, incomePaid: 0 },
+      totals: { expenses: 0, expensesRealized: 0, income: 0, incomeRealized: 0 },
       summary: {
         monthlyExpenses: 0,
+        monthlyCardExpenses: 0,
         monthlyIncome: 0,
         overdueCount: 1,
         overdueExpenses: 200_000,

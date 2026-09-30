@@ -11,6 +11,7 @@ import {
   type ImportCommitInput,
   type ImportPreview,
   type ImportResult,
+  type InstallmentsOverview,
   type OccurrenceRef,
   type RecurringInput,
   type RecurringOverview,
@@ -20,7 +21,7 @@ import {
   type TransactionStatus,
   type YearMonth,
 } from "@/features/finance/types";
-import { type AsyncResource } from "@/hooks/use-async-resource";
+import { type AsyncResource, useAsyncResource } from "@/hooks/use-async-resource";
 import { type Mutate, useMutableResource } from "@/hooks/use-mutable-resource";
 import {
   commitFinanceImport,
@@ -33,6 +34,7 @@ import {
   deleteRecurring,
   deleteTransaction,
   getFinanceOverview,
+  getInstallmentsOverview,
   linkRecurringOccurrence,
   previewFinanceImport,
   listFinanceAccounts,
@@ -273,4 +275,23 @@ export function useRecurring(range: DateRange): {
   );
 
   return { resource, actions };
+}
+
+// ---------------------------------------------------------------- Parcelamentos
+
+export interface InstallmentsData extends FinanceRegistry {
+  installments: InstallmentsOverview;
+}
+
+function loadInstallments(): Promise<InstallmentsData> {
+  return Promise.all([
+    getInstallmentsOverview(),
+    listFinanceAccounts(),
+    listFinanceCategories(),
+  ]).then(([installments, accounts, categories]) => ({ installments, accounts, categories }));
+}
+
+/** Parcelamentos com contas e categorias (somente leitura). */
+export function useInstallments(): AsyncResource<InstallmentsData> {
+  return useAsyncResource(loadInstallments);
 }

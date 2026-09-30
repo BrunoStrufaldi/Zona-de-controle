@@ -5,8 +5,10 @@
 //! acontece só na exibição.
 
 pub mod accounts;
+pub mod cards;
 pub mod categories;
 pub mod import;
+pub mod installments;
 pub mod overview;
 pub mod period;
 pub mod recurring;

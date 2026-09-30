@@ -114,6 +114,7 @@ pub fn run() {
             commands::finance::link_recurring_occurrence,
             commands::finance::skip_recurring_occurrence,
             commands::finance::reopen_recurring_occurrence,
+            commands::finance::get_installments_overview,
         ])
         .run(tauri::generate_context!())
         .expect("falha ao iniciar o Zona de Controle");

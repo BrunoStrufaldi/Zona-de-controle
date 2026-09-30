@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, HashMap};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
 use crate::domain::calendar::CalendarDate;
+use crate::domain::finance::cards::CardCycle;
 use crate::domain::finance::recurring::{
     RecurringRule, Resolution, Schedule, Series, ValidRecurring,
 };
@@ -17,10 +18,11 @@ use crate::repositories::finance_transactions;
 pub const RECURRING_NOT_FOUND: &str = "recorrente não encontrada";
 pub const OCCURRENCE_NOT_FOUND: &str = "vencimento não encontrado";
 
-const SELECT_SERIES: &str = "SELECT id, kind, description, amount, account_id,
-       transfer_account_id, category_id, start_date, recurrence, notes, import_key,
-       created_at, updated_at
-FROM finance_recurring";
+const SELECT_SERIES: &str = "SELECT r.id, r.kind, r.description, r.amount, r.account_id,
+       r.transfer_account_id, r.category_id, r.start_date, r.recurrence, r.notes, r.import_key,
+       r.created_at, r.updated_at, a.kind = 'credit_card', a.closing_day, a.due_day
+FROM finance_recurring r
+JOIN finance_accounts a ON a.id = r.account_id";
 
 /// Linha crua; tipo, data e regra são convertidos fora do mapeamento para
 /// reportar valores inválidos como `AppError`.
@@ -38,6 +40,9 @@ struct SeriesRow {
     import_key: Option<String>,
     created_at: String,
     updated_at: String,
+    on_card: bool,
+    closing_day: Option<u32>,
+    due_day: Option<u32>,
 }
 
 impl SeriesRow {
@@ -56,6 +61,9 @@ impl SeriesRow {
             import_key: row.get(10)?,
             created_at: row.get(11)?,
             updated_at: row.get(12)?,
+            on_card: row.get(13)?,
+            closing_day: row.get(14)?,
+            due_day: row.get(15)?,
         })
     }
 
@@ -77,6 +85,8 @@ impl SeriesRow {
             schedule: Schedule::new(start, rule)?,
             notes: self.notes,
             import_key: self.import_key,
+            on_card: self.on_card,
+            card_cycle: CardCycle::from_days(self.closing_day, self.due_day)?,
             created_at: self.created_at,
             updated_at: self.updated_at,
             resolved,
@@ -86,7 +96,7 @@ impl SeriesRow {
 
 /// Todas as séries com os vencimentos resolvidos.
 pub fn list(connection: &Connection) -> AppResult<Vec<Series>> {
-    let mut statement = connection.prepare(&format!("{SELECT_SERIES} ORDER BY id"))?;
+    let mut statement = connection.prepare(&format!("{SELECT_SERIES} ORDER BY r.id"))?;
     let rows = statement
         .query_map([], SeriesRow::from_row)?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -102,7 +112,7 @@ pub fn list(connection: &Connection) -> AppResult<Vec<Series>> {
 pub fn find(connection: &Connection, id: i64) -> AppResult<Option<Series>> {
     let row = connection
         .query_row(
-            &format!("{SELECT_SERIES} WHERE id = ?1"),
+            &format!("{SELECT_SERIES} WHERE r.id = ?1"),
             [id],
             SeriesRow::from_row,
         )

@@ -5,6 +5,8 @@ use std::collections::{HashMap, HashSet};
 
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
+use crate::domain::calendar::CalendarDate;
+use crate::domain::finance::installments::Parcel;
 use crate::domain::finance::overview::CategoryTotal;
 use crate::domain::finance::period::DateRange;
 use crate::domain::finance::transactions::{
@@ -227,6 +229,54 @@ pub fn existing_external_ids(
         }
     }
     Ok(existing)
+}
+
+/// Saídas com parcela (`n/N`), para os parcelamentos.
+pub fn installment_parcels(connection: &Connection) -> AppResult<Vec<Parcel>> {
+    let mut statement = connection.prepare(
+        "SELECT id, account_id, category_id, description, amount, date, purchase_date,
+                installment_number, installment_count
+         FROM finance_transactions
+         WHERE installment_number IS NOT NULL AND kind = 'expense'
+         ORDER BY id",
+    )?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, Option<i64>>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, Option<String>>(6)?,
+                row.get::<_, u32>(7)?,
+                row.get::<_, u32>(8)?,
+            ))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    rows.into_iter()
+        .map(
+            |(id, account_id, category_id, description, amount, date, purchase, number, count)| {
+                let parse = |value: &str| {
+                    CalendarDate::parse(value).ok_or_else(|| {
+                        AppError::Validation(format!("data inválida no banco: {value}"))
+                    })
+                };
+                Ok(Parcel {
+                    transaction_id: id,
+                    account_id,
+                    category_id,
+                    description,
+                    amount,
+                    due_date: parse(&date)?,
+                    purchase_date: purchase.as_deref().map(parse).transpose()?,
+                    number,
+                    count,
+                })
+            },
+        )
+        .collect()
 }
 
 /// Tags em uso por algum lançamento, em ordem alfabética.

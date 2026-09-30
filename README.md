@@ -16,7 +16,7 @@ O **Zona de Controle** reúne em um só lugar três áreas do dia a dia:
 
 Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem, sem contas e sem APIs externas.
 
-> **Estado atual: Fase 5 em andamento (5.1 a 5.3 concluídas: contas, lançamentos, Visão Geral, transferências, importação de extratos e recorrentes).** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** analisa e limpa, com confirmação, cancelamento, auditoria e histórico. Em **Finanças**, contas, lançamentos, transferências, categorias, a Visão Geral do mês, a importação de extratos do banco e as contas recorrentes já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
+> **Estado atual: Fase 5 concluída (contas, lançamentos, Visão Geral, transferências, importação de extratos, recorrentes e parcelamentos).** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** analisa e limpa, com confirmação, cancelamento, auditoria e histórico. Em **Finanças**, contas, lançamentos, transferências, categorias, a Visão Geral do mês, a importação de extratos do banco, as contas recorrentes e os parcelamentos já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Os cards do dashboard marcados com **Demo** usam dados fictícios só para ilustrar o layout.
 
 ## Stack
 
@@ -83,7 +83,7 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
 ### Finanças (Fases 5 a 7)
 
 - **Visão Geral** ✅ (5.1): receita, despesas (com o que ainda está pendente), saldo líquido e percentual de economia do mês, saldo de cada conta, receita x despesas dos últimos 6 meses e despesas por categoria. O dashboard mostra o mesmo resumo e o gráfico com os dados reais.
-- **Contas** ✅ (5.1): conta corrente, poupança, cartão de crédito, dinheiro ou outra, com saldo inicial (pode ser negativo, ex.: fatura em aberto). O saldo soma só os lançamentos pagos; conta com lançamentos não pode ser excluída.
+- **Contas** ✅ (5.1): conta corrente, poupança, cartão de crédito, dinheiro ou outra, com saldo inicial (pode ser negativo, ex.: fatura em aberto). O saldo soma só os lançamentos pagos; conta com lançamentos não pode ser excluída. No cartão, dá para informar o dia de fechamento e o de vencimento da fatura (5.4).
 - **Lançamentos** ✅ (5.1): entradas e saídas com conta, categoria, tags, observação e status (pago/recebido ou pendente, com destaque para pendentes atrasados), navegação por mês ou ano e filtros por tipo, status, categoria, conta, faixa de valor e busca sem acentos. Valores guardados em centavos. Categorias de receita e de despesa já vêm criadas (Moradia, Alimentação, Salário…) e podem ser editadas. Excluir lançamento, categoria ou conta pede confirmação e fica no log de auditoria.
 - **Transferências** ✅ (5.2): entre as suas contas (pagamento da fatura, aplicação e resgate). Movem o saldo das duas contas e não contam como receita nem despesa. Há também o tipo de conta **Investimentos**.
 - **Importação de extratos** ✅ (5.2): o extrato da conta em **OFX** e a fatura do cartão do **C6 em CSV**, exportados pelo app ou site do banco. O arquivo é lido só no computador (sem conexão com bancos ou agregadores) e nada é gravado antes da revisão:
@@ -97,8 +97,12 @@ Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem n
   - **Pagar** registra o lançamento com um clique (na data do vencimento); também dá para registrar com outro valor ou data, vincular a um lançamento que já existia ou pular o mês. Nada é criado antes: o lançamento só existe quando você registra;
   - na **importação do extrato**, a linha que bate com um vencimento em aberto (mesmo tipo, data próxima e valor parecido) já vem vinculada a ele. Depois do primeiro vínculo, o app reconhece a descrição do banco mesmo que o valor mude (ex.: conta de energia);
   - o compromisso mensal (contas fixas e receitas fixas por mês), os atrasos de meses anteriores e o aviso de fim próximo das assinaturas com prazo ("renovar?");
-  - o dashboard mostra os **próximos vencimentos** e os atrasados. Excluir uma recorrente pede confirmação, vai para o log de auditoria e mantém os lançamentos já registrados.
-- **Parcelamentos**: mês final, parcelas restantes, valor comprometido por mês e projeção de redução.
+  - o dashboard mostra os **próximos vencimentos** e os atrasados. Excluir uma recorrente pede confirmação, vai para o log de auditoria e mantém os lançamentos já registrados;
+  - **no cartão de crédito** não há o que pagar um a um: a recorrente fica "prevista", depois "aguardando fatura" (nunca atrasada) e, quando a fatura é importada, "na fatura". Não aparece em "próximos vencimentos" nem soma nos atrasos. Com o fechamento e o vencimento do cartão informados, cada cobrança mostra em que fatura cai.
+- **Parcelamentos** ✅ (5.4): as compras parceladas saem sozinhas das faturas importadas (coluna Parcela, ex.: 4/10). Para cada compra: parcela atual, quanto falta, quantas parcelas restam e o mês da última. As parcelas que ainda não vieram são projetadas mês a mês:
+  - resumo: quanto falta pagar em parcelas, em quantas compras, quanto pesa nas faturas deste mês e quando vence a última parcela;
+  - gráfico e tabela das **faturas dos próximos 12 meses**: parcelas mais as recorrentes do cartão (com os dias da fatura), quanto a fatura alivia de um mês para o outro e quais compras encerram em cada mês;
+  - compras quitadas ficam numa lista à parte.
 - **Investimentos**: Renda Fixa, Ações, FIIs, ETFs, Cripto e Outros, com patrimônio, distribuição, evolução e rentabilidade.
 - **Analytics**: receita x despesa, gastos por categoria, fluxo de caixa, projeção de 6 meses e impacto das parcelas.
 
@@ -309,7 +313,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada pu
 - **Fase 2 — Productivity** ✅: tarefas ✅ (2.1); recorrência, checklists, categorias e arquivamento ✅ (2.2); notas e diário ✅ (2.3); rotinas ✅ (2.4); calendário ✅ (2.5).
 - **Fase 3 — System Monitor**: monitoramento de CPU, RAM, discos e processos ✅ (3.1); diagnósticos ✅ (3.2); dispositivos e bateria ✅ (3.3a: receptores 2.4 GHz, controles Xbox e Bluetooth; 3.3b: bateria do headset MCHOSE V9 PRO e do mouse Rapoo VT7 Max pelo receptor).
 - **Fase 4 — Safe Optimization** ✅: análise de temporários, caches seguros e Lixeira (4.1); limpeza com confirmação, auditoria e cancelamento (4.2); histórico das limpezas e card no dashboard (4.3).
-- **Fase 5 — Finance Core**: contas, lançamentos, categorias e Visão Geral ✅ (5.1); transferências e importação de extratos OFX/CSV ✅ (5.2); recorrentes ✅ (5.3); parcelamentos (5.4).
+- **Fase 5 — Finance Core**: contas, lançamentos, categorias e Visão Geral ✅ (5.1); transferências e importação de extratos OFX/CSV ✅ (5.2); recorrentes ✅ (5.3); parcelamentos ✅ (5.4).
 - **Fase 6 — Investments**: ativos, patrimônio e carteira.
 - **Fase 7 — Analytics**: gráficos, projeções e fluxo de caixa.
 - **Fase 8 — Polish**: performance, acessibilidade, testes, refinamento visual e empacotamento.

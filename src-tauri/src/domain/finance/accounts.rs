@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::domain::finance::cards::CardCycle;
 use crate::domain::finance::{normalize_name, MAX_AMOUNT_CENTS};
 use crate::domain::task_categories::CategoryColor;
 use crate::error::{AppError, AppResult};
@@ -61,6 +62,9 @@ pub struct FinanceAccount {
     /// Saldo inicial + entradas pagas − saídas pagas ± transferências pagas (centavos).
     pub balance: i64,
     pub transaction_count: u32,
+    /// Só cartão de crédito: dia de fechamento e de vencimento da fatura.
+    pub closing_day: Option<u32>,
+    pub due_day: Option<u32>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -71,6 +75,11 @@ pub struct AccountInput {
     pub color: CategoryColor,
     #[serde(default)]
     pub opening_balance: i64,
+    /// Só cartão de crédito (os dois juntos ou nenhum).
+    #[serde(default)]
+    pub closing_day: Option<u32>,
+    #[serde(default)]
+    pub due_day: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -79,6 +88,7 @@ pub struct ValidAccount {
     pub kind: AccountKind,
     pub color: CategoryColor,
     pub opening_balance: i64,
+    pub card_cycle: Option<CardCycle>,
 }
 
 impl AccountInput {
@@ -88,11 +98,17 @@ impl AccountInput {
                 "o saldo inicial está fora do limite aceito".into(),
             ));
         }
+        // Fora do cartão, os dias da fatura são descartados.
+        let card_cycle = match self.kind {
+            AccountKind::CreditCard => CardCycle::from_days(self.closing_day, self.due_day)?,
+            _ => None,
+        };
         Ok(ValidAccount {
             name: normalize_name(&self.name, "conta", MAX_NAME_CHARS)?,
             kind: self.kind,
             color: self.color,
             opening_balance: self.opening_balance,
+            card_cycle,
         })
     }
 }
@@ -107,7 +123,36 @@ mod tests {
             kind: AccountKind::Checking,
             color: CategoryColor::Slate,
             opening_balance,
+            closing_day: None,
+            due_day: None,
         }
+    }
+
+    #[test]
+    fn only_cards_keep_the_statement_days() {
+        let card = AccountInput {
+            kind: AccountKind::CreditCard,
+            closing_day: Some(28),
+            due_day: Some(5),
+            ..input("Cartão", 0)
+        };
+        assert_eq!(
+            card.clone().validate().unwrap().card_cycle,
+            Some(CardCycle {
+                closing_day: 28,
+                due_day: 5
+            })
+        );
+        let checking = AccountInput {
+            kind: AccountKind::Checking,
+            ..card.clone()
+        };
+        assert_eq!(checking.validate().unwrap().card_cycle, None);
+        let half = AccountInput {
+            due_day: None,
+            ..card
+        };
+        assert!(half.validate().is_err());
     }
 
     #[test]

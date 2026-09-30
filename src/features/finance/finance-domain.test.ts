@@ -61,6 +61,8 @@ const accounts: FinanceAccount[] = [
     openingBalance: 0,
     balance: 0,
     transactionCount: 0,
+    closingDay: null,
+    dueDay: null,
   },
   {
     id: 2,
@@ -70,6 +72,8 @@ const accounts: FinanceAccount[] = [
     openingBalance: 0,
     balance: 0,
     transactionCount: 0,
+    closingDay: null,
+    dueDay: null,
   },
 ];
 

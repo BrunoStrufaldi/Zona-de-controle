@@ -13,6 +13,7 @@ import {
   type ImportCommitInput,
   type ImportPreview,
   type ImportResult,
+  type InstallmentsOverview,
   type OccurrenceStatus,
   type RecurringInput,
   type RecurringOccurrence,
@@ -63,6 +64,8 @@ export function mockFinanceBackend(
       series?: Partial<RecurringSeries>[];
       occurrences?: (Partial<RecurringOccurrence> & Pick<RecurringOccurrence, "occurrenceDate">)[];
     };
+    /** Visão devolvida por `get_installments_overview` (o cálculo de verdade é do Rust). */
+    installments?: Partial<InstallmentsOverview>;
   } = {},
 ) {
   let accounts: StoredAccount[] = (seed.accounts ?? []).map((partial, index) => ({
@@ -71,6 +74,8 @@ export function mockFinanceBackend(
     kind: "checking",
     color: "slate",
     openingBalance: 0,
+    closingDay: null,
+    dueDay: null,
     ...partial,
   }));
   let categories = [...(seed.categories ?? DEFAULT_FINANCE_CATEGORIES)];
@@ -111,6 +116,7 @@ export function mockFinanceBackend(
     startDate: "2026-09-05",
     recurrence: { frequency: "monthly", interval: 1, until: null, count: null },
     notes: "",
+    onCard: false,
     nextDate: null,
     lastDate: null,
     ended: false,
@@ -133,6 +139,7 @@ export function mockFinanceBackend(
       amount: owner?.amount ?? 10_000,
       transactionId: null,
       transactionDate: null,
+      statementDate: null,
       ...partial,
     };
   });
@@ -337,6 +344,15 @@ export function mockFinanceBackend(
         linked: input.lines.filter((line) => line.recurring !== null).length,
       };
     }),
+    get_installments_overview: vi.fn((): InstallmentsOverview => ({
+      today: NOW.slice(0, 10),
+      purchases: [],
+      months: [],
+      summary: { activePurchases: 0, remainingParcels: 0, remainingAmount: 0, currentMonth: 0 },
+      finalMonth: null,
+      cardsWithoutCycle: [],
+      ...seed.installments,
+    })),
     list_recurring: vi.fn(({ from, to }: { from: string; to: string }): RecurringOverview => {
       const inRange = occurrences.filter(
         (occurrence) => occurrence.occurrenceDate >= from && occurrence.occurrenceDate <= to,
@@ -361,13 +377,16 @@ export function mockFinanceBackend(
         overdue: overdue.filter((occurrence) => occurrence.occurrenceDate < from),
         totals: {
           expenses: sum("expense", false),
-          expensesPaid: sum("expense", true),
+          expensesRealized: sum("expense", true),
           income: sum("income", false),
-          incomePaid: sum("income", true),
+          incomeRealized: sum("income", true),
         },
         summary: {
           monthlyExpenses: active
             .filter((item) => item.kind === "expense")
+            .reduce((total, item) => total + item.monthlyAmount, 0),
+          monthlyCardExpenses: active
+            .filter((item) => item.kind === "expense" && item.onCard)
             .reduce((total, item) => total + item.monthlyAmount, 0),
           monthlyIncome: active
             .filter((item) => item.kind === "income")
@@ -394,6 +413,7 @@ export function mockFinanceBackend(
           amount: input.amount,
           transactionId: null,
           transactionDate: null,
+          statementDate: null,
         },
       ];
       return created;

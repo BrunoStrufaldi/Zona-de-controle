@@ -235,6 +235,8 @@ mod tests {
             .unwrap(),
             notes: String::new(),
             import_key: None,
+            on_card: false,
+            card_cycle: None,
             created_at: String::new(),
             updated_at: String::new(),
             resolved: BTreeMap::new(),

@@ -67,6 +67,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "finance_recurring",
         sql: include_str!("../../migrations/0010_finance_recurring.sql"),
     },
+    Migration {
+        version: 11,
+        name: "finance_cards",
+        sql: include_str!("../../migrations/0011_finance_cards.sql"),
+    },
 ];
 
 const CREATE_SCHEMA_MIGRATIONS: &str = "
@@ -444,6 +449,41 @@ mod tests {
         assert!(connection
             .execute("DELETE FROM finance_accounts WHERE id = 1", [])
             .is_err());
+    }
+
+    #[test]
+    fn upgrades_from_version_10_keeping_accounts() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(CREATE_SCHEMA_MIGRATIONS).unwrap();
+        for migration in &MIGRATIONS[..10] {
+            apply(&mut connection, migration).unwrap();
+        }
+        connection
+            .execute(
+                "INSERT INTO finance_accounts (name, kind, color) VALUES ('Cartão C6', 'credit_card', 'slate')",
+                [],
+            )
+            .unwrap();
+
+        run(&mut connection).unwrap();
+
+        let days: (Option<i64>, Option<i64>) = connection
+            .query_row(
+                "SELECT closing_day, due_day FROM finance_accounts",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(days, (None, None));
+        let set = |closing: i64, due: i64| {
+            connection.execute(
+                "UPDATE finance_accounts SET closing_day = ?1, due_day = ?2",
+                [closing, due],
+            )
+        };
+        assert!(set(28, 5).is_ok());
+        assert!(set(0, 5).is_err());
+        assert!(set(28, 32).is_err());
     }
 
     #[test]

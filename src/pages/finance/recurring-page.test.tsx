@@ -97,6 +97,33 @@ describe("página de Recorrentes", () => {
     expect(backend.transactions()[0]?.recurringId).toBe(1);
   });
 
+  it("recorrente no cartão não tem Pagar: espera a fatura", async () => {
+    const user = userEvent.setup();
+    mockFinanceBackend({
+      accounts: [{ name: "Cartão C6", kind: "credit_card" }],
+      recurring: {
+        series: [{ id: 1, description: "Streaming", amount: 5_590, onCard: true }],
+        occurrences: [
+          { recurringId: 1, occurrenceDate: `${thisMonth}-01`, status: "awaiting_statement" },
+          { recurringId: 1, occurrenceDate: `${thisMonth}-28` },
+        ],
+      },
+    });
+    renderRoute(paths.finance.recurring);
+
+    const list = await screen.findByRole("list", { name: /^Vencimentos de / });
+    expect(within(list).getByText("Aguardando fatura")).toBeInTheDocument();
+    expect(within(list).getByText("Prevista")).toBeInTheDocument();
+    expect(within(list).queryByRole("button", { name: /^Pagar/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Atrasadas").nextElementSibling).toHaveTextContent("0");
+
+    const [menu] = within(list).getAllByRole("button", { name: /Ações do vencimento “Streaming”/ });
+    await user.click(menu as HTMLElement);
+    expect(
+      await screen.findByRole("menuitem", { name: /Lançar na fatura manualmente/ }),
+    ).toBeInTheDocument();
+  });
+
   it("registra com outro valor, pula e desfaz", async () => {
     const user = userEvent.setup();
     const backend = mockFinanceBackend({

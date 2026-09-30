@@ -421,6 +421,8 @@ mod tests {
                 kind,
                 color: CategoryColor::Slate,
                 opening_balance: 0,
+                closing_day: None,
+                due_day: None,
             },
         )
         .unwrap()
@@ -677,6 +679,56 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(stored.import_key.as_deref(), Some("desc:posto exemplo"));
+    }
+
+    #[test]
+    fn card_bill_lines_match_card_series_by_purchase_date() {
+        use crate::domain::finance::recurring::{OccurrenceStatus, RecurringInput, RecurringRule};
+        use crate::domain::task_recurrence::RecurrenceFrequency;
+        use crate::services::finance_recurring;
+
+        let db = Database::open_in_memory().unwrap();
+        let store = ImportPreviewStore::new();
+        let card = account(&db, "Cartão C6", AccountKind::CreditCard);
+        finance_recurring::create(
+            &db,
+            RecurringInput {
+                kind: TransactionKind::Expense,
+                description: "Assinatura".into(),
+                amount: 19_900,
+                account_id: card,
+                transfer_account_id: None,
+                category_id: None,
+                start_date: "2026-06-03".into(),
+                recurrence: RecurringRule {
+                    frequency: RecurrenceFrequency::Monthly,
+                    interval: 1,
+                    until: None,
+                    count: None,
+                },
+                notes: String::new(),
+            },
+        )
+        .unwrap();
+
+        // A compra da fatura (03/06) casa com o vencimento de 03/06, não com o
+        // vencimento da fatura (05/09), que é a data do lançamento.
+        let preview = preview(&db, &store, "Fatura_2026-09-05.csv", CARD).unwrap();
+        assert_eq!(
+            preview.lines[0]
+                .suggestion
+                .recurring
+                .as_ref()
+                .map(|o| o.occurrence_date.as_str()),
+            Some("2026-06-03")
+        );
+        commit(&db, &store, accept_all(&preview, card)).unwrap();
+        let june = finance_recurring::list(&db, "2026-06-01", "2026-06-30").unwrap();
+        assert_eq!(june.occurrences[0].status, OccurrenceStatus::Paid);
+        assert_eq!(
+            june.occurrences[0].transaction_date.as_deref(),
+            Some("2026-09-05")
+        );
     }
 
     #[test]

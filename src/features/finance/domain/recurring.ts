@@ -196,19 +196,26 @@ export function describeSchedule(rule: RecurringRule, startDate: IsoDate): strin
   }
 }
 
-/** Status do vencimento para exibição, conforme o tipo da série. */
-export function occurrenceStatusLabel(status: OccurrenceStatus, kind: TransactionKind): string {
+/** Status do vencimento para exibição, conforme o tipo da série (e se é no cartão). */
+export function occurrenceStatusLabel(
+  status: OccurrenceStatus,
+  series: Pick<RecurringSeries, "kind" | "onCard">,
+): string {
+  const { kind, onCard } = series;
   switch (status) {
     case "open":
+      if (onCard) return "Prevista";
       return kind === "income" ? "A receber" : kind === "transfer" ? "A fazer" : "A pagar";
     case "overdue":
       return "Atrasada";
     case "pending":
       return "Registrada";
     case "paid":
-      return statusLabel(kind, "paid");
+      return onCard ? "Na fatura" : statusLabel(kind, "paid");
     case "skipped":
       return "Pulada";
+    case "awaiting_statement":
+      return "Aguardando fatura";
   }
 }
 
@@ -221,7 +228,9 @@ export function settleLabel(kind: TransactionKind): string {
 export function isOpen(occurrence: RecurringOccurrence): boolean {
   return (
     occurrence.transactionId === null &&
-    (occurrence.status === "open" || occurrence.status === "overdue")
+    (occurrence.status === "open" ||
+      occurrence.status === "overdue" ||
+      occurrence.status === "awaiting_statement")
   );
 }
 
@@ -229,10 +238,14 @@ export function occurrenceKey(occurrence: OccurrenceRef): string {
   return `${occurrence.recurringId}:${occurrence.occurrenceDate}`;
 }
 
-/** Lançamento do vencimento com os dados da série: pago, na data do vencimento. */
+/**
+ * Lançamento do vencimento com os dados da série: pago, na data do vencimento.
+ * No cartão com os dias da fatura, na data de vencimento da fatura (como na
+ * importação).
+ */
 export function occurrenceTransaction(
   series: RecurringSeries,
-  occurrence: OccurrenceRef,
+  occurrence: OccurrenceRef & { statementDate?: IsoDate | null },
 ): TransactionInput {
   return {
     accountId: series.accountId,
@@ -241,7 +254,7 @@ export function occurrenceTransaction(
     kind: series.kind,
     description: series.description,
     amount: series.amount,
-    date: occurrence.occurrenceDate,
+    date: occurrence.statementDate ?? occurrence.occurrenceDate,
     status: "paid",
     notes: "",
     tags: [],
@@ -251,7 +264,7 @@ export function occurrenceTransaction(
 /** Formulário de lançamento já preenchido com os dados do vencimento. */
 export function occurrenceDraft(
   series: RecurringSeries,
-  occurrence: OccurrenceRef,
+  occurrence: OccurrenceRef & { statementDate?: IsoDate | null },
 ): TransactionDraft {
   const { amount, ...input } = occurrenceTransaction(series, occurrence);
   return { ...input, amountText: toAmountInput(amount) };
@@ -294,11 +307,11 @@ export function linkCandidates(
     );
 }
 
-/** Quanto do previsto no período ainda falta pagar e receber. */
+/** Quanto do previsto no período ainda não foi realizado (pago, recebido ou na fatura). */
 export function plannedRemaining(totals: PlannedTotals): { expenses: number; income: number } {
   return {
-    expenses: totals.expenses - totals.expensesPaid,
-    income: totals.income - totals.incomePaid,
+    expenses: totals.expenses - totals.expensesRealized,
+    income: totals.income - totals.incomeRealized,
   };
 }
 /** Dias à frente mostrados no dashboard. */
@@ -311,7 +324,8 @@ export interface UpcomingBill {
 
 /**
  * O que ainda precisa de atenção: atrasados primeiro (do mais antigo), depois
- * os em aberto ou pendentes por data. Pagos e pulados ficam de fora.
+ * os em aberto ou pendentes por data. Pagos, pulados e as recorrentes do
+ * cartão (cobradas na fatura, sem pagamento um a um) ficam de fora.
  */
 export function upcomingBills(overview: RecurringOverview, limit: number): UpcomingBill[] {
   const series = new Map(overview.series.map((item) => [item.id, item]));
@@ -328,7 +342,7 @@ export function upcomingBills(overview: RecurringOverview, limit: number): Upcom
     )
     .flatMap((occurrence) => {
       const owner = series.get(occurrence.recurringId);
-      return owner ? [{ series: owner, occurrence }] : [];
+      return owner && !owner.onCard ? [{ series: owner, occurrence }] : [];
     })
     .slice(0, limit);
 }

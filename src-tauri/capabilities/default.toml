@@ -217,6 +217,10 @@ permissions = [
   # explícita, os lançamentos vinculados continuam e a exclusão (ou falha) é auditada.
   "allow-delete-recurring",
 
+  # Finanças — parcelamentos (somente leitura): agrupa as parcelas das faturas
+  # importadas e projeta as que faltam e as faturas dos próximos 12 meses.
+  "allow-get-installments-overview",
+
   # Plugin de notificação: só o necessário para mostrar os lembretes do
   # calendário como notificações do Windows (consultar/pedir permissão e
   # notificar). Sem agendamento, canais, ações ou listeners.

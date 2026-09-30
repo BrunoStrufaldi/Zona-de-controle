@@ -7,6 +7,11 @@
 //! um lançamento (pago ou pendente) ou pulado; os demais estão em aberto ou
 //! atrasados. Vencimentos resolvidos são histórico: aparecem mesmo que a regra
 //! mude depois.
+//!
+//! Série de uma conta cartão de crédito ("no cartão"): a cobrança vem na
+//! fatura, então não há o que pagar um a um. Sem lançamento, o vencimento fica
+//! "previsto" e, passado o dia, "aguardando a fatura" (nunca atrasado); com o
+//! lançamento vinculado (em geral pela importação da fatura), "na fatura".
 
 use std::collections::BTreeMap;
 
@@ -14,6 +19,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::calendar::CalendarDate;
 use crate::domain::calendar_events::EventRecurrence;
+use crate::domain::finance::cards::CardCycle;
+use crate::domain::finance::installments::StatementCharge;
 use crate::domain::finance::transactions::{TransactionInput, TransactionStatus};
 use crate::domain::finance::TransactionKind;
 use crate::domain::task_recurrence::RecurrenceFrequency;
@@ -270,6 +277,10 @@ pub struct Series {
     pub schedule: Schedule,
     pub notes: String,
     pub import_key: Option<String>,
+    /// A conta é um cartão de crédito: cobrada na fatura, sem pagamento um a um.
+    pub on_card: bool,
+    /// Dias de fechamento e vencimento do cartão, se informados.
+    pub card_cycle: Option<CardCycle>,
     pub created_at: String,
     pub updated_at: String,
     pub resolved: BTreeMap<CalendarDate, Resolution>,
@@ -284,9 +295,11 @@ pub enum OccurrenceStatus {
     Overdue,
     /// Lançamento vinculado, pendente, ainda no prazo.
     Pending,
-    /// Lançamento vinculado e pago/recebido.
+    /// Lançamento vinculado e pago/recebido (no cartão: já na fatura).
     Paid,
     Skipped,
+    /// No cartão: o dia passou e a fatura com a cobrança ainda não foi importada.
+    AwaitingStatement,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -300,6 +313,9 @@ pub struct RecurringOccurrence {
     pub amount: i64,
     pub transaction_id: Option<i64>,
     pub transaction_date: Option<String>,
+    /// No cartão com os dias da fatura, sem lançamento: vencimento da fatura
+    /// em que a cobrança cai (data sugerida ao lançar à mão).
+    pub statement_date: Option<String>,
 }
 
 impl Series {
@@ -315,6 +331,9 @@ impl Series {
     fn occurrence(&self, date: CalendarDate, today: CalendarDate) -> RecurringOccurrence {
         let late = date < today;
         let (status, amount, transaction_id, transaction_date) = match self.resolved.get(&date) {
+            None if late && self.on_card => {
+                (OccurrenceStatus::AwaitingStatement, self.amount, None, None)
+            }
             None if late => (OccurrenceStatus::Overdue, self.amount, None, None),
             None => (OccurrenceStatus::Open, self.amount, None, None),
             Some(Resolution::Skipped) => (OccurrenceStatus::Skipped, self.amount, None, None),
@@ -325,6 +344,7 @@ impl Series {
                 status,
             }) => {
                 let status = match status {
+                    _ if self.on_card => OccurrenceStatus::Paid,
                     TransactionStatus::Paid => OccurrenceStatus::Paid,
                     TransactionStatus::Pending if late => OccurrenceStatus::Overdue,
                     TransactionStatus::Pending => OccurrenceStatus::Pending,
@@ -337,6 +357,10 @@ impl Series {
                 )
             }
         };
+        let statement_date = match (self.on_card, self.card_cycle, &transaction_id) {
+            (true, Some(cycle), None) => Some(cycle.due_date_for(date).to_string()),
+            _ => None,
+        };
         RecurringOccurrence {
             recurring_id: self.id,
             occurrence_date: date.to_string(),
@@ -344,7 +368,48 @@ impl Series {
             amount,
             transaction_id,
             transaction_date,
+            statement_date,
         }
+    }
+
+    /// Cobranças de uma despesa no cartão nas faturas que vencem de `from` a
+    /// `to`: as vinculadas pela data do lançamento (na fatura importada, o
+    /// vencimento) e as em aberto pelo ciclo do cartão. Sem os dias da fatura,
+    /// só as vinculadas.
+    pub fn statement_charges(&self, from: CalendarDate, to: CalendarDate) -> Vec<StatementCharge> {
+        if !self.on_card || self.kind != TransactionKind::Expense {
+            return Vec::new();
+        }
+        let in_range = |date: CalendarDate| date >= from && date <= to;
+        let mut charges: Vec<StatementCharge> = self
+            .resolved
+            .values()
+            .filter_map(|resolution| match resolution {
+                Resolution::Linked { amount, date, .. } => CalendarDate::parse(date)
+                    .filter(|date| in_range(*date))
+                    .map(|due_date| StatementCharge {
+                        due_date,
+                        amount: *amount,
+                    }),
+                Resolution::Skipped => None,
+            })
+            .collect();
+        if let Some(cycle) = self.card_cycle {
+            // Uma cobrança cai no máximo ~2 meses depois (fechamento + vencimento).
+            charges.extend(
+                self.schedule
+                    .dates()
+                    .skip_while(|date| *date < from.add_days(-70))
+                    .take_while(|date| *date <= to)
+                    .filter(|date| !self.resolved.contains_key(date))
+                    .map(|date| StatementCharge {
+                        due_date: cycle.due_date_for(date),
+                        amount: self.amount,
+                    })
+                    .filter(|charge| in_range(charge.due_date)),
+            );
+        }
+        charges
     }
 
     /// Vencimentos de `from` a `to`: os da regra e os resolvidos (histórico).
@@ -369,11 +434,15 @@ impl Series {
     }
 
     /// Atrasados (em aberto ou com lançamento pendente) antes de `before`.
+    /// No cartão nada atrasa: a cobrança é da fatura.
     pub fn overdue_before(
         &self,
         before: CalendarDate,
         today: CalendarDate,
     ) -> Vec<RecurringOccurrence> {
+        if self.on_card {
+            return Vec::new();
+        }
         let limit = before.min(today);
         let mut dates: Vec<CalendarDate> = self
             .schedule
@@ -425,6 +494,7 @@ impl Series {
             start_date: self.schedule.start.to_string(),
             recurrence: self.schedule.rule(),
             notes: self.notes.clone(),
+            on_card: self.on_card,
             next_date: self.next_open(today).map(|date| date.to_string()),
             last_date: last_date.map(|date| date.to_string()),
             ended,
@@ -454,6 +524,8 @@ pub struct RecurringSeriesView {
     pub start_date: String,
     pub recurrence: RecurringRule,
     pub notes: String,
+    /// A conta é um cartão de crédito (cobrada na fatura).
+    pub on_card: bool,
     /// Próximo vencimento em aberto (de hoje em diante).
     pub next_date: Option<String>,
     /// Último vencimento, quando a repetição termina.
@@ -471,14 +543,15 @@ pub struct RecurringSeriesView {
     pub updated_at: String,
 }
 
-/// Previsto e pago no período (sem transferências e sem os pulados).
+/// Previsto e realizado no período (sem transferências e sem os pulados).
+/// Realizado = pago/recebido ou, no cartão, já na fatura.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlannedTotals {
     pub expenses: i64,
-    pub expenses_paid: i64,
+    pub expenses_realized: i64,
     pub income: i64,
-    pub income_paid: i64,
+    pub income_realized: i64,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
@@ -486,6 +559,8 @@ pub struct PlannedTotals {
 pub struct RecurringSummary {
     /// Soma do equivalente mensal das séries ativas.
     pub monthly_expenses: i64,
+    /// Parte de `monthly_expenses` cobrada no cartão.
+    pub monthly_card_expenses: i64,
     pub monthly_income: i64,
     /// Todos os atrasados (inclusive os do período).
     pub overdue_count: u32,
@@ -550,18 +625,18 @@ pub fn build_overview(
         if occurrence.status == OccurrenceStatus::Skipped {
             continue;
         }
-        let paid = occurrence.status == OccurrenceStatus::Paid;
+        let realized = occurrence.status == OccurrenceStatus::Paid;
         match kinds.get(&occurrence.recurring_id) {
             Some(TransactionKind::Expense) => {
                 totals.expenses += occurrence.amount;
-                if paid {
-                    totals.expenses_paid += occurrence.amount;
+                if realized {
+                    totals.expenses_realized += occurrence.amount;
                 }
             }
             Some(TransactionKind::Income) => {
                 totals.income += occurrence.amount;
-                if paid {
-                    totals.income_paid += occurrence.amount;
+                if realized {
+                    totals.income_realized += occurrence.amount;
                 }
             }
             _ => {}
@@ -572,7 +647,12 @@ pub fn build_overview(
     for (item, view) in series.iter().map(|s| (s, s.view(today))) {
         let active = !view.ended;
         match item.kind {
-            TransactionKind::Expense if active => summary.monthly_expenses += view.monthly_amount,
+            TransactionKind::Expense if active => {
+                summary.monthly_expenses += view.monthly_amount;
+                if item.on_card {
+                    summary.monthly_card_expenses += view.monthly_amount;
+                }
+            }
             TransactionKind::Income if active => summary.monthly_income += view.monthly_amount,
             _ => {}
         }
@@ -630,6 +710,8 @@ mod tests {
             schedule,
             notes: String::new(),
             import_key: None,
+            on_card: false,
+            card_cycle: None,
             created_at: String::new(),
             updated_at: String::new(),
             resolved: BTreeMap::new(),
@@ -838,6 +920,89 @@ mod tests {
     }
 
     #[test]
+    fn card_charges_wait_for_the_statement_instead_of_running_late() {
+        let today = date("2026-10-20");
+        let mut streaming = series(
+            TransactionKind::Expense,
+            5_590,
+            schedule("2026-08-15", rule(Monthly, 1)),
+        );
+        streaming.on_card = true;
+        // Importado da fatura (lançamentos da fatura podem vir pendentes também).
+        streaming.resolved.insert(
+            date("2026-08-15"),
+            linked(3, 5_590, TransactionStatus::Pending),
+        );
+
+        let found = streaming.occurrences(date("2026-08-01"), date("2026-11-30"), today);
+        let statuses: Vec<_> = found.iter().map(|o| o.status).collect();
+        assert_eq!(
+            statuses,
+            vec![
+                OccurrenceStatus::Paid,
+                OccurrenceStatus::AwaitingStatement,
+                OccurrenceStatus::AwaitingStatement,
+                OccurrenceStatus::Open,
+            ]
+        );
+        assert!(streaming.overdue_before(today, today).is_empty());
+        let view = streaming.view(today);
+        assert!(view.on_card);
+        assert_eq!(view.overdue_count, 0);
+        // Continua valendo para registrar ou vincular.
+        assert!(streaming.is_open(date("2026-09-15")));
+
+        let overview = build_overview(&[streaming], date("2026-08-01"), date("2026-08-31"), today);
+        assert_eq!(overview.totals.expenses_realized, 5_590);
+        assert_eq!(overview.summary.monthly_card_expenses, 5_590);
+        assert_eq!(overview.summary.overdue_count, 0);
+    }
+
+    #[test]
+    fn card_charges_fall_into_their_statements() {
+        let mut streaming = series(
+            TransactionKind::Expense,
+            5_590,
+            schedule("2026-08-15", rule(Monthly, 1)),
+        );
+        streaming.on_card = true;
+        // Agosto veio na fatura de 05/09.
+        streaming.resolved.insert(
+            date("2026-08-15"),
+            Resolution::Linked {
+                transaction_id: 1,
+                amount: 5_490,
+                date: "2026-09-05".into(),
+                status: TransactionStatus::Paid,
+            },
+        );
+        let (from, to) = (date("2026-09-01"), date("2026-11-30"));
+        // Sem os dias da fatura: só a vinculada.
+        assert_eq!(streaming.statement_charges(from, to).len(), 1);
+
+        streaming.card_cycle = Some(CardCycle {
+            closing_day: 28,
+            due_day: 5,
+        });
+        let dues: Vec<(String, i64)> = streaming
+            .statement_charges(from, to)
+            .into_iter()
+            .map(|charge| (charge.due_date.to_string(), charge.amount))
+            .collect();
+        assert_eq!(
+            dues,
+            vec![
+                ("2026-09-05".to_string(), 5_490),
+                ("2026-10-05".to_string(), 5_590),
+                ("2026-11-05".to_string(), 5_590),
+            ]
+        );
+        let open =
+            streaming.occurrences(date("2026-09-01"), date("2026-09-30"), date("2026-09-01"));
+        assert_eq!(open[0].statement_date.as_deref(), Some("2026-10-05"));
+    }
+
+    #[test]
     fn overview_sums_the_period_and_the_monthly_commitment() {
         let today = date("2026-09-20");
         let mut rent = series(
@@ -880,9 +1045,9 @@ mod tests {
             overview.totals,
             PlannedTotals {
                 expenses: 205_000,
-                expenses_paid: 205_000,
+                expenses_realized: 205_000,
                 income: 800_000,
-                income_paid: 0,
+                income_realized: 0,
             }
         );
         assert_eq!(overview.occurrences.len(), 4);
@@ -893,6 +1058,7 @@ mod tests {
             overview.summary,
             RecurringSummary {
                 monthly_expenses: 212_000,
+                monthly_card_expenses: 0,
                 monthly_income: 800_000,
                 // Agosto do aluguel e o aporte de 10/09 (transferência não soma valor).
                 overdue_count: 2,
