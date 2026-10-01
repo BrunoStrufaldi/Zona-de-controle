@@ -1,6 +1,6 @@
 [package]
 name = "zona-de-controle"
-version = "0.1.0"
+version = "0.2.0"
 description = "Zona de Controle — hub local-first de produtividade, sistema e finanças"
 authors = ["Bruno Strufaldi"]
 edition = "2021"

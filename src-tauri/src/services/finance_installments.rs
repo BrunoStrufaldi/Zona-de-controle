@@ -119,11 +119,19 @@ mod tests {
         })
         .unwrap();
 
+        // A parcela 1 é projetada para o dia 5 deste mês: já paga a partir do dia
+        // 6, ainda em aberto nos dias 1 a 5.
+        let first_due = YearMonth::of(today).first_day().add_days(4);
+        let remaining = if first_due < today { 2 } else { 3 };
+
         let overview = overview(&db).unwrap();
         assert_eq!(overview.purchases.len(), 1);
         let purchase = &overview.purchases[0];
-        assert_eq!((purchase.count, purchase.remaining), (3, 2));
-        assert_eq!(overview.summary.remaining_amount, 60_000);
+        assert_eq!((purchase.count, purchase.remaining), (3, remaining));
+        assert_eq!(
+            overview.summary.remaining_amount,
+            30_000 * i64::from(remaining)
+        );
         assert_eq!(overview.months[1].installments, 30_000);
         assert_eq!(overview.months[2].installments, 30_000);
         // Fecha dia 28 e vence dia 5: a cobrança do dia 10 entra na fatura do mês seguinte.
