@@ -31,6 +31,10 @@ pub enum AppError {
     #[error("{0}")]
     Device(String),
 
+    /// Falha ao procurar, baixar ou instalar uma atualização do app.
+    #[error("{0}")]
+    Update(String),
+
     /// Recurso inexistente; a mensagem é exibida ao usuário (ex.: "tarefa não encontrada").
     #[error("{0}")]
     NotFound(&'static str),
@@ -50,6 +54,7 @@ impl AppError {
             Self::Tauri(_) => "tauri",
             Self::Validation(_) => "validation",
             Self::Device(_) => "device",
+            Self::Update(_) => "update",
             Self::NotFound(_) => "not_found",
             Self::StatePoisoned => "internal",
         }

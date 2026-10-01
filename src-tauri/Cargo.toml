@@ -23,6 +23,10 @@ thiserror = "2"
 # SQLite embarcado (feature `bundled`): não depende de SQLite instalado no sistema.
 rusqlite = { version = "0.40", features = ["bundled"] }
 tauri-plugin-notification = "2"
+# Atualização do app, usada só pelo Rust (commands próprios; a janela não tem
+# permissão do plugin). Endereço fixo em HTTPS no tauri.conf.json e instalador
+# conferido pela assinatura (minisign) antes de instalar.
+tauri-plugin-updater = "2"
 # Leitura (somente) de CPU, memória, discos e processos. Só os módulos usados.
 # Sem `component` (temperatura): no Windows ela vem do WMI, que exige
 # administrador, e o módulo chama `CoInitializeSecurity` para o processo todo.

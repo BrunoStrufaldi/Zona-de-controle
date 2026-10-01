@@ -14,7 +14,8 @@ O **Zona de Controle** reúne em um só lugar três áreas do dia a dia:
 - **Central do sistema**: monitoramento de hardware, diagnóstico, dispositivos/bateria e otimização **segura**.
 - **Gestão financeira**: lançamentos, contas recorrentes, parcelamentos, investimentos e analytics.
 
-Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem, sem contas e sem APIs externas.
+Tudo roda localmente. Os dados ficam em um banco SQLite no seu computador, sem nuvem e sem contas. A única conexão
+externa é a busca de atualizações no GitHub, e só quando você clica; nenhum dado seu é enviado.
 
 > **Estado atual: Fases 5 (Finanças), 6 (Investimentos) e 7 (Analytics) concluídas.** A fundação está pronta e os módulos de **Tarefas** (lista, Kanban, recorrência, checklists, categorias, arquivo e dashboard), **Notas e diário**, **Rotinas**, **Calendário**, **Monitoramento** (CPU, memória, discos e processos ao vivo), **Diagnósticos** e **Dispositivos** já funcionam. A **Otimização** analisa e limpa, com confirmação, cancelamento, auditoria e histórico, e o **Espaço em disco** mostra o que ocupa cada unidade, pasta por pasta. Em **Finanças**, contas, lançamentos, transferências, categorias, a Visão Geral do mês, a importação de extratos do banco, as contas recorrentes, os parcelamentos, a carteira de investimentos, o desempenho dela e o Analytics (histórico e projeção) já funcionam. Os demais módulos serão implementados um a um (veja o [Roadmap](#roadmap)). Todos os cards do dashboard usam dados reais; se algum dia um card usar dados fictícios para ilustrar o layout, ele aparece marcado com **Demo**.
 
@@ -300,20 +301,21 @@ npm run dev          # abre o APP DESKTOP em modo desenvolvimento (tauri dev)
 npm run dev:web      # só o frontend no navegador (recursos do banco mostram "apenas no desktop")
 ```
 
-| Script                            | Função                                                  |
-| --------------------------------- | ------------------------------------------------------- |
-| `npm run dev`                     | App desktop em desenvolvimento (`tauri dev`)            |
-| `npm run dev:web`                 | Apenas o frontend no navegador (Vite)                   |
-| `npm run build`                   | Build do frontend (typecheck + Vite)                    |
-| `npm run build:desktop`           | Build de produção do app e instaladores (`tauri build`) |
-| `npm run lint`                    | ESLint                                                  |
-| `npm run format` / `format:check` | Prettier (formatar / verificar)                         |
-| `npm run typecheck`               | TypeScript (`tsc -b`)                                   |
-| `npm run check`                   | Typecheck + lint + `cargo check`                        |
-| `npm run check:rust`              | `cargo fmt --check` + `cargo clippy -D warnings`        |
-| `npm run format:rust`             | `cargo fmt`                                             |
-| `npm run test` / `test:watch`     | Testes do frontend (Vitest)                             |
-| `npm run test:rust`               | Testes do Rust (`cargo test`)                           |
+| Script                            | Função                                                    |
+| --------------------------------- | --------------------------------------------------------- |
+| `npm run dev`                     | App desktop em desenvolvimento (`tauri dev`)              |
+| `npm run dev:web`                 | Apenas o frontend no navegador (Vite)                     |
+| `npm run build`                   | Build do frontend (typecheck + Vite)                      |
+| `npm run build:desktop`           | Build de produção do app e instaladores (`tauri build`)   |
+| `npm run lint`                    | ESLint                                                    |
+| `npm run format` / `format:check` | Prettier (formatar / verificar)                           |
+| `npm run typecheck`               | TypeScript (`tsc -b`)                                     |
+| `npm run check`                   | Typecheck + lint + `cargo check`                          |
+| `npm run check:rust`              | `cargo fmt --check` + `cargo clippy -D warnings`          |
+| `npm run format:rust`             | `cargo fmt`                                               |
+| `npm run test` / `test:watch`     | Testes do frontend (Vitest)                               |
+| `npm run test:rust`               | Testes do Rust (`cargo test`)                             |
+| `npm run version:bump -- <tipo>`  | Muda a versão do app (`patch`, `minor`, `major` ou X.Y.Z) |
 
 ## Build
 
@@ -324,9 +326,30 @@ npm run build:desktop
 Os artefatos ficam em `src-tauri/target/release/`:
 
 - `zona-de-controle.exe`: executável;
-- `bundle/msi/*.msi` e `bundle/nsis/*-setup.exe`: instaladores.
+- `bundle/nsis/*-setup.exe`: instalador (por usuário, sem pedir administrador).
 
-O primeiro build de release demora alguns minutos, porque compila com LTO e baixa as ferramentas WiX e NSIS.
+O primeiro build de release demora alguns minutos, porque compila com LTO e baixa a ferramenta NSIS.
+
+### Atualizações
+
+Em **Configurações > Sobre > Procurar atualizações** o app consulta o GitHub Releases do projeto (só quando você clica).
+Se houver versão nova, mostra as novidades e, depois da confirmação, faz backup do banco, baixa, confere a assinatura e
+instala; o app fecha e abre de novo sozinho. Tudo fica no log de auditoria. O instalador só é aceito se estiver assinado
+com a chave do projeto.
+
+### Versão
+
+A versão do app fica no `package.json`; o `tauri.conf.json` aponta para ele. Para mudar, use o script, que também
+atualiza `package-lock.json`, `Cargo.toml` e `Cargo.lock`:
+
+```bash
+npm run version:bump -- patch   # 0.1.0 → 0.1.1 (correções)
+npm run version:bump -- minor   # 0.1.0 → 0.2.0 (novidades)
+npm run version:bump -- 1.0.0   # versão explícita, sempre maior que a atual
+```
+
+Só `X.Y.Z` numérico (o instalador MSI não aceita sufixos como `-beta`). Um teste do Rust falha se o `Cargo.toml`
+ficar diferente do `package.json`.
 
 ## Integração contínua
 

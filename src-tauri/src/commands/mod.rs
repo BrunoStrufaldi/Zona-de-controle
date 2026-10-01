@@ -8,6 +8,7 @@
 
 pub mod activity;
 pub mod app;
+pub mod app_update;
 pub mod audit;
 pub mod backup;
 pub mod calendar;

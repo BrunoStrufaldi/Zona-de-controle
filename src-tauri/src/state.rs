@@ -2,7 +2,7 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use tauri::{AppHandle, Manager};
 
@@ -11,6 +11,7 @@ use crate::error::AppResult;
 use crate::platform::devices::{DeviceReader, SaveReading};
 use crate::platform::system_monitor::SystemMonitor;
 use crate::services;
+use crate::services::app_update::UpdateRun;
 use crate::services::disk_usage::{DiskUsageRun, DiskUsageStore};
 use crate::services::finance_import::ImportPreviewStore;
 use crate::services::optimization::{CleanupRun, CleanupScanStore};
@@ -41,6 +42,12 @@ pub struct AppState {
     pub disk_usage_run: Arc<DiskUsageRun>,
     /// Última prévia de importação de extrato (só em memória).
     pub import_previews: ImportPreviewStore,
+    /// Versão encontrada na última busca de atualização (a instalação só aceita ela).
+    pub pending_update: Mutex<Option<tauri_plugin_updater::Update>>,
+    /// Instalação de atualização em andamento (backup, download, instalador).
+    pub update_run: UpdateRun,
+    /// Versão anterior quando esta é a primeira abertura depois de atualizar.
+    pub updated_from: Option<String>,
 }
 
 impl AppState {
@@ -63,6 +70,12 @@ impl AppState {
             .unwrap_or_else(|_| data_dir.join("backups"));
 
         let local_app_data = app.path().local_data_dir()?;
+
+        // Primeira abertura de uma versão nova: audita e avisa na tela. Falhar
+        // aqui só perde o aviso; o app abre normalmente.
+        let current_version = app.package_info().version.to_string();
+        let updated_from =
+            services::app_update::record_startup_version(&db, &current_version).unwrap_or(None);
 
         let device_reader = DeviceReader::new();
         // Última leitura de cada modelo: aparece como "último registro" até o
@@ -91,6 +104,9 @@ impl AppState {
             disk_usage_scans: Arc::new(DiskUsageStore::new()),
             disk_usage_run: Arc::new(DiskUsageRun::new()),
             import_previews: ImportPreviewStore::new(),
+            pending_update: Mutex::new(None),
+            update_run: UpdateRun::new(),
+            updated_from,
         })
     }
 }

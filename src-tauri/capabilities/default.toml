@@ -3,7 +3,7 @@
 # Princípio do menor privilégio: nenhum plugin de acesso ao sistema (shell, fs,
 # sql, http...) e nenhuma permissão `core:*` é concedida — o frontend só pode
 # chamar os commands próprios do app listados abaixo e mostrar notificações
-# (lembretes do calendário). Toda nova permissão deve vir com um comentário
+# (lembretes do calendário). O plugin de atualização é usado só pelo Rust. Toda nova permissão deve vir com um comentário
 # justificando o motivo.
 
 identifier = "default"
@@ -13,6 +13,15 @@ windows = ["main"]
 permissions = [
   # Leitura: nome, versão e caminho do banco local (tela Configurações > Sobre).
   "allow-get-app-info",
+
+  # Atualização do app, só pelo botão em Configurações > Sobre. Buscar é
+  # leitura (endereço HTTPS fixo no tauri.conf.json; nenhum command recebe URL).
+  # Instalar faz backup do banco, baixa, confere a assinatura (chave pública
+  # embutida) e só então abre o instalador; sucesso e falha são auditados.
+  # Nenhuma permissão `updater:*` é dada à janela: o plugin é usado só no Rust.
+  "allow-check-app-update",
+  "allow-install-app-update",
+  "allow-get-app-update-progress",
 
   # Leitura de preferências do app (tabela app_settings).
   "allow-list-settings",

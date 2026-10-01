@@ -79,7 +79,7 @@ import { type ProcessList, type SystemInfo, type SystemSnapshot } from "@/featur
 import { DESKTOP_ONLY_MESSAGE, ServiceError, toServiceError } from "@/services/tauri/errors";
 import { isDesktopRuntime } from "@/services/tauri/runtime";
 import { type ActivityEntry } from "@/types/activity";
-import { type AppInfo } from "@/types/app";
+import { type AppInfo, type AvailableUpdate, type UpdateProgress } from "@/types/app";
 import { type AuditEntry } from "@/types/audit";
 import { type BackupFile, type BackupOverview } from "@/types/backup";
 import { type JsonValue } from "@/types/json";
@@ -92,6 +92,9 @@ import { type SettingEntry } from "@/types/settings";
  */
 export interface CommandMap {
   get_app_info: { args: undefined; result: AppInfo };
+  check_app_update: { args: undefined; result: AvailableUpdate | null };
+  install_app_update: { args: { version: string }; result: null };
+  get_app_update_progress: { args: undefined; result: UpdateProgress | null };
   list_settings: { args: undefined; result: SettingEntry[] };
   get_setting: { args: { key: string }; result: SettingEntry | null };
   set_setting: { args: { key: string; value: JsonValue }; result: SettingEntry };

@@ -2,6 +2,7 @@
 //! Os commands (camada IPC) apenas delegam para cá.
 
 pub mod activity;
+pub mod app_update;
 pub mod backup;
 pub mod calendar;
 pub mod devices;

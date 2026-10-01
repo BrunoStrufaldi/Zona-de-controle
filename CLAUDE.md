@@ -148,8 +148,9 @@ Regras:
 - **Nunca** executar comandos shell arbitrários; não adicionar `tauri-plugin-shell`.
 - Não adicionar plugins/permissões (`fs`, `shell`, `sql`, `http`, `core:*`) sem necessidade real
   e comentário na capability. O plugin SQL do Tauri **não** deve ser usado: SQL só no Rust.
-  Único plugin em uso: `tauri-plugin-notification` (lembretes), com só `is-permission-granted`,
-  `request-permission` e `notify`. Plugins só são importados em `src/services` (ESLint bloqueia
+  Plugins em uso: `tauri-plugin-notification` (lembretes), com só `is-permission-granted`,
+  `request-permission` e `notify`; e `tauri-plugin-updater`, **só no Rust** (nenhuma permissão `updater:*` na
+  janela; ver "Atualizador"). Plugins só são importados em `src/services` (ESLint bloqueia
   `@tauri-apps/plugin-*` fora dali).
 - Nunca armazenar senhas/segredos em texto puro.
 - `audit_log` é somente inserção (triggers bloqueiam UPDATE/DELETE). Operações sensíveis devem auditar sucesso **e** falha.
@@ -464,6 +465,26 @@ Regras:
   nunca estimado. Tela: `pages/system/disk-usage-page.tsx`, conteúdo das pastas pedido ao abrir
   (`list_disk_usage_children`, até 500), andamento por consulta (300 ms, como a limpeza) e `?drive=C:`
   (`diskUsageHref`, link do card Armazenamento). Medição real: `cargo test --release measures_the_real_system_drive -- --ignored --nocapture`.
+- **Versão do app:** fonte única no `package.json` (`tauri.conf.json` tem `"version": "../package.json"`). Mude só com
+  `npm run version:bump -- <patch|minor|major|X.Y.Z>` (`scripts/bump-version.js`; regras puras em `scripts/version.js`,
+  testadas pelo Vitest): exige versão maior, só `X.Y.Z` nos limites do MSI, e alinha `package-lock.json`, `Cargo.toml` e
+  `Cargo.lock`. O teste `commands::app::tests::app_version_comes_from_package_json` pega divergências. O
+  atualizador só instala versões maiores.
+- **Atualizador (desktop):** decisão do usuário: **só pelo botão** (Configurações > Sobre), nunca ao abrir o app; nada é
+  instalado sem confirmação. Versões no GitHub Releases do repositório (público), endereço fixo em HTTPS no
+  `tauri.conf.json` (`plugins.updater`: `requireSignedVersion`, nenhuma opção `dangerous*`; o teste
+  `updater_config_stays_safe` trava isso). Chave pública minisign no config; a **privada é do usuário** (fora do projeto,
+  com senha) e só vai para os Secrets da CI: nunca a leia, copie ou commite. O plugin é usado só pelo Rust
+  (`commands/app_update.rs`): `check_app_update` (leitura, guarda a versão encontrada em `AppState::pending_update`),
+  `install_app_update(version)` (só a versão da última busca; recusado em build de desenvolvimento) e
+  `get_app_update_progress` (consulta a cada 300 ms, como a limpeza). Ordem: backup do banco
+  (`services/app_update.rs::backup_before_install`, sem backup nada continua) → download com a assinatura conferida →
+  auditoria de sucesso **antes** do instalador (no Windows o app fecha e o instalador passivo o reabre) → instalador.
+  Auditoria na categoria `app`: `app.update_install` (sucesso e falha com a etapa) e `app.updated` na primeira abertura
+  da versão nova (`record_startup_version`, chave reservada `app.installed_version`; a tela avisa por `updatedFrom`).
+  Instalador só NSIS por usuário (`installMode: currentUser`, sem administrador). Erros com `kind: "update"` e mensagens
+  em pt-BR. Tela: `features/app-update` (card no Sobre, diálogo de confirmação e aviso pós-atualização no `AppLayout`).
+  O updater do Tauri não roda em celular: no iPhone a atualização será pelo TestFlight.
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.

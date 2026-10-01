@@ -1,6 +1,7 @@
 //! Regras e contratos de domínio, independentes do Tauri e do banco.
 
 pub mod activity;
+pub mod app_update;
 pub mod audit;
 pub mod backup;
 pub mod calendar;

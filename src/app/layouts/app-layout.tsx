@@ -4,6 +4,7 @@ import { Outlet, useLocation } from "react-router";
 import { Header } from "@/components/layout/header";
 import { Sidebar } from "@/components/layout/sidebar";
 import { navigation } from "@/config/navigation";
+import { useUpdatedNotice } from "@/features/app-update/hooks/use-updated-notice";
 import { useReminderNotifications } from "@/features/productivity/calendar/hooks/use-reminder-notifications";
 import { COMPACT_LAYOUT_QUERY, useMediaQuery } from "@/hooks/use-media-query";
 import { findNavigationTrail } from "@/lib/navigation";
@@ -27,6 +28,8 @@ export function AppLayout() {
   const mainRef = useRef<HTMLElement>(null);
   // Lembretes do calendário: notificações enquanto o app estiver aberto.
   useReminderNotifications();
+  // Primeira abertura depois de atualizar: avisa a versão nova uma vez.
+  useUpdatedNotice();
 
   const trail = findNavigationTrail(navigation, pathname);
   const showOverlay = isCompact && overlayOpen;

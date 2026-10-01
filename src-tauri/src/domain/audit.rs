@@ -15,6 +15,8 @@ pub enum AuditCategory {
     Optimization,
     Finance,
     Database,
+    /// Atualização do próprio app.
+    App,
 }
 
 impl AuditCategory {
@@ -29,6 +31,7 @@ impl AuditCategory {
             Self::Optimization => "optimization",
             Self::Finance => "finance",
             Self::Database => "database",
+            Self::App => "app",
         }
     }
 }

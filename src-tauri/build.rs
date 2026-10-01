@@ -4,6 +4,9 @@
 
 const APP_COMMANDS: &[&str] = &[
     "get_app_info",
+    "check_app_update",
+    "install_app_update",
+    "get_app_update_progress",
     "list_settings",
     "get_setting",
     "set_setting",

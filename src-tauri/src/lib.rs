@@ -22,6 +22,8 @@ pub fn run() {
     tauri::Builder::default()
         // Notificações locais dos lembretes do calendário (permissões mínimas na capability).
         .plugin(tauri_plugin_notification::init())
+        // Atualização do app: usada só pelos commands de `commands/app_update.rs`.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let state = AppState::initialize(app.handle())?;
             app.manage(state);
@@ -29,6 +31,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app::get_app_info,
+            commands::app_update::check_app_update,
+            commands::app_update::install_app_update,
+            commands::app_update::get_app_update_progress,
             commands::settings::list_settings,
             commands::settings::get_setting,
             commands::settings::set_setting,

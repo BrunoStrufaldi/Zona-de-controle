@@ -1,5 +1,6 @@
 //! Regras de validação das configurações do app.
 
+use crate::domain::app_update::INSTALLED_VERSION_SETTING_KEY;
 use crate::domain::diagnostics::THRESHOLDS_SETTING_KEY;
 use crate::error::{AppError, AppResult};
 
@@ -25,7 +26,7 @@ pub fn validate_key(key: &str) -> AppResult<()> {
 }
 
 /// Chaves gravadas só por commands próprios, que validam o conteúdo do valor.
-const RESERVED_KEYS: [&str; 1] = [THRESHOLDS_SETTING_KEY];
+const RESERVED_KEYS: [&str; 2] = [THRESHOLDS_SETTING_KEY, INSTALLED_VERSION_SETTING_KEY];
 
 /// Barra chaves reservadas no command genérico `set_setting`.
 pub fn ensure_not_reserved(key: &str) -> AppResult<()> {
