@@ -50,6 +50,31 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      # Em segundos, antes dos ~9 min de build: os Secrets chegaram, a senha abre
+      # a chave e a chave é a mesma cuja parte pública está no app. Nada do
+      # conteúdo deles aparece no registro.
+      - name: Conferir a chave de assinatura
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::O Secret TAURI_SIGNING_PRIVATE_KEY chegou vazio (confira o nome em Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
+            echo "::error::O Secret TAURI_SIGNING_PRIVATE_KEY_PASSWORD chegou vazio (confira o nome em Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          dir="$(mktemp -d)"
+          echo "teste" > "$dir/assinatura.txt"
+          if ! npx tauri signer sign "$dir/assinatura.txt" > /dev/null; then
+            echo "::error::A chave ou a senha dos Secrets não abriu: cole de novo o arquivo .key inteiro e a senha, cada um no seu Secret."
+            exit 1
+          fi
+          node scripts/check-signing-key.js "$dir/assinatura.txt.sig"
+
       # A tag precisa ser exatamente a versão do app (npm run version:bump).
       - name: Conferir a versão da tag
         shell: bash

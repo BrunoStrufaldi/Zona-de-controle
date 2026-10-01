@@ -490,7 +490,10 @@ Regras:
   `tauri-apps/tauri-action` e cria a release como **rascunho** (o app só a vê depois de publicada). Os arquivos do
   atualizador (`.sig`, `latest.json`) só saem com `--config src-tauri/tauri.updater.conf.json`, para o build local
   não precisar da chave. No job que assina: actions de terceiros fixadas por commit, sem cache e nada da tag
-  interpolado em `run`. A assinatura carrega a versão (CLI ≥ 2.12, conferido no `.sig`).
+  interpolado em `run`. A assinatura carrega a versão (CLI ≥ 2.12, conferido no `.sig`). Antes do build, o passo "Conferir a chave de assinatura" testa
+  os Secrets em segundos (vazios, senha errada ou chave diferente da pública do app: `scripts/check-signing-key.js`,
+  regras em `scripts/signing-key.js`; o Tauri só **avisa** quando a chave não bate). Secret vazio vira "Missing comment
+  in secret key" no Tauri. Os Secrets são lidos quando o job começa: alterou, rode o job de novo.
 - **Backup:** `services/backup.rs` grava em `AppState::backup_dir` (Documentos/Zona de Controle/Backups,
   que no Windows pode estar sincronizado pelo OneDrive). Só lista arquivos com o nome gerado pelo
   app; não adicione exclusão ou restauração sem seguir as regras de operação destrutiva.
