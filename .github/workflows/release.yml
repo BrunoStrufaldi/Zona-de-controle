@@ -67,6 +67,8 @@ jobs:
             echo "::error::O Secret TAURI_SIGNING_PRIVATE_KEY_PASSWORD chegou vazio (confira o nome em Settings > Secrets and variables > Actions)."
             exit 1
           fi
+          # Só o tamanho (nunca o conteúdo), para comparar com o arquivo .key local.
+          echo "Chave recebida com ${#TAURI_SIGNING_PRIVATE_KEY} caracteres."
           dir="$(mktemp -d)"
           echo "teste" > "$dir/assinatura.txt"
           if ! npx tauri signer sign "$dir/assinatura.txt" > /dev/null; then
