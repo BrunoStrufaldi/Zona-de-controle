@@ -10,6 +10,8 @@ on:
   push:
     branches: ["**"]
   workflow_dispatch:
+  # Também roda antes de publicar uma versão (release.yml).
+  workflow_call:
 
 # Um novo push na mesma branch cancela a execução anterior (economiza minutos).
 concurrency:

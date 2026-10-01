@@ -1,0 +1,97 @@
+# Publicação de uma versão: roda quando uma tag `vX.Y.Z` é enviada.
+#
+# 1. As mesmas validações da CI (ci.yml).
+# 2. Compila e assina o instalador com a chave do atualizador (Secrets
+#    TAURI_SIGNING_PRIVATE_KEY e TAURI_SIGNING_PRIVATE_KEY_PASSWORD).
+# 3. Cria a release como RASCUNHO, com o instalador, a assinatura e o
+#    latest.json. O app só enxerga a versão depois que ela é publicada à mão.
+#
+# Segurança: actions de terceiros fixadas por commit, sem cache no job que
+# assina (um cache envenenado entraria no instalador) e nenhum dado da tag
+# interpolado em scripts.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Validações
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: Instalador assinado (rascunho)
+    needs: checks
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      # Criar a release e enviar os arquivos.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # A tag precisa ser exatamente a versão do app (npm run version:bump).
+      - name: Conferir a versão da tag
+        shell: bash
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "$version" ]; then
+            echo "::error::A tag $GITHUB_REF_NAME não bate com a versão do package.json ($version)."
+            exit 1
+          fi
+
+      # As novidades vêm da mensagem da tag anotada (git tag -a vX.Y.Z -m "...")
+      # e aparecem no app antes de atualizar.
+      - name: Ler as novidades da tag
+        id: notes
+        shell: bash
+        run: |
+          git fetch --force --no-tags origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          if [ "$(git cat-file -t "$GITHUB_REF_NAME")" != "tag" ]; then
+            echo "::error::Use uma tag anotada com as novidades: git tag -a $GITHUB_REF_NAME -m \"...\""
+            exit 1
+          fi
+          notes="$(git tag -l --format='%(contents:body)' "$GITHUB_REF_NAME")"
+          subject="$(git tag -l --format='%(contents:subject)' "$GITHUB_REF_NAME")"
+          {
+            echo "body<<ZDC_NOTES_EOF"
+            echo "$subject"
+            if [ -n "$notes" ]; then echo; echo "$notes"; fi
+            echo "ZDC_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Zona de Controle ${{ github.ref_name }}
+          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseDraft: true
+          prerelease: false
+          # Gera os arquivos do atualizador (.sig e latest.json) só aqui: o
+          # build local continua sem precisar da chave.
+          args: --config src-tauri/tauri.updater.conf.json
+          updaterJsonPreferNsis: true

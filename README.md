@@ -337,6 +337,25 @@ Se houver versão nova, mostra as novidades e, depois da confirmação, faz back
 instala; o app fecha e abre de novo sozinho. Tudo fica no log de auditoria. O instalador só é aceito se estiver assinado
 com a chave do projeto.
 
+### Publicar uma versão
+
+A publicação é feita pela CI ([`.github/workflows/release.yml`](.github/workflows/release.yml)) quando uma tag `vX.Y.Z`
+é enviada. A mensagem da tag anotada vira as novidades mostradas no app:
+
+```bash
+npm run version:bump -- minor          # ex.: 0.1.0 → 0.2.0
+git commit -am "Versão 0.2.0"
+git push
+git tag -a v0.2.0 -m "Resumo da versão" -m "- Novidade 1
+- Novidade 2"
+git push origin v0.2.0
+```
+
+A CI roda as validações, compila, assina e cria a release como **rascunho**. Confira em GitHub → Releases e clique em
+**Publish release**: só então o app passa a enxergar a versão. A chave privada de assinatura fica fora do projeto (com
+senha) e nos Secrets `TAURI_SIGNING_PRIVATE_KEY` e `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`; sem ela não há como publicar
+atualizações aceitas pelo app.
+
 ### Versão
 
 A versão do app fica no `package.json`; o `tauri.conf.json` aponta para ele. Para mudar, use o script, que também
