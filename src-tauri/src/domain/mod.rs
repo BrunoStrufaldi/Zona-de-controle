@@ -15,6 +15,7 @@ pub mod optimization;
 pub mod routines;
 pub mod settings;
 pub mod system_monitor;
+pub mod system_settings;
 pub mod tags;
 pub mod task_categories;
 pub mod task_recurrence;

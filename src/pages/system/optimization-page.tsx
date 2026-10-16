@@ -1,9 +1,12 @@
-import { RefreshCw, Sparkles, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Cpu, RefreshCw, SlidersHorizontal, Sparkles, Trash2 } from "lucide-react";
+import { type ReactNode, useState } from "react";
+import { useSearchParams } from "react-router";
 
+import { OPTIMIZATION_TAB_PARAM, type OptimizationTab } from "@/app/router/paths";
 import { PageHeader } from "@/components/shared/page-header";
 import { ResourceView } from "@/components/shared/resource-view";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CleanupCategoryCard } from "@/features/system/optimization/components/cleanup-category-card";
 import { CleanupHistoryCard } from "@/features/system/optimization/components/cleanup-history-card";
 import { CleanupItemsDialog } from "@/features/system/optimization/components/cleanup-items-dialog";
@@ -23,10 +26,13 @@ import {
   type CleanupSource,
   type SourceSummary,
 } from "@/features/system/optimization/types";
-import { useAsyncResource } from "@/hooks/use-async-resource";
+import { HardwareView } from "@/features/system/system-settings/components/hardware-view";
+import { WindowsSettingsView } from "@/features/system/system-settings/components/windows-settings-view";
+import { type AsyncResource, useAsyncResource } from "@/hooks/use-async-resource";
 import { cn } from "@/lib/cn";
 import { formatBytes, formatClockTime, formatNumber } from "@/lib/format";
 import { listCleanupHistory, scanCleanup } from "@/services/optimization-service";
+import { analyzeHardware, analyzeWindowsSettings } from "@/services/system-settings-service";
 
 interface AnalyzedScan {
   scan: CleanupScan;
@@ -45,27 +51,123 @@ async function analyze(): Promise<AnalyzedScan> {
   return { scan, analyzedAt: Date.now() };
 }
 
+const TABS: readonly OptimizationTab[] = ["cleanup", "settings", "hardware"];
+
+function parseTab(value: string | null): OptimizationTab {
+  return TABS.find((tab) => tab === value) ?? "cleanup";
+}
+
 export function OptimizationPage() {
-  const resource = useAsyncResource(analyze);
-  const history = useAsyncResource(loadHistory);
-  const run = useCleanupRun();
-  const busy = resource.status === "loading" || run.state.phase === "running";
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = parseTab(searchParams.get(OPTIMIZATION_TAB_PARAM));
 
   return (
     <>
       <PageHeader
         title="Otimização"
-        description="Encontra arquivos temporários, caches seguros e itens da Lixeira, mostra exatamente o que pode ser removido e limpa só o que você confirmar."
+        description="Limpa arquivos com segurança e lê as configurações do Windows e do hardware para mostrar o que dá para melhorar. Nada é alterado sem a sua confirmação."
         icon={Sparkles}
-        actions={
-          <Button variant="secondary" disabled={busy} onClick={resource.reload}>
-            <RefreshCw
-              className={cn(resource.status === "loading" && "animate-spin")}
-              aria-hidden="true"
-            />
-            Analisar de novo
-          </Button>
-        }
+      />
+      <Tabs
+        value={tab}
+        onValueChange={(value) => {
+          setSearchParams({ [OPTIMIZATION_TAB_PARAM]: value }, { replace: true });
+        }}
+        className="gap-6"
+      >
+        <TabsList aria-label="Seção">
+          <TabsTrigger value="cleanup">
+            <Trash2 aria-hidden="true" />
+            Limpeza
+          </TabsTrigger>
+          <TabsTrigger value="settings">
+            <SlidersHorizontal aria-hidden="true" />
+            Ajustes do Windows
+          </TabsTrigger>
+          <TabsTrigger value="hardware">
+            <Cpu aria-hidden="true" />
+            Hardware e BIOS
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="cleanup">
+          <CleanupTab />
+        </TabsContent>
+        <TabsContent value="settings">
+          <SettingsTab />
+        </TabsContent>
+        <TabsContent value="hardware">
+          <HardwareTab />
+        </TabsContent>
+      </Tabs>
+    </>
+  );
+}
+
+interface TabToolbarProps {
+  note: ReactNode;
+  label: string;
+  resource: AsyncResource<unknown>;
+  disabled?: boolean;
+}
+
+/** Linha de cada aba: o que ela faz e o botão para ler/analisar de novo. */
+function TabToolbar({ note, label, resource, disabled = false }: TabToolbarProps) {
+  const loading = resource.status === "loading";
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <p className="text-sm text-muted-foreground">{note}</p>
+      <Button variant="secondary" disabled={loading || disabled} onClick={resource.reload}>
+        <RefreshCw className={cn(loading && "animate-spin")} aria-hidden="true" />
+        {label}
+      </Button>
+    </div>
+  );
+}
+
+function SettingsTab() {
+  const resource = useAsyncResource(analyzeWindowsSettings);
+  return (
+    <div className="grid gap-4">
+      <TabToolbar
+        note="Somente leitura: nada é alterado no Windows."
+        label="Ler de novo"
+        resource={resource}
+      />
+      <ResourceView resource={resource} loadingLabel="Lendo as configurações do Windows…">
+        {(report) => <WindowsSettingsView report={report} />}
+      </ResourceView>
+    </div>
+  );
+}
+
+function HardwareTab() {
+  const resource = useAsyncResource(analyzeHardware);
+  return (
+    <div className="grid gap-4">
+      <TabToolbar
+        note="Somente leitura. A BIOS nunca é alterada pelo app: o que for lá vira recomendação com o passo a passo."
+        label="Ler de novo"
+        resource={resource}
+      />
+      <ResourceView resource={resource} loadingLabel="Lendo o hardware…">
+        {(report) => <HardwareView report={report} />}
+      </ResourceView>
+    </div>
+  );
+}
+
+function CleanupTab() {
+  const resource = useAsyncResource(analyze);
+  const history = useAsyncResource(loadHistory);
+  const run = useCleanupRun();
+
+  return (
+    <div className="grid gap-6">
+      <TabToolbar
+        note="Encontra arquivos temporários, caches seguros e itens da Lixeira, mostra exatamente o que pode ser removido e limpa só o que você confirmar."
+        label="Analisar de novo"
+        resource={resource}
+        disabled={run.state.phase === "running"}
       />
 
       <ResourceView resource={resource} loadingLabel="Analisando as pastas…">
@@ -100,7 +202,7 @@ export function OptimizationPage() {
           history.reload();
         }}
       />
-    </>
+    </div>
   );
 }
 

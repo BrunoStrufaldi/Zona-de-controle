@@ -42,9 +42,16 @@ sysinfo = { version = "0.36", default-features = false, features = ["system", "d
 # `Win32_UI_Shell` esvazia a Lixeira pela API do Windows (SHEmptyRecycleBinW).
 # No Espaço em disco, `Win32_Storage_FileSystem` lista as pastas (CreateFileW só
 # com FILE_LIST_DIRECTORY + GetFileInformationByHandleEx), sem abrir arquivos.
+# Nas configurações do Windows e do hardware (4.5, somente leitura):
+# `Win32_System_Power` lê os planos de energia; `Win32_System_Registry`, chaves
+# do registro (Modo de Jogo, inicialização, Secure Boot, CPU);
+# `Win32_System_SystemInformation`, as tabelas SMBIOS e o tipo de firmware;
+# `Win32_System_TpmBaseServices`, a versão do TPM; `Wdk_Graphics_Direct3D`, o
+# HAGS de cada placa de vídeo; `Wdk_System_SystemInformation` +
+# `Win32_System_WindowsProgramming`, se a Integridade da memória está ativa.
 [target.'cfg(windows)'.dependencies]
 hidapi = { version = "2", default-features = false, features = ["windows-native"] }
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_Input_XboxController", "Win32_Devices_DeviceAndDriverInstallation", "Win32_Devices_Properties", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading", "Win32_UI_Shell", "Win32_Storage_FileSystem"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_Input_XboxController", "Win32_Devices_DeviceAndDriverInstallation", "Win32_Devices_Properties", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading", "Win32_UI_Shell", "Win32_Storage_FileSystem", "Win32_System_Power", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_System_TpmBaseServices", "Win32_System_WindowsProgramming", "Wdk_Graphics_Direct3D", "Wdk_System_SystemInformation"] }
 
 [profile.release]
 codegen-units = 1

@@ -74,6 +74,10 @@ import {
   type CleanupScan,
   type CleanupSource,
 } from "@/features/system/optimization/types";
+import {
+  type HardwareReport,
+  type WindowsSettingsReport,
+} from "@/features/system/system-settings/types";
 import { type PlanBlock, type PlanBlockInput } from "@/features/productivity/weekly-plan/types";
 import { type ProcessList, type SystemInfo, type SystemSnapshot } from "@/features/system/types";
 import { DESKTOP_ONLY_MESSAGE, ServiceError, toServiceError } from "@/services/tauri/errors";
@@ -126,6 +130,8 @@ export interface CommandMap {
   get_cleanup_progress: { args: undefined; result: CleanupProgress | null };
   cancel_cleanup: { args: undefined; result: boolean };
   list_cleanup_history: { args: { limit: number }; result: CleanupHistory };
+  analyze_windows_settings: { args: undefined; result: WindowsSettingsReport };
+  analyze_hardware: { args: undefined; result: HardwareReport };
   scan_disk_usage: { args: { mountPoint: string }; result: DiskUsageScan | null };
   get_disk_usage_progress: { args: undefined; result: DiskUsageProgress | null };
   cancel_disk_usage: { args: undefined; result: boolean };

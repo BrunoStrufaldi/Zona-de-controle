@@ -56,6 +56,8 @@ pub fn run() {
             commands::optimization::get_cleanup_progress,
             commands::optimization::cancel_cleanup,
             commands::optimization::list_cleanup_history,
+            commands::system_settings::analyze_windows_settings,
+            commands::system_settings::analyze_hardware,
             commands::disk_usage::scan_disk_usage,
             commands::disk_usage::get_disk_usage_progress,
             commands::disk_usage::cancel_disk_usage,

@@ -77,19 +77,19 @@ Regras:
 
 ### Backend (`src-tauri/`)
 
-| Caminho                     | Responsabilidade                                                                                                                                                                        |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib.rs`                | Builder do Tauri, `setup` (estado + migrations), registro de commands                                                                                                                   |
-| `src/commands/`             | Camada IPC fina: recebe args, delega para `services`. Leitura e escrita em commands separados                                                                                           |
-| `src/services/`             | Casos de uso: validação, transações, auditoria                                                                                                                                          |
-| `src/repositories/`         | **Único lugar com SQL**                                                                                                                                                                 |
-| `src/domain/`               | Regras e contratos puros (auditoria, settings, devices, optimization)                                                                                                                   |
-| `src/platform/`             | **Único lugar que lê o SO** (`sysinfo`, `hidapi`, XInput, CfgMgr32, pastas da limpeza), somente leitura; a única exceção é `cleanup_executor.rs`. Commands chamam direto via `AppState` |
-| `src/db/`                   | Conexão SQLite (WAL, foreign keys) e runner de migrations                                                                                                                               |
-| `src/error.rs`              | `AppError` → serializado como `{ kind, message }` para o frontend                                                                                                                       |
-| `migrations/`               | SQL versionado `NNNN_descricao.sql`, embutido via `include_str!`                                                                                                                        |
-| `capabilities/default.toml` | Permissões da janela — mínimo necessário, cada uma comentada                                                                                                                            |
-| `build.rs`                  | `APP_COMMANDS`: lista explícita de commands permitidos                                                                                                                                  |
+| Caminho                     | Responsabilidade                                                                                                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib.rs`                | Builder do Tauri, `setup` (estado + migrations), registro de commands                                                                                                                                               |
+| `src/commands/`             | Camada IPC fina: recebe args, delega para `services`. Leitura e escrita em commands separados                                                                                                                       |
+| `src/services/`             | Casos de uso: validação, transações, auditoria                                                                                                                                                                      |
+| `src/repositories/`         | **Único lugar com SQL**                                                                                                                                                                                             |
+| `src/domain/`               | Regras e contratos puros (auditoria, settings, devices, optimization)                                                                                                                                               |
+| `src/platform/`             | **Único lugar que lê o SO** (`sysinfo`, `hidapi`, XInput, CfgMgr32, pastas da limpeza, registro, powrprof, SMBIOS), somente leitura; a única exceção é `cleanup_executor.rs`. Commands chamam direto via `AppState` |
+| `src/db/`                   | Conexão SQLite (WAL, foreign keys) e runner de migrations                                                                                                                                                           |
+| `src/error.rs`              | `AppError` → serializado como `{ kind, message }` para o frontend                                                                                                                                                   |
+| `migrations/`               | SQL versionado `NNNN_descricao.sql`, embutido via `include_str!`                                                                                                                                                    |
+| `capabilities/default.toml` | Permissões da janela — mínimo necessário, cada uma comentada                                                                                                                                                        |
+| `build.rs`                  | `APP_COMMANDS`: lista explícita de commands permitidos                                                                                                                                                              |
 
 ## Convenções de nomes
 
@@ -465,6 +465,23 @@ Regras:
   nunca estimado. Tela: `pages/system/disk-usage-page.tsx`, conteúdo das pastas pedido ao abrir
   (`list_disk_usage_children`, até 500), andamento por consulta (300 ms, como a limpeza) e `?drive=C:`
   (`diskUsageHref`, link do card Armazenamento). Medição real: `cargo test --release measures_the_real_system_drive -- --ignored --nocapture`.
+- **Configurações do Windows e do hardware (4.5, só leitura):** abas `?tab=settings` e `?tab=hardware` da Otimização
+  (`optimizationTabHref`; sem o parâmetro, Limpeza), módulo `features/system/system-settings`. Commands
+  `analyze_windows_settings` e `analyze_hardware`; leituras em `platform/system_settings.rs` (trait
+  `SystemSettingsReader`) e `platform/registry.rs` (só `KEY_READ`), regras em `domain/system_settings/` (achados com
+  `kind` + dados e nível `suggestion`/`attention`/`critical`; textos e o passo a passo da BIOS em
+  `domain/settings.ts`/`hardware.ts`). **Sem WMI** (COM no processo): planos por `powrprof`, HAGS por
+  `D3DKMTQueryAdapterInfo` (o registro nem sempre tem `HwSchMode`), BIOS/placa/RAM pelas tabelas SMBIOS
+  (`smbios.rs`, **nunca** lê serial, patrimônio ou UUID), TPM por `Tbsi_GetDeviceInfo`, Integridade da memória por
+  `NtQuerySystemInformation`. Virtualização: hypervisor no CPUID = "em uso" (com hypervisor ativo o Windows informa a
+  virtualização como desligada aos programas). Decisão do usuário: sugerir **sempre o Alto desempenho**
+  (`power::HIGH_PERFORMANCE`) quando ele existe e não está ativo, mesmo no lugar de um plano personalizado; com Modern
+  Standby nada é sugerido. RAM configurada abaixo da velocidade do próprio módulo = **suspeita** de XMP/EXPO, nunca
+  certeza (velocidade desconhecida não gera achado). Microcódigo só em Intel; a regra vale só para Raptor Lake-S (família
+  6, modelo 0xB7) abaixo de 0x12B. BIOS com 12+ meses vira sugestão de conferir (o app não acessa a internet: nunca
+  "desatualizada"). A BIOS nunca é alterada: só recomendação com passo a passo. Inicialização como o Gerenciador de
+  Tarefas (`Run` + pastas Inicializar, estado em `Explorer\StartupApproved`; valor ausente = ligado); itens da
+  máquina e apps da Store são só leitura. Teste no PC real: `cargo test reads_the_real_machine -- --ignored --nocapture`.
 - **Versão do app:** fonte única no `package.json` (`tauri.conf.json` tem `"version": "../package.json"`). Mude só com
   `npm run version:bump -- <patch|minor|major|X.Y.Z>` (`scripts/bump-version.js`; regras puras em `scripts/version.js`,
   testadas pelo Vitest): exige versão maior, só `X.Y.Z` nos limites do MSI, e alinha `package-lock.json`, `Cargo.toml` e

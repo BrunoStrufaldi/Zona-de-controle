@@ -60,6 +60,16 @@ export const ROUTINES_TAB_PARAM = "tab";
 /** Link para o planejamento semanal (aba da tela Rotinas). */
 export const weeklyPlanHref = `${paths.productivity.routines}?${ROUTINES_TAB_PARAM}=plan`;
 
+/** Parâmetro de URL que abre uma aba da tela Otimização (ex.: `?tab=hardware`). */
+export const OPTIMIZATION_TAB_PARAM = "tab";
+
+/** Abas da tela Otimização (sem o parâmetro, abre a Limpeza). */
+export type OptimizationTab = "cleanup" | "settings" | "hardware";
+
+export function optimizationTabHref(tab: OptimizationTab): string {
+  return `${paths.system.optimization}?${OPTIMIZATION_TAB_PARAM}=${tab}`;
+}
+
 /** Parâmetro de URL que analisa uma unidade no Espaço em disco (ex.: `?drive=C:`). */
 export const DISK_USAGE_DRIVE_PARAM = "drive";
 

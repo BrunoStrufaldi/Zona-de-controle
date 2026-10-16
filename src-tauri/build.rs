@@ -29,6 +29,8 @@ const APP_COMMANDS: &[&str] = &[
     "get_cleanup_progress",
     "cancel_cleanup",
     "list_cleanup_history",
+    "analyze_windows_settings",
+    "analyze_hardware",
     "scan_disk_usage",
     "get_disk_usage_progress",
     "cancel_disk_usage",

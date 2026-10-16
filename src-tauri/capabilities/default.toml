@@ -92,6 +92,14 @@ permissions = [
   # `cleanup.executed` do log de auditoria e o total liberado.
   "allow-list-cleanup-history",
 
+  # Otimização — configurações do Windows e do hardware (SOMENTE LEITURA, sem
+  # administrador): planos de energia (powrprof), Modo de Jogo, reinício
+  # pendente, programas na inicialização, Secure Boot e CPU (registro), HAGS
+  # (D3DKMT), BIOS/placa/RAM (tabelas SMBIOS, sem números de série), TPM,
+  # virtualização e Integridade da memória. Nada é gravado nem alterado.
+  "allow-analyze-windows-settings",
+  "allow-analyze-hardware",
+
   # Espaço em disco — análise do que ocupa uma unidade (SOMENTE LEITURA). A tela
   # manda só a letra da unidade, que precisa estar na lista do monitor (nunca um
   # caminho). Lê nomes, tamanhos e datas pasta a pasta, sem abrir arquivos, sem

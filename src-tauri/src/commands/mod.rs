@@ -22,5 +22,6 @@ pub mod optimization;
 pub mod routines;
 pub mod settings;
 pub mod system;
+pub mod system_settings;
 pub mod tasks;
 pub mod weekly_plan;

@@ -9,4 +9,7 @@ pub mod cleanup;
 pub mod cleanup_executor;
 pub mod devices;
 pub mod disk_usage;
+#[cfg(windows)]
+pub mod registry;
 pub mod system_monitor;
+pub mod system_settings;
