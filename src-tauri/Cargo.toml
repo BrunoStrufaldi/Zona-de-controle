@@ -31,7 +31,7 @@ tauri-plugin-updater = "2"
 # Sem `component` (temperatura): no Windows ela vem do WMI, que exige
 # administrador, e o módulo chama `CoInitializeSecurity` para o processo todo.
 # Fixado na 0.36: a 0.37+ exige Rust ≥ 1.95 (o `rust-version` do projeto é 1.80).
-sysinfo = { version = "0.36", default-features = false, features = ["system", "disk"] }
+sysinfo = { version = "0.39", default-features = false, features = ["system", "disk"] }
 
 # Dispositivos e bateria (somente leitura, só no Windows). `hidapi` com o backend
 # nativo (Rust puro, sem compilar C): lista os receptores USB e, na 3.3b, lê a
