@@ -34,7 +34,7 @@ describe("Otimização — Ajustes do Windows", () => {
     expect(screen.getByText("Placa de vídeo: Placa de Vídeo Exemplo")).toBeInTheDocument();
   });
 
-  it("lista a inicialização sem sugerir o que desligar", async () => {
+  it("lista a inicialização; só os itens do usuário podem ser desligados ou religados", async () => {
     mockSystemSettingsBackend();
     renderRoute(optimizationTabHref("settings"));
 
@@ -45,10 +45,86 @@ describe("Otimização — Ajustes do Windows", () => {
     expect(
       within(startup).getByText(/Registro da máquina · só com administrador/),
     ).toBeInTheDocument();
+    expect(
+      within(startup).getByRole("checkbox", { name: "Desligar Chat Exemplo" }),
+    ).toBeInTheDocument();
+    expect(within(startup).getByRole("checkbox", { name: "Religar Antigo" })).toBeInTheDocument();
+    expect(within(startup).getAllByRole("checkbox")).toHaveLength(2);
     // 2 ligados (registro) · 2 desligados (1 do registro + 1 app da Store).
     expect(screen.getByText("2 ligados · 2 desligados")).toBeInTheDocument();
     const store = screen.getByRole("list", { name: "Apps da Microsoft Store na inicialização" });
     expect(within(store).getByText("Editora.Musica")).toBeInTheDocument();
+  });
+
+  it("só aplica depois da confirmação, que mostra o valor atual e o novo", async () => {
+    const user = userEvent.setup();
+    const { handlers } = mockSystemSettingsBackend();
+    renderRoute(optimizationTabHref("settings"));
+
+    const apply = await screen.findByRole("button", { name: /Revisar e aplicar/ });
+    expect(apply).toBeDisabled();
+    expect(
+      screen.queryByRole("checkbox", { name: "Aplicar: Reinício pendente" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Aplicar: Usar o plano “Alto desempenho”" }),
+    );
+    await user.click(screen.getByRole("checkbox", { name: "Aplicar: Modo de Jogo desligado" }));
+    await user.click(screen.getByRole("checkbox", { name: "Religar Antigo" }));
+    expect(screen.getByText("3 ajustes selecionados")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Revisar e aplicar/ }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Aplicar 3 ajustes?" });
+    const list = within(dialog).getByRole("list", { name: "O que vai mudar" });
+    expect(within(list).getByText("Plano de energia")).toBeInTheDocument();
+    expect(within(list).getByText(/Meu plano →/)).toBeInTheDocument();
+    expect(within(list).getByText("Antigo (inicialização)")).toBeInTheDocument();
+    expect(handlers.apply_system_tweaks).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole("button", { name: /^Aplicar$/ }));
+    await waitFor(() => {
+      expect(handlers.apply_system_tweaks).toHaveBeenCalledWith({
+        requests: [
+          { kind: "powerPlan", guid: "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" },
+          { kind: "gameMode" },
+          { kind: "startupItem", location: "userRun", name: "Antigo", enabled: true },
+        ],
+      });
+    });
+    // Depois de aplicar, o app relê o Windows e o histórico.
+    await waitFor(() => {
+      expect(handlers.analyze_windows_settings).toHaveBeenCalledTimes(2);
+    });
+    const history = await screen.findByRole("list", { name: "Ajustes feitos pelo app" });
+    expect(within(history).getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("desfaz um ajuste depois de confirmar", async () => {
+    const user = userEvent.setup();
+    const { handlers } = mockSystemSettingsBackend();
+    renderRoute(optimizationTabHref("settings"));
+
+    expect(await screen.findByText(/Nenhum ajuste feito pelo app ainda/)).toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: "Desligar Chat Exemplo" }));
+    await user.click(screen.getByRole("button", { name: /Revisar e aplicar/ }));
+    const confirm = await screen.findByRole("alertdialog", { name: "Aplicar 1 ajuste?" });
+    await user.click(within(confirm).getByRole("button", { name: /^Aplicar$/ }));
+
+    await user.click(await screen.findByRole("button", { name: "Desfazer Chat Exemplo" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Desfazer “Chat Exemplo”?" });
+    expect(within(dialog).getByText(/log de auditoria/)).toBeInTheDocument();
+    expect(handlers.undo_system_tweak).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: /Desfazer/ }));
+
+    await waitFor(() => {
+      expect(handlers.undo_system_tweak).toHaveBeenCalledWith({ id: 1 });
+    });
+    const history = await screen.findByRole("list", { name: "Ajustes feitos pelo app" });
+    expect(await within(history).findByText("Desfeito")).toBeInTheDocument();
+    expect(
+      within(history).queryByRole("button", { name: "Desfazer Chat Exemplo" }),
+    ).not.toBeInTheDocument();
   });
 
   it("leitura indisponível aparece como “Não disponível”", async () => {

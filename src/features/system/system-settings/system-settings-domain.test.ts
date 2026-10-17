@@ -13,6 +13,12 @@ import {
   gpuSchedulingLabel,
   startupCounts,
 } from "@/features/system/system-settings/domain/settings";
+import {
+  findingChange,
+  startupChange,
+  summarizeResults,
+  tweakValueLabel,
+} from "@/features/system/system-settings/domain/tweaks";
 import { sampleWindowsSettings } from "@/test/fake-system-settings-backend";
 
 describe("textos dos ajustes do Windows", () => {
@@ -110,5 +116,49 @@ describe("textos do hardware", () => {
 
     const generic = biosGuide("memoryProfile", null, null);
     expect(generic.steps[1]).toContain("XMP (Intel) ou EXPO/DOCP (AMD)");
+  });
+});
+
+describe("ajustes (4.6)", () => {
+  it("valores no histórico", () => {
+    expect(tweakValueLabel({ type: "gameMode", value: null })).toBe("Ligado (padrão do Windows)");
+    expect(tweakValueLabel({ type: "gameMode", value: 0 })).toBe("Desligado");
+    expect(tweakValueLabel({ type: "powerPlan", guid: "x", name: "Alto desempenho" })).toBe(
+      "Alto desempenho",
+    );
+    expect(tweakValueLabel({ type: "startupApproval", bytes: null, enabled: true })).toBe("Ligado");
+  });
+
+  it("só itens do usuário com estado conhecido podem mudar", () => {
+    const [chat, old, machine] = sampleWindowsSettings().startup.items;
+    expect(chat && startupChange(chat)?.request).toEqual({
+      kind: "startupItem",
+      location: "userRun",
+      name: "Chat Exemplo",
+      enabled: false,
+    });
+    expect(old && startupChange(old)?.to).toBe("Ligado");
+    expect(machine && startupChange(machine)).toBeNull();
+    if (chat) expect(startupChange({ ...chat, state: "unknown" })).toBeNull();
+  });
+
+  it("reinício pendente não vira ajuste", () => {
+    const [reboot, power] = sampleWindowsSettings().findings;
+    expect(reboot && findingChange(reboot)).toBeNull();
+    expect(power && findingChange(power)?.from).toBe("Meu plano");
+  });
+
+  it("resume os resultados", () => {
+    expect(
+      summarizeResults([
+        { label: "a", status: "applied", id: 1 },
+        { label: "b", status: "unchanged" },
+        { label: "c", status: "failed", message: "erro" },
+      ]),
+    ).toEqual({
+      applied: 1,
+      unchanged: 1,
+      failed: [{ label: "c", status: "failed", message: "erro" }],
+    });
   });
 });

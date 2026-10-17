@@ -77,19 +77,19 @@ Regras:
 
 ### Backend (`src-tauri/`)
 
-| Caminho                     | Responsabilidade                                                                                                                                                                                                    |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib.rs`                | Builder do Tauri, `setup` (estado + migrations), registro de commands                                                                                                                                               |
-| `src/commands/`             | Camada IPC fina: recebe args, delega para `services`. Leitura e escrita em commands separados                                                                                                                       |
-| `src/services/`             | Casos de uso: validação, transações, auditoria                                                                                                                                                                      |
-| `src/repositories/`         | **Único lugar com SQL**                                                                                                                                                                                             |
-| `src/domain/`               | Regras e contratos puros (auditoria, settings, devices, optimization)                                                                                                                                               |
-| `src/platform/`             | **Único lugar que lê o SO** (`sysinfo`, `hidapi`, XInput, CfgMgr32, pastas da limpeza, registro, powrprof, SMBIOS), somente leitura; a única exceção é `cleanup_executor.rs`. Commands chamam direto via `AppState` |
-| `src/db/`                   | Conexão SQLite (WAL, foreign keys) e runner de migrations                                                                                                                                                           |
-| `src/error.rs`              | `AppError` → serializado como `{ kind, message }` para o frontend                                                                                                                                                   |
-| `migrations/`               | SQL versionado `NNNN_descricao.sql`, embutido via `include_str!`                                                                                                                                                    |
-| `capabilities/default.toml` | Permissões da janela — mínimo necessário, cada uma comentada                                                                                                                                                        |
-| `build.rs`                  | `APP_COMMANDS`: lista explícita de commands permitidos                                                                                                                                                              |
+| Caminho                     | Responsabilidade                                                                                                                                                                                                                       |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib.rs`                | Builder do Tauri, `setup` (estado + migrations), registro de commands                                                                                                                                                                  |
+| `src/commands/`             | Camada IPC fina: recebe args, delega para `services`. Leitura e escrita em commands separados                                                                                                                                          |
+| `src/services/`             | Casos de uso: validação, transações, auditoria                                                                                                                                                                                         |
+| `src/repositories/`         | **Único lugar com SQL**                                                                                                                                                                                                                |
+| `src/domain/`               | Regras e contratos puros (auditoria, settings, devices, optimization)                                                                                                                                                                  |
+| `src/platform/`             | **Único lugar que lê o SO** (`sysinfo`, `hidapi`, XInput, CfgMgr32, pastas da limpeza, registro, powrprof, SMBIOS), somente leitura; as exceções são `cleanup_executor.rs` e `system_tweaks.rs`. Commands chamam direto via `AppState` |
+| `src/db/`                   | Conexão SQLite (WAL, foreign keys) e runner de migrations                                                                                                                                                                              |
+| `src/error.rs`              | `AppError` → serializado como `{ kind, message }` para o frontend                                                                                                                                                                      |
+| `migrations/`               | SQL versionado `NNNN_descricao.sql`, embutido via `include_str!`                                                                                                                                                                       |
+| `capabilities/default.toml` | Permissões da janela — mínimo necessário, cada uma comentada                                                                                                                                                                           |
+| `build.rs`                  | `APP_COMMANDS`: lista explícita de commands permitidos                                                                                                                                                                                 |
 
 ## Convenções de nomes
 
@@ -482,6 +482,20 @@ Regras:
   "desatualizada"). A BIOS nunca é alterada: só recomendação com passo a passo. Inicialização como o Gerenciador de
   Tarefas (`Run` + pastas Inicializar, estado em `Explorer\StartupApproved`; valor ausente = ligado); itens da
   máquina e apps da Store são só leitura. Teste no PC real: `cargo test reads_the_real_machine -- --ignored --nocapture`.
+- **Ajustes reversíveis (4.6):** na aba `?tab=settings`. Só três, sem administrador e do usuário atual: plano de energia
+  ativo (`PowerSetActiveScheme`, só planos que existem na hora), Modo de Jogo (`HKCU\…\GameBar\AutoGameModeEnabled`) e
+  ligar/desligar programas da inicialização do **usuário** pelo valor do `StartupApproved` (`02`+zeros ligado, `03`+FILETIME
+  desligado, como o Gerenciador de Tarefas; o `Run` e as pastas nunca são tocados; itens da máquina e da Store não). Escrita
+  só em `platform/system_tweaks.rs` (trait `SystemTweaker`; `platform/registry.rs` continua só leitura). A tela manda
+  `TweakRequest` (nunca caminho/chave); o Rust valida (`domain/system_tweaks.rs::plan`), relê o valor atual (mesmo efeito =
+  "já estava assim", nada gravado), grava e guarda anterior + novo (`TweakValue`) em `system_tweaks` (migration 0014) junto
+  com a auditoria (`optimization` / `system_tweak.applied`) na mesma transação; se o banco falhar, volta o valor anterior.
+  Falha de um item não impede os outros e é auditada. **Desfazer** (`system_tweak.undone`): só o mais recente de cada
+  `target` e só se o valor atual tiver o mesmo efeito do gravado (`check_undo`; a data no `StartupApproved` não conta);
+  grava o anterior exato (ausente = apaga o valor) e marca `undone_at` (o histórico fica). Plano anterior apagado = recusa.
+  Recusa rodar elevado. Commands `apply_system_tweaks`, `undo_system_tweak`, `list_system_tweaks` (≤ 100). Validação
+  real: anote os valores (`powercfg /getactivescheme`, `AutoGameModeEnabled`, bytes do `StartupApproved`), faça backup do
+  banco, aplique e desfaça pelo app e confira que voltaram iguais.
 - **Versão do app:** fonte única no `package.json` (`tauri.conf.json` tem `"version": "../package.json"`). Mude só com
   `npm run version:bump -- <patch|minor|major|X.Y.Z>` (`scripts/bump-version.js`; regras puras em `scripts/version.js`,
   testadas pelo Vitest): exige versão maior, só `X.Y.Z` nos limites do MSI, e alinha `package-lock.json`, `Cargo.toml` e

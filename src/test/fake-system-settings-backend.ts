@@ -2,6 +2,10 @@ import { vi } from "vitest";
 
 import {
   type HardwareReport,
+  type TweakRecord,
+  type TweakRequest,
+  type TweakResult,
+  type TweakValue,
   type WindowsSettingsReport,
 } from "@/features/system/system-settings/types";
 import { mockDesktopRuntime } from "@/test/tauri";
@@ -122,14 +126,84 @@ export function sampleHardware(): HardwareReport {
   };
 }
 
-/** Backend das configurações do Windows e do hardware para testes de interface. */
+function tweakValues(request: TweakRequest): {
+  label: string;
+  previous: TweakValue;
+  applied: TweakValue;
+} {
+  switch (request.kind) {
+    case "powerPlan":
+      return {
+        label: "Plano de energia",
+        previous: { type: "powerPlan", guid: "0000-plano", name: "Meu plano" },
+        applied: { type: "powerPlan", guid: request.guid, name: "Alto desempenho" },
+      };
+    case "gameMode":
+      return {
+        label: "Modo de Jogo",
+        previous: { type: "gameMode", value: 0 },
+        applied: { type: "gameMode", value: 1 },
+      };
+    case "startupItem":
+      return {
+        label: request.name,
+        previous: { type: "startupApproval", bytes: null, enabled: !request.enabled },
+        applied: { type: "startupApproval", bytes: "03", enabled: request.enabled },
+      };
+  }
+}
+
+/**
+ * Backend das configurações do Windows e do hardware para testes de interface.
+ * Os ajustes (4.6) ficam num histórico em memória, como no Rust: só o mais
+ * recente de cada item pode ser desfeito.
+ */
 export function mockSystemSettingsBackend(
   settings: WindowsSettingsReport = sampleWindowsSettings(),
   hardware: HardwareReport = sampleHardware(),
 ) {
+  let records: TweakRecord[] = [];
+  let nextId = 1;
+
   const handlers = {
     analyze_windows_settings: vi.fn(() => settings),
     analyze_hardware: vi.fn(() => hardware),
+    apply_system_tweaks: vi.fn((args: { requests: TweakRequest[] }): TweakResult[] =>
+      args.requests.map((request) => {
+        const { label, previous, applied } = tweakValues(request);
+        const id = nextId++;
+        const target = request.kind === "startupItem" ? `startup:${request.name}` : request.kind;
+        records = [
+          {
+            id,
+            kind: request.kind,
+            target,
+            label,
+            previous,
+            applied,
+            appliedAt: "2026-10-16T15:00:00Z",
+            undoneAt: null,
+            undoable: true,
+          },
+          ...records.map((record) =>
+            record.target === target ? { ...record, undoable: false } : record,
+          ),
+        ];
+        return { label, status: "applied", id };
+      }),
+    ),
+    undo_system_tweak: vi.fn((args: { id: number }): TweakRecord => {
+      const record = records.find((candidate) => candidate.id === args.id);
+      if (!record?.undoable) {
+        // O Tauri rejeita com o AppError serializado (objeto puro), não com um Error.
+        // eslint-disable-next-line @typescript-eslint/only-throw-error
+        throw { kind: "validation", message: "Este ajuste já foi desfeito." };
+      }
+      const undone = { ...record, undoneAt: "2026-10-16T15:05:00Z", undoable: false };
+      records = records.map((candidate) => (candidate.id === args.id ? undone : candidate));
+      return undone;
+    }),
+    list_system_tweaks: vi.fn(() => records),
   };
   mockDesktopRuntime(handlers);
   return { handlers };

@@ -76,6 +76,9 @@ import {
 } from "@/features/system/optimization/types";
 import {
   type HardwareReport,
+  type TweakRecord,
+  type TweakRequest,
+  type TweakResult,
   type WindowsSettingsReport,
 } from "@/features/system/system-settings/types";
 import { type PlanBlock, type PlanBlockInput } from "@/features/productivity/weekly-plan/types";
@@ -132,6 +135,9 @@ export interface CommandMap {
   list_cleanup_history: { args: { limit: number }; result: CleanupHistory };
   analyze_windows_settings: { args: undefined; result: WindowsSettingsReport };
   analyze_hardware: { args: undefined; result: HardwareReport };
+  apply_system_tweaks: { args: { requests: TweakRequest[] }; result: TweakResult[] };
+  undo_system_tweak: { args: { id: number }; result: TweakRecord };
+  list_system_tweaks: { args: { limit: number }; result: TweakRecord[] };
   scan_disk_usage: { args: { mountPoint: string }; result: DiskUsageScan | null };
   get_disk_usage_progress: { args: undefined; result: DiskUsageProgress | null };
   cancel_disk_usage: { args: undefined; result: boolean };

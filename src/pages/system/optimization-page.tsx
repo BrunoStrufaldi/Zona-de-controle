@@ -129,12 +129,12 @@ function SettingsTab() {
   return (
     <div className="grid gap-4">
       <TabToolbar
-        note="Somente leitura: nada é alterado no Windows."
+        note="Nada muda sem você marcar e confirmar; cada ajuste pode ser desfeito."
         label="Ler de novo"
         resource={resource}
       />
       <ResourceView resource={resource} loadingLabel="Lendo as configurações do Windows…">
-        {(report) => <WindowsSettingsView report={report} />}
+        {(report) => <WindowsSettingsView report={report} onChanged={resource.reload} />}
       </ResourceView>
     </div>
   );

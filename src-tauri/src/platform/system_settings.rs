@@ -26,6 +26,10 @@ impl SystemSettingsReader for WindowsSettingsReader {
     }
 }
 
+/// Caminhos e leituras compartilhados com os ajustes (`platform::system_tweaks`).
+#[cfg(windows)]
+pub(crate) use imp::{power as read_power, startup_folder, APPROVED, GAME_BAR, RUN};
+
 #[cfg(not(windows))]
 mod imp {
     use crate::domain::system_settings::hardware::RawHardware;
@@ -85,11 +89,12 @@ mod imp {
     use crate::domain::system_settings::{PendingReboot, RawGpu, RawWindowsSettings, StoredDword};
     use crate::platform::registry::{self, from_wide, Hive, RegValue};
 
-    const RUN: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
+    pub(crate) const RUN: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
     const RUN32: &str = r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run";
-    const APPROVED: &str = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved";
+    pub(crate) const APPROVED: &str =
+        r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved";
     const PACKAGED_TASKS: &str = r"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData";
-    const GAME_BAR: &str = r"Software\Microsoft\GameBar";
+    pub(crate) const GAME_BAR: &str = r"Software\Microsoft\GameBar";
     const WINDOWS_UPDATE_REBOOT: &str =
         r"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired";
     const SERVICING_REBOOT: &str =
@@ -180,7 +185,7 @@ mod imp {
             .filter(|name| !name.trim().is_empty())
     }
 
-    fn power() -> Option<RawPower> {
+    pub(crate) fn power() -> Option<RawPower> {
         let mut plans = Vec::new();
         for index in 0.. {
             // SAFETY: GUID é POD.
@@ -391,7 +396,7 @@ mod imp {
         }
     }
 
-    fn startup_folder(base: &str) -> Option<PathBuf> {
+    pub(crate) fn startup_folder(base: &str) -> Option<PathBuf> {
         let base = std::env::var_os(base)?;
         Some(
             STARTUP_FOLDER

@@ -4,7 +4,7 @@
  * `null` = leitura indisponível ("Não disponível"), nunca um valor estimado.
  */
 
-import { type IsoDate } from "@/types/common";
+import { type IsoDate, type IsoDateTime } from "@/types/common";
 
 export type FindingLevel = "suggestion" | "attention" | "critical";
 
@@ -170,3 +170,38 @@ export interface HardwareReport {
   /** Mais graves primeiro. */
   findings: HardwareFinding[];
 }
+
+/** Pedido de ajuste (4.6). Nunca carrega caminhos ou chaves do registro. */
+export type TweakRequest =
+  | { kind: "powerPlan"; guid: string }
+  | { kind: "gameMode" }
+  | { kind: "startupItem"; location: StartupLocation; name: string; enabled: boolean };
+
+export type TweakKind = "powerPlan" | "gameMode" | "startupItem";
+
+/** Valor de um ajuste: o que estava antes e o que foi gravado. */
+export type TweakValue =
+  | { type: "powerPlan"; guid: string; name: string }
+  /** `null` = sem valor gravado (ligado, padrão do Windows). */
+  | { type: "gameMode"; value: number | null }
+  | { type: "startupApproval"; bytes: string | null; enabled: boolean };
+
+export interface TweakRecord {
+  id: number;
+  kind: TweakKind;
+  target: string;
+  label: string;
+  previous: TweakValue;
+  applied: TweakValue;
+  appliedAt: IsoDateTime;
+  undoneAt: IsoDateTime | null;
+  /** É o mais recente do item e ainda não foi desfeito. */
+  undoable: boolean;
+}
+
+export type TweakResult = { label: string } & (
+  | { status: "applied"; id: number }
+  /** Já estava no valor pedido: nada foi gravado. */
+  | { status: "unchanged" }
+  | { status: "failed"; message: string }
+);

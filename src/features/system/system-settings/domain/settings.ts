@@ -53,7 +53,7 @@ export function describeSettingsFinding(finding: SettingsFinding): FindingText {
         detail: `Atual: ${finding.current ?? "não identificado"} → sugerido: ${finding.suggestedName}`,
         recommendation: `Mantém o processador pronto para trabalhar em velocidade alta, com menos atraso em jogos e tarefas pesadas, em troca de um pouco mais de consumo de energia.${
           finding.hasBattery ? " No notebook, a bateria dura menos." : ""
-        } Para trocar: ${POWER_OPTIONS_PATH}.`,
+        } Também dá para trocar em ${POWER_OPTIONS_PATH}.`,
       };
     case "gameModeOff":
       return {

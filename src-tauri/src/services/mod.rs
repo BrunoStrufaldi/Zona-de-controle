@@ -19,6 +19,7 @@ pub mod optimization;
 pub mod routines;
 pub mod settings;
 pub mod system_settings;
+pub mod system_tweaks;
 pub mod task_categories;
 pub mod tasks;
 pub mod weekly_plan;

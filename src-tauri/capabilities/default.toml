@@ -100,6 +100,21 @@ permissions = [
   "allow-analyze-windows-settings",
   "allow-analyze-hardware",
 
+  # Otimização — ajustes reversíveis do Windows (ESCREVE, sem administrador),
+  # só depois da confirmação na tela, que mostra o valor atual e o novo. Três
+  # ajustes, todos do usuário atual: plano de energia ativo (só planos que
+  # existem), Modo de Jogo (HKCU\…\GameBar) e ligar/desligar programas da
+  # inicialização do usuário pelo mesmo valor que o Gerenciador de Tarefas
+  # grava (StartupApproved; o Run nunca é alterado). A tela manda pedidos, nunca
+  # caminhos ou chaves. O valor anterior é guardado (tabela system_tweaks) para
+  # o Desfazer, que só age se o valor atual ainda for o gravado pelo app.
+  # Recusa rodar elevado; sucesso e falha vão para o log de auditoria.
+  "allow-apply-system-tweaks",
+  "allow-undo-system-tweak",
+
+  # Otimização — histórico dos ajustes feitos pelo app (somente leitura).
+  "allow-list-system-tweaks",
+
   # Espaço em disco — análise do que ocupa uma unidade (SOMENTE LEITURA). A tela
   # manda só a letra da unidade, que precisa estar na lista do monitor (nunca um
   # caminho). Lê nomes, tamanhos e datas pasta a pasta, sem abrir arquivos, sem

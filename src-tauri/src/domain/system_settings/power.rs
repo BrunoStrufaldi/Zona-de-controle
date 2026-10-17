@@ -105,9 +105,52 @@ impl PowerStatus {
     }
 }
 
+/// Partes de um GUID `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` (para gravar o plano ativo).
+pub fn parse_guid(text: &str) -> Option<(u32, u16, u16, [u8; 8])> {
+    let parts: Vec<&str> = text.trim().split('-').collect();
+    let lengths: Vec<usize> = parts.iter().map(|part| part.len()).collect();
+    if lengths != [8, 4, 4, 4, 12]
+        || !text
+            .trim()
+            .chars()
+            .all(|c| c == '-' || c.is_ascii_hexdigit())
+    {
+        return None;
+    }
+    let data1 = u32::from_str_radix(parts[0], 16).ok()?;
+    let data2 = u16::from_str_radix(parts[1], 16).ok()?;
+    let data3 = u16::from_str_radix(parts[2], 16).ok()?;
+    let tail = format!("{}{}", parts[3], parts[4]);
+    let mut data4 = [0u8; 8];
+    for (index, byte) in data4.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&tail[index * 2..index * 2 + 2], 16).ok()?;
+    }
+    Some((data1, data2, data3, data4))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_guids() {
+        assert_eq!(
+            parse_guid(HIGH_PERFORMANCE),
+            Some((
+                0x8c5e7fda,
+                0xe8bf,
+                0x4a96,
+                [0x9a, 0x85, 0xa6, 0xe2, 0x3a, 0x8c, 0x63, 0x5c]
+            ))
+        );
+        assert_eq!(
+            parse_guid("8C5E7FDA-E8BF-4A96-9A85-A6E23A8C635C"),
+            parse_guid(HIGH_PERFORMANCE)
+        );
+        assert_eq!(parse_guid("8c5e7fda-e8bf-4a96-9a85"), None);
+        assert_eq!(parse_guid("zc5e7fda-e8bf-4a96-9a85-a6e23a8c635c"), None);
+        assert_eq!(parse_guid("+c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"), None);
+    }
 
     const CUSTOM: &str = "d9a0ec84-2b20-44aa-aa4a-29bb9427be75";
 

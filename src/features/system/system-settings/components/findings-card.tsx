@@ -3,6 +3,7 @@ import { CircleCheck, Lightbulb, ListChecks, OctagonAlert, TriangleAlert } from 
 import { WidgetCard } from "@/components/shared/widget-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { levelBadgeVariant } from "@/features/system/system-settings/components/system-settings-styles";
 import {
   type FindingText,
@@ -12,9 +13,17 @@ import {
 import { type FindingLevel } from "@/features/system/system-settings/types";
 import { cn } from "@/lib/cn";
 
+/** Ajuste que o app pode aplicar para resolver o achado (4.6). */
+export interface FindingChangeControl {
+  checked: boolean;
+  disabled?: boolean;
+  onToggle: (checked: boolean) => void;
+}
+
 export interface FindingEntry {
   level: FindingLevel;
   text: FindingText;
+  change?: FindingChangeControl;
 }
 
 const levelIcons = {
@@ -50,7 +59,7 @@ export function FindingsCard({ findings, emptyMessage, onGuide }: FindingsCardPr
         </p>
       ) : (
         <ul className="grid gap-4" aria-label="Sugestões e alertas">
-          {findings.map(({ level, text }, index) => {
+          {findings.map(({ level, text, change }, index) => {
             const Icon = levelIcons[level];
             const guide = text.guide;
             return (
@@ -69,6 +78,19 @@ export function FindingsCard({ findings, emptyMessage, onGuide }: FindingsCardPr
                     {text.detail}
                   </span>
                   <p className="text-sm text-muted-foreground">{text.recommendation}</p>
+                  {change && (
+                    <label className="flex w-fit items-center gap-2 text-sm font-medium">
+                      <Checkbox
+                        aria-label={`Aplicar: ${text.title}`}
+                        checked={change.checked}
+                        disabled={change.disabled}
+                        onCheckedChange={(checked) => {
+                          change.onToggle(checked === true);
+                        }}
+                      />
+                      Aplicar pelo app
+                    </label>
+                  )}
                   {guide && onGuide && (
                     <Button
                       variant="ghost"

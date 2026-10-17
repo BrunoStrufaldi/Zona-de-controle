@@ -82,6 +82,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "weekly_plan",
         sql: include_str!("../../migrations/0013_weekly_plan.sql"),
     },
+    Migration {
+        version: 14,
+        name: "system_tweaks",
+        sql: include_str!("../../migrations/0014_system_tweaks.sql"),
+    },
 ];
 
 const CREATE_SCHEMA_MIGRATIONS: &str = "
@@ -584,6 +589,38 @@ mod tests {
             .execute(
                 "INSERT INTO weekly_plan_blocks (title, weekdays, start_time, end_time, color)
                  VALUES ('Faculdade', 62, '18:30', '22:30', 'violet')",
+                [],
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn upgrades_from_version_13_keeping_plan_blocks() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(CREATE_SCHEMA_MIGRATIONS).unwrap();
+        for migration in &MIGRATIONS[..13] {
+            apply(&mut connection, migration).unwrap();
+        }
+        connection
+            .execute(
+                "INSERT INTO weekly_plan_blocks (title, weekdays, start_time, end_time, color)
+                 VALUES ('Faculdade', 62, '18:30', '22:30', 'violet')",
+                [],
+            )
+            .unwrap();
+
+        run(&mut connection).unwrap();
+
+        let blocks: i64 = connection
+            .query_row("SELECT COUNT(*) FROM weekly_plan_blocks", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(blocks, 1);
+        connection
+            .execute(
+                "INSERT INTO system_tweaks (kind, target, label, previous_value, applied_value)
+                 VALUES ('game_mode', 'gameMode', 'Modo de Jogo', '{\"type\":\"gameMode\",\"value\":0}', '{\"type\":\"gameMode\",\"value\":1}')",
                 [],
             )
             .unwrap();
