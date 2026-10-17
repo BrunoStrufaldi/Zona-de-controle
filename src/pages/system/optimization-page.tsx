@@ -1,4 +1,4 @@
-import { Cpu, RefreshCw, SlidersHorizontal, Sparkles, Trash2 } from "lucide-react";
+import { Cpu, RefreshCw, SlidersHorizontal, Sparkles, Trash2, Wrench } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useSearchParams } from "react-router";
 
@@ -28,11 +28,13 @@ import {
 } from "@/features/system/optimization/types";
 import { HardwareView } from "@/features/system/system-settings/components/hardware-view";
 import { WindowsSettingsView } from "@/features/system/system-settings/components/windows-settings-view";
+import { RepairView } from "@/features/system/windows-repair/components/repair-view";
 import { type AsyncResource, useAsyncResource } from "@/hooks/use-async-resource";
 import { cn } from "@/lib/cn";
 import { formatBytes, formatClockTime, formatNumber } from "@/lib/format";
 import { listCleanupHistory, scanCleanup } from "@/services/optimization-service";
 import { analyzeHardware, analyzeWindowsSettings } from "@/services/system-settings-service";
+import { checkWindowsRepair, listWindowsRepairHistory } from "@/services/windows-repair-service";
 
 interface AnalyzedScan {
   scan: CleanupScan;
@@ -51,7 +53,14 @@ async function analyze(): Promise<AnalyzedScan> {
   return { scan, analyzedAt: Date.now() };
 }
 
-const TABS: readonly OptimizationTab[] = ["cleanup", "settings", "hardware"];
+const TABS: readonly OptimizationTab[] = ["cleanup", "settings", "hardware", "repair"];
+
+/** Reparos mostrados no histórico da aba. */
+const REPAIR_HISTORY_LIMIT = 10;
+
+function loadRepairHistory() {
+  return listWindowsRepairHistory(REPAIR_HISTORY_LIMIT);
+}
 
 function parseTab(value: string | null): OptimizationTab {
   return TABS.find((tab) => tab === value) ?? "cleanup";
@@ -88,6 +97,10 @@ export function OptimizationPage() {
             <Cpu aria-hidden="true" />
             Hardware e BIOS
           </TabsTrigger>
+          <TabsTrigger value="repair">
+            <Wrench aria-hidden="true" />
+            Reparo do Windows
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="cleanup">
           <CleanupTab />
@@ -97,6 +110,9 @@ export function OptimizationPage() {
         </TabsContent>
         <TabsContent value="hardware">
           <HardwareTab />
+        </TabsContent>
+        <TabsContent value="repair">
+          <RepairTab />
         </TabsContent>
       </Tabs>
     </>
@@ -151,6 +167,31 @@ function HardwareTab() {
       />
       <ResourceView resource={resource} loadingLabel="Lendo o hardware…">
         {(report) => <HardwareView report={report} />}
+      </ResourceView>
+    </div>
+  );
+}
+
+function RepairTab() {
+  const readiness = useAsyncResource(checkWindowsRepair);
+  const history = useAsyncResource(loadRepairHistory);
+  return (
+    <div className="grid gap-4">
+      <p className="text-sm text-muted-foreground">
+        Única parte do app que usa permissão de administrador: pedida a cada reparo, só para os
+        passos fixos da DISM e do SFC.
+      </p>
+      <ResourceView resource={readiness} loadingLabel="Conferindo as ferramentas de reparo…">
+        {(data) => (
+          <RepairView
+            readiness={data}
+            history={history}
+            onFinished={() => {
+              readiness.reload();
+              history.reload();
+            }}
+          />
+        )}
       </ResourceView>
     </div>
   );

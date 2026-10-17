@@ -15,6 +15,7 @@ use crate::services::app_update::UpdateRun;
 use crate::services::disk_usage::{DiskUsageRun, DiskUsageStore};
 use crate::services::finance_import::ImportPreviewStore;
 use crate::services::optimization::{CleanupRun, CleanupScanStore};
+use crate::services::windows_repair::WindowsRepairRun;
 
 /// Subpasta de Documentos onde ficam os backups do banco.
 const BACKUP_FOLDER: [&str; 2] = ["Zona de Controle", "Backups"];
@@ -40,6 +41,8 @@ pub struct AppState {
     pub disk_usage_scans: Arc<DiskUsageStore>,
     /// Análise do Espaço em disco em andamento (progresso e cancelamento).
     pub disk_usage_run: Arc<DiskUsageRun>,
+    /// Reparo do Windows em andamento (progresso e cancelamento).
+    pub windows_repair_run: Arc<WindowsRepairRun>,
     /// Última prévia de importação de extrato (só em memória).
     pub import_previews: ImportPreviewStore,
     /// Versão encontrada na última busca de atualização (a instalação só aceita ela).
@@ -103,6 +106,7 @@ impl AppState {
             cleanup_run: Arc::new(CleanupRun::new()),
             disk_usage_scans: Arc::new(DiskUsageStore::new()),
             disk_usage_run: Arc::new(DiskUsageRun::new()),
+            windows_repair_run: Arc::new(WindowsRepairRun::new()),
             import_previews: ImportPreviewStore::new(),
             pending_update: Mutex::new(None),
             update_run: UpdateRun::new(),

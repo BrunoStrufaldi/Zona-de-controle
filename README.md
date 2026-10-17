@@ -98,6 +98,13 @@ externa é a busca de atualizações no GitHub, e só quando você clica; nenhum
   - o app guarda o valor anterior: em **Ajustes feitos pelo app**, o botão **Desfazer** volta exatamente ao que era. Só o ajuste mais recente de cada item pode ser desfeito, e só se o valor não tiver mudado fora do app (para não desfazer algo que você mudou);
   - cada ajuste, desfazer e falha vai para o log de auditoria.
 
+- **Reparo do Windows** ✅ (4.7): na aba Reparo do Windows, roda as ferramentas de reparo do próprio Windows, nesta ordem: DISM CheckHealth, ScanHealth, RestoreHealth (só se a imagem estiver danificada e reparável) e `sfc /scannow`. É a **única** parte do app que usa permissão de administrador, numa exceção mínima às regras de segurança:
+  - o Windows pede a permissão (UAC) a cada reparo, e o app eleva só a si mesmo para rodar esses passos fixos: a DISM pela API do Windows e o `sfc.exe` da pasta do sistema, sem shell e sem nada vindo da tela;
+  - mostra o andamento de cada passo, o tempo e o resultado (imagem saudável, reparada ou irreparável; arquivos reparados ou não, lidos no `CBS.log`). Leva de 10 a 30 minutos;
+  - dá para cancelar durante a DISM; o SFC, uma vez iniciado, vai até o fim. Fechar o app no meio cancela a DISM;
+  - avisa do reinício pendente (com ele o reparo costuma falhar) e quando o Windows pede reinício depois;
+  - início e fim ficam no log de auditoria e aparecem em **Reparos anteriores**.
+
 ### Finanças (Fases 5 a 7)
 
 - **Visão Geral** ✅ (5.1): receita, despesas (com o que ainda está pendente), saldo líquido e percentual de economia do mês, saldo de cada conta, receita x despesas dos últimos 6 meses e despesas por categoria. O dashboard mostra o mesmo resumo e o gráfico com os dados reais.
@@ -399,7 +406,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada pu
 - **Fase 1 — Foundation** ✅: boilerplate, design system, layout, navegação, Tauri e SQLite preparado.
 - **Fase 2 — Productivity** ✅: tarefas ✅ (2.1); recorrência, checklists, categorias e arquivamento ✅ (2.2); notas e diário ✅ (2.3); rotinas ✅ (2.4); calendário ✅ (2.5); planejamento semanal fixo ✅ (2.6).
 - **Fase 3 — System Monitor**: monitoramento de CPU, RAM, discos e processos ✅ (3.1); diagnósticos ✅ (3.2); dispositivos e bateria ✅ (3.3a: receptores 2.4 GHz, controles Xbox e Bluetooth; 3.3b: bateria do headset MCHOSE V9 PRO e do mouse Rapoo VT7 Max pelo receptor).
-- **Fase 4 — Safe Optimization** ✅: análise de temporários, caches seguros e Lixeira (4.1); limpeza com confirmação, auditoria e cancelamento (4.2); histórico das limpezas e card no dashboard (4.3); espaço em disco por pasta, somente leitura (4.4); leitura das configurações do Windows e do hardware com recomendações (4.5); ajustes reversíveis com Desfazer (4.6). A seguir: reparo do Windows com DISM e SFC (4.7).
+- **Fase 4 — Safe Optimization** ✅: análise de temporários, caches seguros e Lixeira (4.1); limpeza com confirmação, auditoria e cancelamento (4.2); histórico das limpezas e card no dashboard (4.3); espaço em disco por pasta, somente leitura (4.4); leitura das configurações do Windows e do hardware com recomendações (4.5); ajustes reversíveis com Desfazer (4.6); reparo do Windows com DISM e SFC, a única parte com administrador (4.7).
 - **Fase 5 — Finance Core**: contas, lançamentos, categorias e Visão Geral ✅ (5.1); transferências e importação de extratos OFX/CSV ✅ (5.2); recorrentes ✅ (5.3); parcelamentos ✅ (5.4).
 - **Fase 6 — Investments**: carteira, valores informados, aportes vinculados e patrimônio ✅ (6.1); evolução da carteira, rentabilidade, proventos por período e vencimentos ✅ (6.2). A importação dos investimentos (6.3) foi dispensada: o C6 não exporta posição nem movimentações; as aplicações e os resgates chegam pelo extrato OFX da conta corrente (e são ligados aos ativos) e o valor atual é informado.
 - **Fase 7 — Analytics**: receita x despesas, categorias e evolução do patrimônio mês a mês ✅ (7.1); projeção de 6 meses e impacto das parcelas ✅ (7.2).

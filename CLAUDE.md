@@ -77,19 +77,19 @@ Regras:
 
 ### Backend (`src-tauri/`)
 
-| Caminho                     | Responsabilidade                                                                                                                                                                                                                       |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib.rs`                | Builder do Tauri, `setup` (estado + migrations), registro de commands                                                                                                                                                                  |
-| `src/commands/`             | Camada IPC fina: recebe args, delega para `services`. Leitura e escrita em commands separados                                                                                                                                          |
-| `src/services/`             | Casos de uso: validação, transações, auditoria                                                                                                                                                                                         |
-| `src/repositories/`         | **Único lugar com SQL**                                                                                                                                                                                                                |
-| `src/domain/`               | Regras e contratos puros (auditoria, settings, devices, optimization)                                                                                                                                                                  |
-| `src/platform/`             | **Único lugar que lê o SO** (`sysinfo`, `hidapi`, XInput, CfgMgr32, pastas da limpeza, registro, powrprof, SMBIOS), somente leitura; as exceções são `cleanup_executor.rs` e `system_tweaks.rs`. Commands chamam direto via `AppState` |
-| `src/db/`                   | Conexão SQLite (WAL, foreign keys) e runner de migrations                                                                                                                                                                              |
-| `src/error.rs`              | `AppError` → serializado como `{ kind, message }` para o frontend                                                                                                                                                                      |
-| `migrations/`               | SQL versionado `NNNN_descricao.sql`, embutido via `include_str!`                                                                                                                                                                       |
-| `capabilities/default.toml` | Permissões da janela — mínimo necessário, cada uma comentada                                                                                                                                                                           |
-| `build.rs`                  | `APP_COMMANDS`: lista explícita de commands permitidos                                                                                                                                                                                 |
+| Caminho                     | Responsabilidade                                                                                                                                                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/lib.rs`                | Builder do Tauri, `setup` (estado + migrations), registro de commands                                                                                                                                                                                                                      |
+| `src/commands/`             | Camada IPC fina: recebe args, delega para `services`. Leitura e escrita em commands separados                                                                                                                                                                                              |
+| `src/services/`             | Casos de uso: validação, transações, auditoria                                                                                                                                                                                                                                             |
+| `src/repositories/`         | **Único lugar com SQL**                                                                                                                                                                                                                                                                    |
+| `src/domain/`               | Regras e contratos puros (auditoria, settings, devices, optimization)                                                                                                                                                                                                                      |
+| `src/platform/`             | **Único lugar que lê o SO** (`sysinfo`, `hidapi`, XInput, CfgMgr32, pastas da limpeza, registro, powrprof, SMBIOS), somente leitura; as exceções são `cleanup_executor.rs`, `system_tweaks.rs` e `windows_repair/` (eleva e executa; ver Segurança). Commands chamam direto via `AppState` |
+| `src/db/`                   | Conexão SQLite (WAL, foreign keys) e runner de migrations                                                                                                                                                                                                                                  |
+| `src/error.rs`              | `AppError` → serializado como `{ kind, message }` para o frontend                                                                                                                                                                                                                          |
+| `migrations/`               | SQL versionado `NNNN_descricao.sql`, embutido via `include_str!`                                                                                                                                                                                                                           |
+| `capabilities/default.toml` | Permissões da janela — mínimo necessário, cada uma comentada                                                                                                                                                                                                                               |
+| `build.rs`                  | `APP_COMMANDS`: lista explícita de commands permitidos                                                                                                                                                                                                                                     |
 
 ## Convenções de nomes
 
@@ -152,6 +152,16 @@ Regras:
   `request-permission` e `notify`; e `tauri-plugin-updater`, **só no Rust** (nenhuma permissão `updater:*` na
   janela; ver "Atualizador"). Plugins só são importados em `src/services` (ESLint bloqueia
   `@tauri-apps/plugin-*` fora dali).
+- **Exceção aprovada pelo usuário — reparo do Windows (4.7):** é o único lugar com administrador e com
+  programa externo. Limites, que não devem ser ampliados sem nova aprovação:
+  - elevação pelo UAC **a cada reparo**, só do próprio executável com `--windows-repair <pipe>` (`main.rs` →
+    `run_repair_helper`, antes do Tauri);
+  - o ajudante roda só a sequência fixa do domínio: DISM pela API (`DismApi.dll` carregada só de System32) e
+    `System32\sfc.exe /scannow` por caminho absoluto, sem shell. Nada vem da tela;
+  - canal por named pipe: nome aleatório, uma instância, sem clientes remotos, DACL do usuário + SYSTEM, PID do
+    cliente = processo do UAC e servidor = mesmo executável. O processo elevado não grava em arquivos de pastas do
+    usuário nem abre o banco;
+  - auditoria de início e fim.
 - Nunca armazenar senhas/segredos em texto puro.
 - `audit_log` é somente inserção (triggers bloqueiam UPDATE/DELETE). Operações sensíveis devem auditar sucesso **e** falha.
 - Padrão de exclusão: `AlertDialog` que nomeia o item e avisa que é permanente e auditado
@@ -496,6 +506,24 @@ Regras:
   Recusa rodar elevado. Commands `apply_system_tweaks`, `undo_system_tweak`, `list_system_tweaks` (≤ 100). Validação
   real: anote os valores (`powercfg /getactivescheme`, `AutoGameModeEnabled`, bytes do `StartupApproved`), faça backup do
   banco, aplique e desfaça pelo app e confira que voltaram iguais.
+- **Reparo do Windows (4.7):** aba `?tab=repair`, módulo `features/system/windows-repair`. Sequência fixa
+  (`domain/windows_repair.rs::next_step`): CheckHealth → ScanHealth → RestoreHealth **só se reparável**
+  (`restore_needed`; saudável = `Skipped`) → `sfc /scannow`; falha, cancelamento ou imagem irreparável param. DISM pela
+  API (`platform/windows_repair/dism.rs`; `DismApi.dll` não está no `windows-sys`, as funções são buscadas pelo nome):
+  estado estruturado, progresso e cancelamento por evento; código 3010 = reinício necessário. SFC (`sfc.rs`): percentual
+  da saída do console (`parse_sfc_percent`, UTF-16 ou não) e resultado pelas linhas `[SR]` do `CBS.log` gravadas
+  depois do início (`parse_cbs_log`; ilegível = `Unknown`, nunca palpite); o SFC não é cancelável. Lados:
+  `launcher.rs` (app: pipe, `ShellExecuteExW` "runas", espera a conexão até 60 s, confere o PID) e `helper.rs`
+  (elevado: confere elevação e servidor, roda e manda `HelperMessage` em JSON por linha). Pipe com I/O sobreposto
+  (`pipe.rs`): com handle síncrono a leitura parada bloquearia a escrita do cancelamento. App fechado = pipe quebrado =
+  o ajudante cancela a DISM e não começa o próximo passo (decisão do usuário). Caso de uso em
+  `services/windows_repair.rs` (`WindowsRepairRun`, um por vez; trait `RepairLauncher` para testes): auditoria
+  `optimization` / `windows_repair.started` (ajudante conectado, com `runId`) e `windows_repair.executed` (relatório;
+  UAC recusado = falha); histórico pelo `audit_log` (iniciado sem executado = interrompido). Commands
+  `check_windows_repair`, `run_windows_repair` (bloqueia até o fim), `get_windows_repair_progress` (300 ms),
+  `cancel_windows_repair`, `list_windows_repair_history`. `install_app_update` recusa durante o reparo. Sem
+  elevação, o ajudante sai com 2; argumento inválido, 64. Validação real exige alguém para aceitar o UAC e, de
+  preferência, o app **instalado** (em dev o ajudante abre console).
 - **Versão do app:** fonte única no `package.json` (`tauri.conf.json` tem `"version": "../package.json"`). Mude só com
   `npm run version:bump -- <patch|minor|major|X.Y.Z>` (`scripts/bump-version.js`; regras puras em `scripts/version.js`,
   testadas pelo Vitest): exige versão maior, só `X.Y.Z` nos limites do MSI, e alinha `package-lock.json`, `Cargo.toml` e

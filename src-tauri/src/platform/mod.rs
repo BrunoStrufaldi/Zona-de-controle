@@ -15,3 +15,4 @@ pub mod registry;
 pub mod system_monitor;
 pub mod system_settings;
 pub mod system_tweaks;
+pub mod windows_repair;

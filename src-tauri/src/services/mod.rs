@@ -23,3 +23,4 @@ pub mod system_tweaks;
 pub mod task_categories;
 pub mod tasks;
 pub mod weekly_plan;
+pub mod windows_repair;

@@ -23,3 +23,4 @@ pub mod task_recurrence;
 pub mod tasks;
 pub mod text;
 pub mod weekly_plan;
+pub mod windows_repair;

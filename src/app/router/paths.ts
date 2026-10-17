@@ -64,7 +64,7 @@ export const weeklyPlanHref = `${paths.productivity.routines}?${ROUTINES_TAB_PAR
 export const OPTIMIZATION_TAB_PARAM = "tab";
 
 /** Abas da tela Otimização (sem o parâmetro, abre a Limpeza). */
-export type OptimizationTab = "cleanup" | "settings" | "hardware";
+export type OptimizationTab = "cleanup" | "settings" | "hardware" | "repair";
 
 export function optimizationTabHref(tab: OptimizationTab): string {
   return `${paths.system.optimization}?${OPTIMIZATION_TAB_PARAM}=${tab}`;

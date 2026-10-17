@@ -25,3 +25,4 @@ pub mod system;
 pub mod system_settings;
 pub mod tasks;
 pub mod weekly_plan;
+pub mod windows_repair;

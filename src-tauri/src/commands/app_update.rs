@@ -66,6 +66,12 @@ pub async fn install_app_update(state: State<'_, AppState>, version: String) -> 
         .ok_or_else(|| {
             AppError::Validation("Procure a atualização de novo antes de instalar.".into())
         })?;
+    if state.windows_repair_run.is_running() {
+        return Err(AppError::Update(
+            "Há um reparo do Windows em andamento. Instale a atualização depois que ele terminar."
+                .into(),
+        ));
+    }
     let (from, to) = (update.current_version.clone(), update.version.clone());
     let _guard = state.update_run.begin()?;
 

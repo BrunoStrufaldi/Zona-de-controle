@@ -17,6 +17,17 @@ use tauri::Manager;
 
 use crate::state::AppState;
 
+/// Modo ajudante do reparo do Windows (4.7): o executável aberto pelo UAC com
+/// `--windows-repair <pipe>`. Roda antes do Tauri; `None` = abrir o app normal.
+/// Argumentos inválidos encerram sem fazer nada.
+pub fn run_repair_helper() -> Option<i32> {
+    let args: Vec<String> = std::env::args().collect();
+    match domain::windows_repair::parse_helper_args(&args)? {
+        Ok(pipe) => Some(platform::windows_repair::run_helper(&pipe)),
+        Err(()) => Some(64),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -61,6 +72,11 @@ pub fn run() {
             commands::system_settings::apply_system_tweaks,
             commands::system_settings::undo_system_tweak,
             commands::system_settings::list_system_tweaks,
+            commands::windows_repair::check_windows_repair,
+            commands::windows_repair::run_windows_repair,
+            commands::windows_repair::get_windows_repair_progress,
+            commands::windows_repair::cancel_windows_repair,
+            commands::windows_repair::list_windows_repair_history,
             commands::disk_usage::scan_disk_usage,
             commands::disk_usage::get_disk_usage_progress,
             commands::disk_usage::cancel_disk_usage,

@@ -30,6 +30,18 @@ impl SystemSettingsReader for WindowsSettingsReader {
 #[cfg(windows)]
 pub(crate) use imp::{power as read_power, startup_folder, APPROVED, GAME_BAR, RUN};
 
+/// Reinício pendente do Windows Update ou da manutenção (usado pelo reparo da 4.7).
+pub fn read_pending_reboot() -> Option<crate::domain::system_settings::PendingReboot> {
+    #[cfg(windows)]
+    {
+        imp::pending_reboot()
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
 #[cfg(not(windows))]
 mod imp {
     use crate::domain::system_settings::hardware::RawHardware;
@@ -255,7 +267,7 @@ mod imp {
         }
     }
 
-    fn pending_reboot() -> Option<PendingReboot> {
+    pub(crate) fn pending_reboot() -> Option<PendingReboot> {
         Some(PendingReboot {
             windows_update: registry::exists(Hive::LocalMachine, WINDOWS_UPDATE_REBOOT)?,
             servicing: registry::exists(Hive::LocalMachine, SERVICING_REBOOT)?,

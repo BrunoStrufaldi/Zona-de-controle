@@ -81,6 +81,12 @@ import {
   type TweakResult,
   type WindowsSettingsReport,
 } from "@/features/system/system-settings/types";
+import {
+  type RepairHistoryEntry,
+  type RepairProgress,
+  type RepairReadiness,
+  type RepairReport,
+} from "@/features/system/windows-repair/types";
 import { type PlanBlock, type PlanBlockInput } from "@/features/productivity/weekly-plan/types";
 import { type ProcessList, type SystemInfo, type SystemSnapshot } from "@/features/system/types";
 import { DESKTOP_ONLY_MESSAGE, ServiceError, toServiceError } from "@/services/tauri/errors";
@@ -138,6 +144,11 @@ export interface CommandMap {
   apply_system_tweaks: { args: { requests: TweakRequest[] }; result: TweakResult[] };
   undo_system_tweak: { args: { id: number }; result: TweakRecord };
   list_system_tweaks: { args: { limit: number }; result: TweakRecord[] };
+  check_windows_repair: { args: undefined; result: RepairReadiness };
+  run_windows_repair: { args: undefined; result: RepairReport };
+  get_windows_repair_progress: { args: undefined; result: RepairProgress | null };
+  cancel_windows_repair: { args: undefined; result: boolean };
+  list_windows_repair_history: { args: { limit: number }; result: RepairHistoryEntry[] };
   scan_disk_usage: { args: { mountPoint: string }; result: DiskUsageScan | null };
   get_disk_usage_progress: { args: undefined; result: DiskUsageProgress | null };
   cancel_disk_usage: { args: undefined; result: boolean };

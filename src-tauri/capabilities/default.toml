@@ -115,6 +115,24 @@ permissions = [
   # Otimização — histórico dos ajustes feitos pelo app (somente leitura).
   "allow-list-system-tweaks",
 
+  # Reparo do Windows — EXCEÇÃO às regras "sem shell" e "sem administrador",
+  # aprovada pelo usuário. A tela só pede para começar (sem argumentos): o Rust
+  # pede a elevação pelo UAC a cada reparo e abre o próprio executável com
+  # --windows-repair, que roda só a sequência fixa DISM CheckHealth → ScanHealth
+  # → RestoreHealth (só se reparável, pela API da DISM de System32) → sfc
+  # /scannow (System32\sfc.exe, caminho absoluto, sem shell). Canal com o app:
+  # named pipe com nome aleatório, DACL do usuário atual e PID conferido dos dois
+  # lados. Início e fim (sucesso, cancelamento, falha) vão para o log de auditoria.
+  "allow-run-windows-repair",
+
+  # Reparo do Windows — leitura: prontidão (ferramentas presentes, reinício
+  # pendente), andamento e histórico (do log de auditoria). Cancelar só pede
+  # para a DISM parar; o SFC iniciado vai até o fim.
+  "allow-check-windows-repair",
+  "allow-get-windows-repair-progress",
+  "allow-cancel-windows-repair",
+  "allow-list-windows-repair-history",
+
   # Espaço em disco — análise do que ocupa uma unidade (SOMENTE LEITURA). A tela
   # manda só a letra da unidade, que precisa estar na lista do monitor (nunca um
   # caminho). Lê nomes, tamanhos e datas pasta a pasta, sem abrir arquivos, sem
