@@ -21,7 +21,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 # SQLite embarcado (feature `bundled`): não depende de SQLite instalado no sistema.
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
 tauri-plugin-notification = "2"
 # Atualização do app, usada só pelo Rust (commands próprios; a janela não tem
 # permissão do plugin). Endereço fixo em HTTPS no tauri.conf.json e instalador
